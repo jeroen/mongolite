@@ -1,0 +1,9 @@
+PKG_CFLAGS += -D BSON_COMPILATION -DMONGOC_COMPILATION -I/usr/local/opt/openssl/include -I. -Iyajl -Ibson -Imongoc
+LDFLAGS = -L/usr/local/opt/openssl/lib
+SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
+OBJECTS = $(SOURCES:.c=.o)
+
+all: clean $(OBJECTS)
+
+clean:
+	rm -f $(OBJECTS)
