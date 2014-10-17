@@ -11,7 +11,7 @@ SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
 
     client = mongoc_client_new (CHAR(asChar(uri_string)));
     if(!client){
-      error("Invalid uri_string.");
+      error("Invalid uri_string. Try mongodb://localhost");
     }
 
     col = mongoc_client_get_collection (client, CHAR(asChar(db)), CHAR(asChar(collection)));
