@@ -1,0 +1,14 @@
+PKG_CPPFLAGS = -D BSON_COMPILATION -DMONGOC_COMPILATION -I. -Iyajl -Ibson -Imongoc
+PKG_LIBS = -lws2_32
+
+SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
+
+OBJECTS = $(SOURCES:.c=.o)
+
+all: winpatches clean $(OBJECTS)
+
+clean:
+	rm -f $(OBJECTS)
+
+winpatches:
+	sed -i "s/define BSON_OS 1/define BSON_OS 2/g" bson/bson-config.h
