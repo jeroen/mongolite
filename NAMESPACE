@@ -1,3 +1,6 @@
 exportPattern("^[^\\.]")
 useDynLib(mongolite,R_mongo_init)
 useDynLib(mongolite,R_mongo_connect)
+useDynLib(mongolite,R_mongo_collection_drop)
+useDynLib(mongolite,R_mongo_collection_name)
+useDynLib(mongolite,R_mongo_collection_count)

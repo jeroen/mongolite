@@ -1,10 +1,9 @@
 Package: mongolite
 Type: Package
-Title: R-MongoDB driver
+Title: Interface to libmongo c library
 Version: 0.1
 Date: 2014-09-16
-Author: MongoDB, Inc. (mongo-c-driver), Jeroen Ooms
-Maintainer: Markus Schmidberger <markus@mongosoup.de>
-Description: This R package provides an interface to the NoSQL MongoDB database
-    using the MongoDB C-driver version 0.8.
+Author: Jeroen Ooms
+Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
+Description: High level interface to libmongo c library.
 License: Apache License 2.0
