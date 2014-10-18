@@ -3,7 +3,7 @@
 #include <mongoc.h>
 
 SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection);
-void r_mongo_clean (SEXP ptr);
+void fin_mongo (SEXP ptr);
 
 SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
     mongoc_client_t *client;
@@ -18,15 +18,14 @@ SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
     SEXP ptr = PROTECT(R_MakeExternalPtr(col, R_NilValue, R_NilValue));
 
     //clean up on garbage collection
-    R_RegisterCFinalizerEx(ptr, r_mongo_clean, 1);
+    R_RegisterCFinalizerEx(ptr, fin_mongo, 1);
     UNPROTECT(1);
     return ptr;
 }
 
-void r_mongo_clean(SEXP ptr){
+void fin_mongo(SEXP ptr){
   Rprintf("DEBUG: Destorying collection.\n");
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
 }
-

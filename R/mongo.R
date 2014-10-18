@@ -14,7 +14,3 @@ mongo_collection_count <- function(col, query = "{}"){
   .Call(R_mongo_collection_count, col, query)
 }
 
-json_to_bson <- function(json = "{}"){
-  .Call(R_json_to_bson, json)
-}
-
