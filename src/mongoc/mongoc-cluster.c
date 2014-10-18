@@ -617,6 +617,8 @@ _mongoc_cluster_select (mongoc_cluster_t             *cluster,
 {
    mongoc_cluster_node_t *nodes[MONGOC_CLUSTER_MAX_NODES];
    mongoc_read_mode_t read_mode = MONGOC_READ_PRIMARY;
+   int scores[MONGOC_CLUSTER_MAX_NODES];
+   int max_score = 0;
    uint32_t count;
    uint32_t watermark;
    int32_t nearest = -1;
@@ -738,24 +740,49 @@ dispatch:
     *       in the fast path of command dispatching.
     */
 
-#define IS_NEARER_THAN(n, msec) \
-   ((msec < 0 && (n)->ping_avg_msec >= 0) || ((n)->ping_avg_msec < msec))
-
    count = 0;
 
    for (i = 0; i < MONGOC_CLUSTER_MAX_NODES; i++) {
       if (nodes[i]) {
          if (read_prefs) {
             int score = _mongoc_read_prefs_score(read_prefs, nodes[i]);
+            scores[i] = score;
+
             if (score < 0) {
                nodes[i] = NULL;
                continue;
+            } else if (score > max_score) {
+                max_score = score;
             }
+
          }
+         count++;
+      }
+   }
+
+   /*
+    * Filter nodes with score less than highest score.
+    */
+   if (max_score) {
+      for (i = 0; i < MONGOC_CLUSTER_MAX_NODES; i++) {
+         if (nodes[i] && (scores[i] < max_score)) {
+             nodes[i] = NULL;
+             count--;
+         }
+      }
+   }
+
+   /*
+    * Get the nearest node among those which have not been filtered out
+    */
+#define IS_NEARER_THAN(n, msec) \
+   ((msec < 0 && (n)->ping_avg_msec >= 0) || ((n)->ping_avg_msec < msec))
+
+   for (i = 0; i < MONGOC_CLUSTER_MAX_NODES; i++) {
+      if (nodes[i]) {
          if (IS_NEARER_THAN(nodes[i], nearest)) {
             nearest = nodes[i]->ping_avg_msec;
          }
-         count++;
       }
    }
 
@@ -768,8 +795,9 @@ dispatch:
       watermark = nearest + cluster->sec_latency_ms;
       for (i = 0; i < MONGOC_CLUSTER_MAX_NODES; i++) {
          if (nodes[i]) {
-			 if (nodes[i]->ping_avg_msec >(int32_t)watermark) {
+            if (nodes[i]->ping_avg_msec > (int32_t)watermark) {
                nodes[i] = NULL;
+               count--;
             }
          }
       }
@@ -1089,6 +1117,18 @@ _mongoc_cluster_ismaster (mongoc_cluster_t      *cluster,
       if (bson_iter_init_find(&iter, &reply, "setName") &&
           BSON_ITER_HOLDS_UTF8(&iter)) {
          node->replSet = bson_iter_dup_utf8(&iter, NULL);
+      }
+      if (bson_iter_init_find(&iter, &reply, "tags") &&
+          BSON_ITER_HOLDS_DOCUMENT(&iter)) {
+          bson_t tags;
+          uint32_t len;
+          const uint8_t *data;
+
+          bson_iter_document(&iter, &len, &data);
+
+          if (bson_init_static(&tags, data, len)) {
+              bson_copy_to(&tags, &(node->tags));
+          }
       }
    }
 
@@ -2525,7 +2565,7 @@ _mongoc_cluster_sendv (mongoc_cluster_t             *cluster,
          gle.query.collection = cmdname;
          gle.query.skip = 0;
          gle.query.n_return = 1;
-         b = _mongoc_write_concern_freeze((void*)write_concern);
+         b = _mongoc_write_concern_get_gle((void*)write_concern);
          gle.query.query = bson_get_data(b);
          gle.query.fields = NULL;
          _mongoc_rpc_gather(&gle, &cluster->iov);
@@ -2664,7 +2704,7 @@ _mongoc_cluster_try_sendv (mongoc_cluster_t             *cluster,
          gle.query.skip = 0;
          gle.query.n_return = 1;
 
-         b = _mongoc_write_concern_freeze ((void *)write_concern);
+         b = _mongoc_write_concern_get_gle ((void *)write_concern);
 
          gle.query.query = bson_get_data (b);
          gle.query.fields = NULL;

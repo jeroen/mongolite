@@ -30,6 +30,9 @@ _mongoc_write_concern_warn_frozen (mongoc_write_concern_t *write_concern)
    return write_concern->frozen;
 }
 
+static void
+_mongoc_write_concern_freeze (mongoc_write_concern_t *write_concern);
+
 
 /**
  * mongoc_write_concern_new:
@@ -82,6 +85,7 @@ mongoc_write_concern_destroy (mongoc_write_concern_t *write_concern)
    if (write_concern) {
       if (write_concern->compiled.len) {
          bson_destroy (&write_concern->compiled);
+         bson_destroy (&write_concern->compiled_gle);
       }
 
       bson_free (write_concern->wtag);
@@ -156,13 +160,14 @@ mongoc_write_concern_get_w (const mongoc_write_concern_t *write_concern)
 
 /**
  * mongoc_write_concern_set_w:
- * @w: The number of nodes for write or -1 for "majority".
+ * @w: The number of nodes for write or MONGOC_WRITE_CONCERN_W_MAJORITY
+ * for "majority".
  *
  * Sets the number of nodes that must acknowledge the write request before
  * acknowledging the write request to the client.
  *
- * You may specifiy @w as -1 to request that a "majority" of nodes
- * acknowledge the request.
+ * You may specifiy @w as MONGOC_WRITE_CONCERN_W_MAJORITY to request that
+ * a "majority" of nodes acknowledge the request.
  */
 void
 mongoc_write_concern_set_w (mongoc_write_concern_t *write_concern,
@@ -261,15 +266,14 @@ mongoc_write_concern_set_wtag (mongoc_write_concern_t *write_concern,
    }
 }
 
-
 /**
- * mongoc_write_concern_freeze:
+ * mongoc_write_concern_get_bson:
  * @write_concern: A mongoc_write_concern_t.
  *
  * This is an internal function.
  *
- * Freeze the write concern if necessary and compile the getlasterror command
- * associated with it.
+ * Freeze the write concern if necessary and retrieve the encoded bson_t
+ * representing the write concern.
  *
  * You may not modify the write concern further after calling this function.
  *
@@ -277,51 +281,94 @@ mongoc_write_concern_set_wtag (mongoc_write_concern_t *write_concern,
  *    the mongoc_write_concern_t instance.
  */
 const bson_t *
-_mongoc_write_concern_freeze (mongoc_write_concern_t *write_concern)
-{
-   bson_t *b;
-
-   bson_return_val_if_fail(write_concern, NULL);
-
-   b = &write_concern->compiled;
-
+_mongoc_write_concern_get_bson (mongoc_write_concern_t *write_concern) {
    if (!write_concern->frozen) {
-      write_concern->frozen = true;
-
-      bson_init (b);
-
-      BSON_APPEND_INT32 (b, "getlasterror", 1);
-
-      if (write_concern->w == MONGOC_WRITE_CONCERN_W_TAG) {
-         BSON_ASSERT (write_concern->wtag);
-         BSON_APPEND_UTF8 (b, "w", write_concern->wtag);
-      } else if (write_concern->w == MONGOC_WRITE_CONCERN_W_MAJORITY) {
-         BSON_APPEND_UTF8 (b, "w", "majority");
-      } else if (write_concern->w == MONGOC_WRITE_CONCERN_W_DEFAULT) {
-         /* Do Nothing */
-      } else if (write_concern->w > 0) {
-         BSON_APPEND_INT32 (b, "w", write_concern->w);
-      }
-
-      if (write_concern->fsync_) {
-         bson_append_bool(b, "fsync", 5, true);
-      }
-
-      if (write_concern->journal) {
-         bson_append_bool(b, "j", 1, true);
-      }
-
-      if (write_concern->wtimeout) {
-         bson_append_int32(b, "wtimeout", 8, write_concern->wtimeout);
-      }
+       _mongoc_write_concern_freeze(write_concern);
    }
 
-   return b;
+   return &write_concern->compiled;
+}
+
+/**
+ * mongoc_write_concern_get_gle:
+ * @write_concern: A mongoc_write_concern_t.
+ *
+ * This is an internal function.
+ *
+ * Freeze the write concern if necessary and retrieve the encoded bson_t
+ * representing the write concern as a get last error command.
+ *
+ * You may not modify the write concern further after calling this function.
+ *
+ * Returns: A bson_t that should not be modified or freed as it is owned by
+ *    the mongoc_write_concern_t instance.
+ */
+const bson_t *
+_mongoc_write_concern_get_gle (mongoc_write_concern_t *write_concern) {
+   if (!write_concern->frozen) {
+       _mongoc_write_concern_freeze(write_concern);
+   }
+
+   return &write_concern->compiled_gle;
+}
+
+/**
+ * mongoc_write_concern_freeze:
+ * @write_concern: A mongoc_write_concern_t.
+ *
+ * This is an internal function.
+ *
+ * Freeze the write concern if necessary and encode it into a bson_ts which
+ * represent the raw bson form and the get last error command form.
+ *
+ * You may not modify the write concern further after calling this function.
+ */
+static void
+_mongoc_write_concern_freeze (mongoc_write_concern_t *write_concern)
+{
+   bson_t *compiled;
+   bson_t *compiled_gle;
+
+   bson_return_if_fail(write_concern);
+
+   compiled = &write_concern->compiled;
+   compiled_gle = &write_concern->compiled_gle;
+
+   write_concern->frozen = true;
+
+   bson_init (compiled);
+   bson_init (compiled_gle);
+
+   if (write_concern->w == MONGOC_WRITE_CONCERN_W_TAG) {
+      BSON_ASSERT (write_concern->wtag);
+      BSON_APPEND_UTF8 (compiled, "w", write_concern->wtag);
+   } else if (write_concern->w == MONGOC_WRITE_CONCERN_W_MAJORITY) {
+      BSON_APPEND_UTF8 (compiled, "w", "majority");
+   } else if (write_concern->w == MONGOC_WRITE_CONCERN_W_DEFAULT) {
+      /* Do Nothing */
+   } else if (write_concern->w > 0) {
+      BSON_APPEND_INT32 (compiled, "w", write_concern->w);
+   }
+
+   if (write_concern->fsync_) {
+      bson_append_bool(compiled, "fsync", 5, true);
+   }
+
+   if (write_concern->journal) {
+      bson_append_bool(compiled, "j", 1, true);
+   }
+
+   if (write_concern->wtimeout) {
+      bson_append_int32(compiled, "wtimeout", 8, write_concern->wtimeout);
+   }
+
+   BSON_APPEND_INT32 (compiled_gle, "getlasterror", 1);
+   bson_concat (compiled_gle, compiled);
 }
 
 
 /**
- * mongoc_write_concern_has_gle:
+ * mongoc_write_concern_needs_gle:
  * @concern: (in): A mongoc_write_concern_t.
  *
  * Checks to see if @write_concern requests that a getlasterror command is to
@@ -330,7 +377,7 @@ _mongoc_write_concern_freeze (mongoc_write_concern_t *write_concern)
  * Returns: true if a getlasterror command should be sent.
  */
 bool
-_mongoc_write_concern_has_gle (const mongoc_write_concern_t *write_concern)
+_mongoc_write_concern_needs_gle (const mongoc_write_concern_t *write_concern)
 {
    if (write_concern) {
       return ((write_concern->w != 0) && (write_concern->w != -1));
