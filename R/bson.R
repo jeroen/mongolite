@@ -21,3 +21,13 @@ as.character.bson <- function(x, ...){
 print.bson <- function(x, ...){
   cat(as.character(x));
 }
+
+setGeneric("serialize")
+setOldClass("bson")
+setMethod("serialize", "bson", function(object, connection){
+  if(!missing(connection)) {
+    writeBin(bson_to_raw(object), connection)
+  } else {
+    bson_to_raw(object);
+  }
+});
