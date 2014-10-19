@@ -14,6 +14,10 @@ raw_to_bson <- function(bson){
   .Call(R_raw_to_bson, bson)
 }
 
+bson_to_list <- function(bson){
+  .Call(R_bson_to_list, bson)
+}
+
 as.character.bson <- function(x, ...){
   bson_to_json(x)
 }
