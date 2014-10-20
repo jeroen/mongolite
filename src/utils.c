@@ -8,6 +8,16 @@ SEXP mkStringUTF8(const char* str){
   return out;
 }
 
+SEXP mkRaw(const unsigned char *buf, int len){
+  //create raw vector
+  SEXP out = PROTECT(allocVector(RAWSXP, len));
+  for (int i = 0; i < len; i++) {
+    RAW(out)[i] = buf[i];
+  }
+  UNPROTECT(1);
+  return out;
+}
+
 bson_t* r2bson(SEXP ptr){
   bson_t *b = R_ExternalPtrAddr(ptr);
   if(!b)
@@ -29,3 +39,5 @@ void fin_bson(SEXP ptr){
   bson_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
 }
+
+

@@ -9,7 +9,6 @@ SEXP ConvertValue(bson_iter_t* iter);
 SEXP ConvertBinary(bson_iter_t* iter);
 SEXP ConvertDate(bson_iter_t* iter);
 
-
 SEXP R_json_to_bson(SEXP json){
   bson_t *b;
   bson_error_t err;
@@ -45,14 +44,7 @@ SEXP R_bson_to_json(SEXP ptr){
 SEXP R_bson_to_raw(SEXP ptr){
   bson_t *b = r2bson(ptr);
   const uint8_t *buf = bson_get_data(b);
-  int len = b->len;
-
-  SEXP out = PROTECT(allocVector(RAWSXP, len));
-  for (int i = 0; i < len; i++) {
-    RAW(out)[i] = buf[i];
-  }
-  UNPROTECT(1);
-  return out;
+  return mkRaw(buf, b->len);
 }
 
 SEXP R_bson_to_list(SEXP ptr) {
@@ -77,10 +69,15 @@ SEXP ConvertValue(bson_iter_t* iter){
     return ScalarReal((double) bson_iter_int64(iter));
   } else if(BSON_ITER_HOLDS_UTF8(iter)){
     return mkStringUTF8(bson_iter_utf8(iter, NULL));
+  } else if(BSON_ITER_HOLDS_CODE(iter)){
+    return mkStringUTF8(bson_iter_code(iter, NULL));
   } else if(BSON_ITER_HOLDS_BINARY(iter)){
     return ConvertBinary(iter);
   } else if(BSON_ITER_HOLDS_DATE_TIME(iter)){
     return ConvertDate(iter);
+  } else if(BSON_ITER_HOLDS_OID(iter)){
+    //not sure if this casting works
+    return mkRaw((unsigned char *) bson_iter_oid(iter), 12);
   } else if(BSON_ITER_HOLDS_ARRAY(iter)){
     bson_iter_t child1;
     bson_iter_t child2;
