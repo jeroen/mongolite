@@ -7,6 +7,7 @@ SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertValue(bson_iter_t* iter);
 SEXP ConvertBinary(bson_iter_t* iter);
+SEXP ConvertDate(bson_iter_t* iter);
 
 
 SEXP R_json_to_bson(SEXP json){
@@ -78,6 +79,8 @@ SEXP ConvertValue(bson_iter_t* iter){
     return mkStringUTF8(bson_iter_utf8(iter, NULL));
   } else if(BSON_ITER_HOLDS_BINARY(iter)){
     return ConvertBinary(iter);
+  } else if(BSON_ITER_HOLDS_DATE_TIME(iter)){
+    return ConvertDate(iter);
   } else if(BSON_ITER_HOLDS_ARRAY(iter)){
     bson_iter_t child1;
     bson_iter_t child2;
@@ -93,6 +96,16 @@ SEXP ConvertValue(bson_iter_t* iter){
   } else {
     error("Unimplemented BSON type %d\n", bson_iter_type(iter));
   }
+}
+
+SEXP ConvertDate(bson_iter_t* iter){
+    SEXP out = PROTECT(ScalarReal((double) bson_iter_date_time(iter)));
+    SEXP classes = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(classes, 1, mkChar("POSIXt"));
+    SET_STRING_ELT(classes, 2, mkChar("POSIXct"));
+    setAttrib(out, R_ClassSymbol, classes);
+    UNPROTECT(2);
+    return out;
 }
 
 SEXP ConvertBinary(bson_iter_t* iter){
