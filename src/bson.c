@@ -6,6 +6,8 @@
 SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertValue(bson_iter_t* iter);
+SEXP ConvertBinary(bson_iter_t* iter);
+
 
 SEXP R_json_to_bson(SEXP json){
   bson_t *b;
@@ -74,6 +76,8 @@ SEXP ConvertValue(bson_iter_t* iter){
     return ScalarReal((double) bson_iter_int64(iter));
   } else if(BSON_ITER_HOLDS_UTF8(iter)){
     return mkStringUTF8(bson_iter_utf8(iter, NULL));
+  } else if(BSON_ITER_HOLDS_BINARY(iter)){
+    return ConvertBinary(iter);
   } else if(BSON_ITER_HOLDS_ARRAY(iter)){
     bson_iter_t child1;
     bson_iter_t child2;
@@ -89,6 +93,23 @@ SEXP ConvertValue(bson_iter_t* iter){
   } else {
     error("Unimplemented BSON type %d\n", bson_iter_type(iter));
   }
+}
+
+SEXP ConvertBinary(bson_iter_t* iter){
+  bson_subtype_t subtype;
+  uint32_t binary_len;
+  const uint8_t *binary;
+  bson_iter_binary(iter, &subtype, &binary_len, &binary);
+
+  //create raw vector
+  SEXP out = PROTECT(allocVector(RAWSXP, binary_len));
+  for (int i = 0; i < binary_len; i++) {
+    RAW(out)[i] = binary[i];
+  }
+  setAttrib(out, install("subtype"), ScalarInteger(subtype));
+  UNPROTECT(1);
+  return out;
+
 }
 
 SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter){
