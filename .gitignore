@@ -1,5 +1,6 @@
 *.so
 *.o
+*.dll
 .DS_Store
 .Rproj.user
 .Rhistory
