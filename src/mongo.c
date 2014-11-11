@@ -1,9 +1,9 @@
 #include <Rinternals.h>
 #include <bson.h>
 #include <mongoc.h>
+#include <utils.h>
 
 SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection);
-void fin_mongo (SEXP ptr);
 
 SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
     mongoc_client_t *client;
@@ -22,9 +22,3 @@ SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
     return ptr;
 }
 
-void fin_mongo(SEXP ptr){
-  Rprintf("DEBUG: Destorying collection.\n");
-  if(!R_ExternalPtrAddr(ptr)) return;
-  mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
-  R_ClearExternalPtr(ptr);
-}

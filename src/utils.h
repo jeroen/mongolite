@@ -8,3 +8,5 @@ bson_t* r2bson(SEXP ptr);
 mongoc_collection_t* r2col(SEXP ptr);
 SEXP bson2r(bson_t* b);
 void fin_bson(SEXP ptr);
+void fin_cursor(SEXP ptr);
+void fin_mongo(SEXP ptr);

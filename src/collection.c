@@ -80,3 +80,7 @@ SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP all){
 
   return ScalarLogical(1);
 }
+
+SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_bson){
+  return R_NilValue;
+}

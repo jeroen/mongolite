@@ -21,14 +21,14 @@ SEXP mkRaw(const unsigned char *buf, int len){
 bson_t* r2bson(SEXP ptr){
   bson_t *b = R_ExternalPtrAddr(ptr);
   if(!b)
-    error("BSON document is null.");
+    error("BSON document has been destroyed.");
   return b;
 }
 
 mongoc_collection_t* r2col(SEXP ptr){
   mongoc_collection_t * col = R_ExternalPtrAddr(ptr);
   if(!col)
-    error("Collection is null.");
+    error("Collection has been destroyed.");
   return col;
 }
 
@@ -40,6 +40,38 @@ SEXP bson2r(bson_t* b){
   return ptr;
 }
 
+mongoc_cursor_t* r2cursor(SEXP ptr){
+  mongoc_cursor_t* c = R_ExternalPtrAddr(ptr);
+  if(!c)
+    error("Cursor has been destroyed.");
+  return c;
+}
+
+SEXP cursor2r(mongoc_cursor_t* c){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(c, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(ptr, fin_cursor, 1);
+  setAttrib(ptr, R_ClassSymbol, mkString("mongo_cursor"));
+  UNPROTECT(1);
+  return ptr;
+}
+
+SEXP R_mongo_init() {
+    mongoc_init();
+    return R_NilValue;
+}
+
+SEXP R_mongo_cleanup() {
+    mongoc_cleanup();
+    return R_NilValue;
+}
+
+void fin_mongo(SEXP ptr){
+  Rprintf("DEBUG: Destorying collection.\n");
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
+
 void fin_bson(SEXP ptr){
   Rprintf("DEBUG: Destorying BSON.\n");
   if(!R_ExternalPtrAddr(ptr)) return;
@@ -47,4 +79,9 @@ void fin_bson(SEXP ptr){
   R_ClearExternalPtr(ptr);
 }
 
-
+void fin_cursor(SEXP ptr){
+  Rprintf("DEBUG: Destorying cursor.\n");
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_cursor_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
