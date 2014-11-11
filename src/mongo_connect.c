@@ -9,12 +9,11 @@ SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
     mongoc_client_t *client;
     mongoc_collection_t *col;
 
-    client = mongoc_client_new (CHAR(asChar(uri_string)));
-    if(!client){
+    client = mongoc_client_new (translateCharUTF8(asChar(uri_string)));
+    if(!client)
       error("Invalid uri_string. Try mongodb://localhost");
-    }
 
-    col = mongoc_client_get_collection (client, CHAR(asChar(db)), CHAR(asChar(collection)));
+    col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
     SEXP ptr = PROTECT(R_MakeExternalPtr(col, R_NilValue, R_NilValue));
 
     //clean up on garbage collection

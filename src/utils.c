@@ -25,6 +25,13 @@ bson_t* r2bson(SEXP ptr){
   return b;
 }
 
+mongoc_collection_t* r2col(SEXP ptr){
+  mongoc_collection_t * col = R_ExternalPtrAddr(ptr);
+  if(!col)
+    error("Collection is null.");
+  return col;
+}
+
 SEXP bson2r(bson_t* b){
   SEXP ptr = PROTECT(R_MakeExternalPtr(b, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_bson, 1);
