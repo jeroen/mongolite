@@ -21,7 +21,7 @@ SEXP mkRaw(const unsigned char *buf, int len){
 bson_t* r2bson(SEXP ptr){
   bson_t *b = R_ExternalPtrAddr(ptr);
   if(!b)
-    error("BSON document has been destroyed.");
+    error("BSON object has been destroyed.");
   return b;
 }
 
@@ -32,6 +32,13 @@ mongoc_collection_t* r2col(SEXP ptr){
   return col;
 }
 
+mongoc_cursor_t* r2cursor(SEXP ptr){
+  mongoc_cursor_t* c = R_ExternalPtrAddr(ptr);
+  if(!c)
+    error("Cursor has been destroyed.");
+  return c;
+}
+
 SEXP bson2r(bson_t* b){
   SEXP ptr = PROTECT(R_MakeExternalPtr(b, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_bson, 1);
@@ -40,17 +47,18 @@ SEXP bson2r(bson_t* b){
   return ptr;
 }
 
-mongoc_cursor_t* r2cursor(SEXP ptr){
-  mongoc_cursor_t* c = R_ExternalPtrAddr(ptr);
-  if(!c)
-    error("Cursor has been destroyed.");
-  return c;
-}
-
 SEXP cursor2r(mongoc_cursor_t* c){
   SEXP ptr = PROTECT(R_MakeExternalPtr(c, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_cursor, 1);
   setAttrib(ptr, R_ClassSymbol, mkString("mongo_cursor"));
+  UNPROTECT(1);
+  return ptr;
+}
+
+SEXP col2r(mongoc_collection_t *col){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(col, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(ptr, fin_mongo, 1);
+  setAttrib(ptr, R_ClassSymbol, mkString("mongo_collection"));
   UNPROTECT(1);
   return ptr;
 }

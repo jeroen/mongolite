@@ -81,6 +81,14 @@ SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP all){
   return ScalarLogical(1);
 }
 
-SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_bson){
-  return R_NilValue;
+SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_fields, SEXP skip, SEXP limit) {
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_t *query = r2bson(ptr_query);
+  bson_t *fields = r2bson(ptr_fields);
+  mongoc_query_flags_t flags = MONGOC_QUERY_NONE;
+
+  mongoc_cursor_t *c = mongoc_collection_find(col, flags, asLogical(skip), asLogical(limit),
+    0, query, fields, NULL);
+
+  return cursor2r(c);
 }

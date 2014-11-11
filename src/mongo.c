@@ -14,11 +14,5 @@ SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
       error("Invalid uri_string. Try mongodb://localhost");
 
     col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
-    SEXP ptr = PROTECT(R_MakeExternalPtr(col, R_NilValue, R_NilValue));
-
-    //clean up on garbage collection
-    R_RegisterCFinalizerEx(ptr, fin_mongo, 1);
-    UNPROTECT(1);
-    return ptr;
+    return(col2r(col));
 }
-
