@@ -1,3 +1,14 @@
+
+bson_or_json <- function(x){
+  if(is(x, "bson")){
+    return(x)
+  } else if(is.character(x)) {
+    json_to_bson(paste(x, collapse = "\n"))
+  } else {
+    stop("argument must be bson or json.")
+  }
+}
+
 #' @useDynLib mongolite R_json_to_bson
 json_to_bson <- function(json = "{}"){
   .Call(R_json_to_bson, json)
@@ -30,7 +41,12 @@ as.character.bson <- function(x, ...){
 
 #' @export
 print.bson <- function(x, ...){
-  cat(as.character(x));
+  cat("BSON: ", as.character(x));
+}
+
+#' @export
+print.mongo_collection <- function(x, ...){
+  cat("Mongo collection '", mongo_collection_name(x), "'\n");
 }
 
 setGeneric("serialize")

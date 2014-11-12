@@ -64,13 +64,13 @@ SEXP col2r(mongoc_collection_t *col){
 }
 
 SEXP R_mongo_init() {
-    mongoc_init();
-    return R_NilValue;
+  mongoc_init();
+  return R_NilValue;
 }
 
 SEXP R_mongo_cleanup() {
-    mongoc_cleanup();
-    return R_NilValue;
+  mongoc_cleanup();
+  return R_NilValue;
 }
 
 void fin_mongo(SEXP ptr){
