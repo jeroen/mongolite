@@ -63,6 +63,14 @@ SEXP col2r(mongoc_collection_t *col){
   return ptr;
 }
 
+SEXP client2r(mongoc_client_t *client){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(client, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(ptr, fin_client, 1);
+  setAttrib(ptr, R_ClassSymbol, mkString("mongo_client"));
+  UNPROTECT(1);
+  return ptr;
+}
+
 SEXP R_mongo_init() {
   mongoc_init();
   return R_NilValue;
@@ -91,5 +99,12 @@ void fin_cursor(SEXP ptr){
   Rprintf("DEBUG: Destorying cursor.\n");
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_cursor_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
+
+void fin_client(SEXP ptr){
+  Rprintf("DEBUG: Destorying client.\n");
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_client_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
 }
