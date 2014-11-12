@@ -41,12 +41,12 @@ as.character.bson <- function(x, ...){
 
 #' @export
 print.bson <- function(x, ...){
-  cat("BSON: ", as.character(x));
+  cat(paste0("BSON: ", as.character(x), "\n"));
 }
 
 #' @export
 print.mongo_collection <- function(x, ...){
-  cat("Mongo collection '", mongo_collection_name(x), "'\n");
+  cat(paste0("Mongo collection '", mongo_collection_name(x), "'\n"));
 }
 
 setGeneric("serialize")

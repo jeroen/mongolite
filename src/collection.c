@@ -87,7 +87,7 @@ SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_fields, SEXP
   bson_t *fields = r2bson(ptr_fields);
   mongoc_query_flags_t flags = MONGOC_QUERY_NONE;
 
-  mongoc_cursor_t *c = mongoc_collection_find(col, flags, asLogical(skip), asLogical(limit),
+  mongoc_cursor_t *c = mongoc_collection_find(col, flags, asInteger(skip), asInteger(limit),
     0, query, fields, NULL);
 
   return cursor2r(c);
