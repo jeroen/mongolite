@@ -7,3 +7,4 @@ Author: Jeroen Ooms
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
 Description: High level interface to libmongo c library.
 License: Apache License 2.0
+Imports: jsonlite

@@ -82,28 +82,38 @@ SEXP R_mongo_cleanup() {
 }
 
 void fin_mongo(SEXP ptr){
+  #ifdef DEBUG
   Rprintf("DEBUG: Destorying collection.\n");
+  #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
 }
 
 void fin_bson(SEXP ptr){
+  #ifdef DEBUG
   Rprintf("DEBUG: Destorying BSON.\n");
+  #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   bson_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
 }
 
 void fin_cursor(SEXP ptr){
+  #ifdef DEBUG
   Rprintf("DEBUG: Destorying cursor.\n");
+  #endif
+
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_cursor_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
 }
 
 void fin_client(SEXP ptr){
+  #ifdef DEBUG
   Rprintf("DEBUG: Destorying client.\n");
+  #endif
+
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_client_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
