@@ -8,7 +8,7 @@ mongo_write_df <- function(m, data, verbose = TRUE){
     if(verbose) cat(".")
     TRUE
   }, logical(1))
-  cat("done!")
+  cat("done!\n")
 }
 
 #' @export
@@ -24,6 +24,6 @@ mongo_read_df <- function(m, verbose = TRUE){
     if(verbose) cat(".")
     out[[i]] <- bson_to_list(val)
   }
-  if(verbose) cat(".")
+  if(verbose) cat("done!\n")
   jsonlite:::simplify(out)
 }
