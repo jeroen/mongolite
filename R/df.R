@@ -12,8 +12,8 @@ mongo_write_df <- function(m, data, verbose = TRUE){
 }
 
 #' @export
-mongo_read_df <- function(m, verbose = TRUE){
-  cur <- mongo_collection_find(m)
+mongo_read_df <- function(m, ..., verbose = TRUE){
+  cur <- mongo_collection_find(m, ...)
   i <- 0
   out <- list()
   if(verbose) cat("Reading...")
