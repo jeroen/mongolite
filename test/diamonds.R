@@ -1,7 +1,7 @@
 library(ggplot2)
 library(mongolite)
 
-#Init connection
+# Init connection
 m <- mongo_connect(collection = "diamonds")
 try(mongo_collection_drop(m), silent = TRUE)
 
@@ -9,5 +9,4 @@ try(mongo_collection_drop(m), silent = TRUE)
 mongo_write_df(m, diamonds)
 
 # Query
-query <- '{"cut" : "Premium", "price" : { "$lt" : 1000 } }'
-out <- mongo_read_df(m, query = query)
+out <- mongo_read_df(m, query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
