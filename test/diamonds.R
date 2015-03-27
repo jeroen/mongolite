@@ -1,4 +1,4 @@
-library(ggplot2)
+# install_github("jeroenooms/mongolite")
 library(mongolite)
 
 # Init connection
@@ -6,6 +6,7 @@ m <- mongo_connect(collection = "diamonds")
 try(mongo_collection_drop(m), silent = TRUE)
 
 # Dump some test data
+data(diamonds, package="ggplot2")
 mongo_write_df(m, diamonds)
 
 # Query
