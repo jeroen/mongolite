@@ -1,4 +1,5 @@
 PKG_CPPFLAGS = -D BSON_COMPILATION -DMONGOC_COMPILATION -I. -Iyajl -Ibson -Imongoc
+PKG_CFLAGS = -include apple.h
 
 SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
 
