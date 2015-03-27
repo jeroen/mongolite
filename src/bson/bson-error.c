@@ -86,7 +86,7 @@ bson_set_error (bson_error_t *error,  /* OUT */
  *
  *       This is a reentrant safe macro for strerror.
  *
- *       The resulting string is stored in @buf and @buf is returned.
+ *       The resulting string may be stored in @buf.
  *
  * Returns:
  *       A pointer to a static string or @buf.
@@ -112,17 +112,16 @@ bson_strerror_r (int     err_code,  /* IN */
       ret = buf;
    }
 #else /* XSI strerror_r */
-   if (strerror_r (err_code, buf, buflen) != 0) {
+   if (strerror_r (err_code, buf, buflen) == 0) {
       ret = buf;
    }
 #endif
 
    if (!ret) {
-      memcpy (buf, unknown_msg, MIN (buflen, strlen (unknown_msg)));
-      buf [buflen - 1] = '\0';
+      bson_strncpy (buf, unknown_msg, buflen);
       ret = buf;
    }
 
-   return buf;
+   return ret;
 }
 

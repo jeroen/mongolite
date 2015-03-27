@@ -24,7 +24,6 @@
 #include "mongoc-socket.h"
 #include "mongoc-trace.h"
 
-
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "socket"
 
@@ -148,14 +147,18 @@ _mongoc_socket_wait (int      sd,           /* IN */
    ret = WSAPoll (&pfd, 1, timeout);
    if (ret == SOCKET_ERROR) {
       MONGOC_WARNING ("WSAGetLastError(): %d", WSAGetLastError ());
-      ret = -1;
+      ret = false;
    }
 #else
    ret = poll (&pfd, 1, timeout);
 #endif
 
    if (ret > 0) {
+#ifdef _WIN32
+      RETURN (0 != (pfd.revents & (events | POLLHUP | POLLERR)));
+#else
       RETURN (0 != (pfd.revents & events));
+#endif
    }
 
    RETURN (false);
@@ -412,6 +415,7 @@ mongoc_socket_close (mongoc_socket_t *sock) /* IN */
 
 #ifdef _WIN32
    if (sock->sd != INVALID_SOCKET) {
+      shutdown (sock->sd, SD_BOTH);
       ret = closesocket (sock->sd);
    }
 #else
@@ -491,6 +495,8 @@ mongoc_socket_connect (mongoc_socket_t       *sock,      /* IN */
                            (char *)&optval, &optlen);
          if ((ret == 0) && (optval == 0)) {
             RETURN (0);
+         } else {
+            errno = sock->errno_ = optval;
          }
       }
       RETURN (-1);
@@ -809,7 +815,7 @@ _mongoc_socket_try_sendv_slow (mongoc_socket_t *sock,   /* IN */
 {
    ssize_t ret = 0;
    size_t i;
-   int wrote;
+   ssize_t wrote;
 
    ENTRY;
 
@@ -1066,4 +1072,72 @@ mongoc_socket_getnameinfo (mongoc_socket_t *sock) /* IN */
    }
 
    RETURN (NULL);
+}
+
+
+bool
+mongoc_socket_check_closed (mongoc_socket_t *sock) /* IN */
+{
+   bool closed = false;
+   char buf [1];
+   ssize_t r;
+
+   if (_mongoc_socket_wait (sock->sd, POLLIN, 0)) {
+      sock->errno_ = 0;
+
+      r = recv (sock->sd, buf, 1, MSG_PEEK);
+
+      if (r < 0) {
+         _mongoc_socket_capture_errno (sock);
+      }
+
+      if (r < 1) {
+         closed = true;
+      }
+   }
+
+   return closed;
+}
+
+/*
+ *
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_socket_inet_ntop --
+ *
+ *       Convert the ip from addrinfo into a c string.
+ *
+ * Returns:
+ *       The value is returned into 'buffer'. The memory has to be allocated
+ *       by the caller
+ *
+ * Side effects:
+ *       None.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+mongoc_socket_inet_ntop (struct addrinfo *rp,        /* IN */
+                         char            *buf,       /* INOUT */
+                         size_t           buflen)    /* IN */
+{
+   void *ptr;
+   char tmp[256];
+
+   switch (rp->ai_family) {
+   case AF_INET:
+      ptr = &((struct sockaddr_in *)rp->ai_addr)->sin_addr;
+      inet_ntop (rp->ai_family, ptr, tmp, sizeof (tmp));
+      bson_snprintf (buf, buflen, "ipv4 %s", tmp);
+      break;
+   case AF_INET6:
+      ptr = &((struct sockaddr_in6 *)rp->ai_addr)->sin6_addr;
+      inet_ntop (rp->ai_family, ptr, tmp, sizeof (tmp));
+      bson_snprintf (buf, buflen, "ipv6 %s", tmp);
+      break;
+   default:
+      bson_snprintf (buf, buflen, "unknown ip %d", rp->ai_family);
+      break;
+   }
 }

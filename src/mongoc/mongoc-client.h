@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_CLIENT_H
+#define MONGOC_CLIENT_H
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
 # error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_CLIENT_H
-#define MONGOC_CLIENT_H
-
 
 #include <bson.h>
 
@@ -49,6 +46,19 @@ BSON_BEGIN_DECLS
 
 #ifndef MONGOC_DEFAULT_CONNECTTIMEOUTMS
 #define MONGOC_DEFAULT_CONNECTTIMEOUTMS (10 * 1000L)
+#endif
+
+
+#ifndef MONGOC_DEFAULT_SOCKETTIMEOUTMS
+/*
+ * NOTE: The default socket timeout for connections is 5 minutes. This
+ *       means that if your MongoDB server dies or becomes unavailable
+ *       it will take 5 minutes to detect this.
+ *
+ *       You can change this by providing sockettimeoutms= in your
+ *       connection URI.
+ */
+#define MONGOC_DEFAULT_SOCKETTIMEOUTMS (1000L * 60L * 5L)
 #endif
 
 
@@ -95,6 +105,8 @@ mongoc_cursor_t               *mongoc_client_command              (mongoc_client
                                                                    const bson_t                 *query,
                                                                    const bson_t                 *fields,
                                                                    const mongoc_read_prefs_t    *read_prefs);
+void                           mongoc_client_kill_cursor          (mongoc_client_t *client,
+                                                                   int64_t          cursor_id);
 bool                           mongoc_client_command_simple       (mongoc_client_t              *client,
                                                                    const char                   *db_name,
                                                                    const bson_t                 *command,
@@ -112,6 +124,8 @@ mongoc_collection_t           *mongoc_client_get_collection       (mongoc_client
                                                                    const char                   *db,
                                                                    const char                   *collection);
 char                         **mongoc_client_get_database_names   (mongoc_client_t              *client,
+                                                                   bson_error_t                 *error);
+mongoc_cursor_t               *mongoc_client_find_databases       (mongoc_client_t              *client,
                                                                    bson_error_t                 *error);
 bool                           mongoc_client_get_server_status    (mongoc_client_t              *client,
                                                                    mongoc_read_prefs_t          *read_prefs,

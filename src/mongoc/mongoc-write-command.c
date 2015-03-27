@@ -828,7 +828,7 @@ _mongoc_write_result_init (mongoc_write_result_t *result) /* IN */
    memset (result, 0, sizeof *result);
 
    bson_init (&result->upserted);
-   bson_init (&result->writeConcernErrors);
+   bson_init (&result->writeConcernError);
    bson_init (&result->writeErrors);
 
    EXIT;
@@ -843,7 +843,7 @@ _mongoc_write_result_destroy (mongoc_write_result_t *result)
    BSON_ASSERT (result);
 
    bson_destroy (&result->upserted);
-   bson_destroy (&result->writeConcernErrors);
+   bson_destroy (&result->writeConcernError);
    bson_destroy (&result->writeErrors);
 
    EXIT;
@@ -1123,7 +1123,7 @@ _mongoc_write_result_merge (mongoc_write_result_t  *result,  /* IN */
           * XXX: The following addition to nMatched needs some checking.
           *      I'm highly skeptical of it.
           */
-         result->nMatched += MAX (0, (affected - n_upserted));
+         result->nMatched += BSON_MAX (0, (affected - n_upserted));
       } else {
          result->nMatched += affected;
       }
@@ -1153,10 +1153,16 @@ _mongoc_write_result_merge (mongoc_write_result_t  *result,  /* IN */
       _mongoc_write_result_merge_arrays (result, &result->writeErrors, &iter);
    }
 
-   if (bson_iter_init_find (&iter, reply, "writeConcernErrors") &&
-       BSON_ITER_HOLDS_ARRAY (&iter)) {
-      _mongoc_write_result_merge_arrays (result, &result->writeConcernErrors,
-                                         &iter);
+   if (bson_iter_init_find (&iter, reply, "writeConcernError") &&
+       BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+
+      uint32_t len;
+      const uint8_t *data;
+      bson_t write_concern_error;
+
+      bson_iter_document (&iter, &len, &data);
+      bson_init_static (&write_concern_error, data, len);
+      bson_concat (&result->writeConcernError, &write_concern_error);
    }
 
    switch (command->type) {
@@ -1197,7 +1203,7 @@ _mongoc_write_result_complete (mongoc_write_result_t *result,
    BSON_ASSERT (result);
 
    ret = (!result->failed &&
-          bson_empty0 (&result->writeConcernErrors) &&
+          bson_empty0 (&result->writeConcernError) &&
           bson_empty0 (&result->writeErrors));
 
    if (bson) {
@@ -1212,9 +1218,9 @@ _mongoc_write_result_complete (mongoc_write_result_t *result,
          BSON_APPEND_ARRAY (bson, "upserted", &result->upserted);
       }
       BSON_APPEND_ARRAY (bson, "writeErrors", &result->writeErrors);
-      if (!bson_empty0 (&result->writeConcernErrors)) {
-         BSON_APPEND_ARRAY (bson, "writeConcernErrors",
-                            &result->writeConcernErrors);
+      if (!bson_empty0 (&result->writeConcernError)) {
+         BSON_APPEND_DOCUMENT (bson, "writeConcernError",
+                            &result->writeConcernError);
       }
    }
 

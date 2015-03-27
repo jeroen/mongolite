@@ -15,13 +15,13 @@
  */
 
 
+#ifndef BSON_MACROS_H
+#define BSON_MACROS_H
+
+
 #if !defined (BSON_INSIDE) && !defined (BSON_COMPILATION)
 #  error "Only <bson.h> can be included directly."
 #endif
-
-
-#ifndef BSON_MACROS_H
-#define BSON_MACROS_H
 
 
 #include <assert.h>
@@ -76,42 +76,44 @@
 #endif
 
 
-#ifndef MIN
-#  ifdef __cplusplus
-#    define MIN(a, b) ( (std::min)(a, b) )
-#  elif defined(_MSC_VER)
-#    define MIN(a, b) ((a) < (b) ? (a) : (b))
-#  elif defined(__GNUC__)
-#    define MIN(a, b) ({     \
-                          __typeof__ (a)_a = (a); \
-                          __typeof__ (b)_b = (b); \
-                          _a < _b ? _a : _b;   \
-                       })
-#  else
-#    define MIN(a,b) (((a) < (b)) ? (a) : (b))
-#  endif
+#ifdef MIN
+#  define BSON_MIN MIN
+#elif defined(__cplusplus)
+#  define BSON_MIN(a, b) ( (std::min)(a, b) )
+#elif defined(_MSC_VER)
+#  define BSON_MIN(a, b) ((a) < (b) ? (a) : (b))
+#elif defined(__GNUC__)
+#  define BSON_MIN(a, b) ({     \
+                        __typeof__ (a)_a = (a); \
+                        __typeof__ (b)_b = (b); \
+                        _a < _b ? _a : _b;   \
+                     })
+#else
+#  define BSON_MIN(a,b) (((a) < (b)) ? (a) : (b))
 #endif
 
 
-#ifndef MAX
-#  ifdef __cplusplus
-#    define MAX(a, b) ( (std::max)(a, b) )
-#  elif defined(_MSC_VER)
-#    define MAX(a, b) ((a) > (b) ? (a) : (b))
-#  elif defined(__GNUC__)
-#    define MAX(a, b) ({     \
-                          __typeof__ (a)_a = (a); \
-                          __typeof__ (b)_b = (b); \
-                          _a > _b ? _a : _b;   \
-                       })
-#  else
-#    define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#  endif
+#ifdef MAX
+#  define BSON_MAX MAX
+#elif defined(__cplusplus)
+#  define BSON_MAX(a, b) ( (std::max)(a, b) )
+#elif defined(_MSC_VER)
+#  define BSON_MAX(a, b) ((a) > (b) ? (a) : (b))
+#elif defined(__GNUC__)
+#  define BSON_MAX(a, b) ({     \
+                        __typeof__ (a)_a = (a); \
+                        __typeof__ (b)_b = (b); \
+                        _a > _b ? _a : _b;   \
+                     })
+#else
+#  define BSON_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
 
-#ifndef ABS
-#  define ABS(a) (((a) < 0) ? ((a) * -1) : (a))
+#ifdef ABS
+#  define BSON_ABS ABS
+#else
+#  define BSON_ABS(a) (((a) < 0) ? ((a) * -1) : (a))
 #endif
 
 

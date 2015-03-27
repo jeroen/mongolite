@@ -15,13 +15,13 @@
  */
 
 
+#ifndef BSON_ENDIAN_H
+#define BSON_ENDIAN_H
+
+
 #if !defined (BSON_INSIDE) && !defined (BSON_COMPILATION)
 # error "Only <bson.h> can be included directly."
 #endif
-
-
-#ifndef BSON_ENDIAN_H
-#define BSON_ENDIAN_H
 
 
 #if defined(__sun)
@@ -160,10 +160,10 @@ __bson_uint16_swap_slow (uint16_t v) /* IN */
 static BSON_INLINE uint32_t
 __bson_uint32_swap_slow (uint32_t v) /* IN */
 {
-   return ((v & 0x000000FFUL) << 24) |
-          ((v & 0x0000FF00UL) <<  8) |
-          ((v & 0x00FF0000UL) >>  8) |
-          ((v & 0xFF000000UL) >> 24);
+   return ((v & 0x000000FFU) << 24) |
+          ((v & 0x0000FF00U) <<  8) |
+          ((v & 0x00FF0000U) >>  8) |
+          ((v & 0xFF000000U) >> 24);
 }
 
 

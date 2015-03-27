@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_DATABASE_H
+#define MONGOC_DATABASE_H
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
 # error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_DATABASE_H
-#define MONGOC_DATABASE_H
-
 
 #include <bson.h>
 
@@ -79,6 +76,9 @@ void                          mongoc_database_set_read_prefs       (mongoc_datab
 const mongoc_write_concern_t *mongoc_database_get_write_concern    (const mongoc_database_t      *database);
 void                          mongoc_database_set_write_concern    (mongoc_database_t            *database,
                                                                     const mongoc_write_concern_t *write_concern);
+mongoc_cursor_t              *mongoc_database_find_collections     (mongoc_database_t            *database,
+                                                                    const bson_t                 *filter,
+                                                                    bson_error_t                 *error);
 char                        **mongoc_database_get_collection_names (mongoc_database_t            *database,
                                                                     bson_error_t                 *error);
 mongoc_collection_t          *mongoc_database_get_collection       (mongoc_database_t            *database,

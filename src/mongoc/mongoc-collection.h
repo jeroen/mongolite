@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_COLLECTION_H
+#define MONGOC_COLLECTION_H
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
 # error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_COLLECTION_H
-#define MONGOC_COLLECTION_H
-
 
 #include <bson.h>
 
@@ -66,6 +63,14 @@ int64_t                       mongoc_collection_count                (mongoc_col
                                                                       int64_t                        limit,
                                                                       const mongoc_read_prefs_t     *read_prefs,
                                                                       bson_error_t                  *error);
+int64_t                       mongoc_collection_count_with_opts      (mongoc_collection_t           *collection,
+                                                                      mongoc_query_flags_t           flags,
+                                                                      const bson_t                  *query,
+                                                                      int64_t                        skip,
+                                                                      int64_t                        limit,
+                                                                      const bson_t                  *opts,
+                                                                      const mongoc_read_prefs_t     *read_prefs,
+                                                                      bson_error_t                  *error);
 bool                          mongoc_collection_drop                 (mongoc_collection_t           *collection,
                                                                       bson_error_t                  *error);
 bool                          mongoc_collection_drop_index           (mongoc_collection_t           *collection,
@@ -79,6 +84,8 @@ bool                          mongoc_collection_ensure_index         (mongoc_col
                                                                       const bson_t                  *keys,
                                                                       const mongoc_index_opt_t      *opt,
                                                                       bson_error_t                  *error) BSON_GNUC_DEPRECATED_FOR (mongoc_collection_create_index);
+mongoc_cursor_t              *mongoc_collection_find_indexes         (mongoc_collection_t           *collection,
+                                                                      bson_error_t                  *error);
 mongoc_cursor_t              *mongoc_collection_find                 (mongoc_collection_t           *collection,
                                                                       mongoc_query_flags_t           flags,
                                                                       uint32_t                       skip,

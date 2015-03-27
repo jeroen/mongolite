@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include "mongoc-config.h"
+
+#ifdef MONGOC_ENABLE_SASL
 
 #include <string.h>
 
@@ -170,7 +173,8 @@ _mongoc_sasl_destroy (mongoc_sasl_t *sasl)
 
 #if (SASL_VERSION_MAJOR >= 2) && \
     (SASL_VERSION_MINOR >= 1) && \
-    (SASL_VERSION_STEP >= 24)
+    (SASL_VERSION_STEP >= 24) && \
+    (!defined(__APPLE__))
    sasl_client_done ();
 #endif
 }
@@ -345,3 +349,5 @@ _mongoc_sasl_step (mongoc_sasl_t *sasl,
 
    return true;
 }
+
+#endif

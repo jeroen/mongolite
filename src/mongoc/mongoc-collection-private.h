@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_COLLECTION_PRIVATE_H
+#define MONGOC_COLLECTION_PRIVATE_H
 
 #if !defined (MONGOC_I_AM_A_DRIVER) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_COLLECTION_PRIVATE_H
-#define MONGOC_COLLECTION_PRIVATE_H
-
 
 #include <bson.h>
 
@@ -48,11 +45,13 @@ struct _mongoc_collection_t
 };
 
 
-mongoc_collection_t *_mongoc_collection_new (mongoc_client_t              *client,
-                                             const char                   *db,
-                                             const char                   *collection,
-                                             const mongoc_read_prefs_t    *read_prefs,
-                                             const mongoc_write_concern_t *write_concern);
+mongoc_collection_t *_mongoc_collection_new                  (mongoc_client_t              *client,
+                                                              const char                   *db,
+                                                              const char                   *collection,
+                                                              const mongoc_read_prefs_t    *read_prefs,
+                                                              const mongoc_write_concern_t *write_concern);
+mongoc_cursor_t    *_mongoc_collection_find_indexes_legacy   (mongoc_collection_t          *collection,
+                                                              bson_error_t                 *error);
 
 
 BSON_END_DECLS

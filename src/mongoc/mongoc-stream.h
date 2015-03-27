@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_STREAM_H
+#define MONGOC_STREAM_H
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
 # error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_STREAM_H
-#define MONGOC_STREAM_H
-
 
 #include "mongoc-iovec.h"
 #include "mongoc-socket.h"
@@ -55,7 +52,8 @@ struct _mongoc_stream_t
                                         void            *optval,
                                         socklen_t        optlen);
    mongoc_stream_t *(*get_base_stream) (mongoc_stream_t *stream);
-   void            *padding [8];
+   bool             (*check_closed)    (mongoc_stream_t *stream);
+   void            *padding [7];
 };
 
 
@@ -66,6 +64,10 @@ int              mongoc_stream_flush           (mongoc_stream_t       *stream);
 ssize_t          mongoc_stream_writev          (mongoc_stream_t       *stream,
                                                 mongoc_iovec_t        *iov,
                                                 size_t                 iovcnt,
+                                                int32_t                timeout_msec);
+ssize_t          mongoc_stream_write           (mongoc_stream_t       *stream,
+                                                void                  *buf,
+                                                size_t                 count,
                                                 int32_t                timeout_msec);
 ssize_t          mongoc_stream_readv           (mongoc_stream_t       *stream,
                                                 mongoc_iovec_t        *iov,
@@ -82,6 +84,7 @@ int              mongoc_stream_setsockopt      (mongoc_stream_t       *stream,
                                                 int                    optname,
                                                 void                  *optval,
                                                 socklen_t              optlen);
+bool             mongoc_stream_check_closed    (mongoc_stream_t       *stream);
 
 
 BSON_END_DECLS

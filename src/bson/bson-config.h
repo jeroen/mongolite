@@ -47,7 +47,7 @@
 /*
  * Define to 1 if you have clock_gettime() available.
  */
-#define BSON_HAVE_CLOCK_GETTIME 1
+#define BSON_HAVE_CLOCK_GETTIME 0
 #if BSON_HAVE_CLOCK_GETTIME != 1
 # undef BSON_HAVE_CLOCK_GETTIME
 #endif
@@ -63,7 +63,7 @@
 
 
 /*
- * Define to 1 if you have strnlen available on your platform.
+ * Define to 1 if you have snprintf available on your platform.
  */
 #define BSON_HAVE_SNPRINTF 1
 #if BSON_HAVE_SNPRINTF != 1

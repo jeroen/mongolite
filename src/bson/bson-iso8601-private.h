@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB Inc.
+ * Copyright 2014 MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,30 +15,22 @@
  */
 
 
-#ifndef MONGOC_CONFIG_H
-#define MONGOC_CONFIG_H
+#ifndef BSON_ISO8601_PRIVATE_H
+#define BSON_ISO8601_PRIVATE_H
 
 
-/*
- * MONGOC_ENABLE_SSL is set from configure to determine if we are
- * compiled with SSL support.
- */
-#define MONGOC_ENABLE_SSL @MONGOC_ENABLE_SSL@
-
-#if MONGOC_ENABLE_SSL != 1
-#  undef MONGOC_ENABLE_SSL
-#endif
+#include "bson-compat.h"
+#include "bson-macros.h"
 
 
-/*
- * MONGOC_ENABLE_SASL is set from configure to determine if we are
- * compiled with SASL support.
- */
-#define MONGOC_ENABLE_SASL @MONGOC_ENABLE_SASL@
+BSON_BEGIN_DECLS
 
-#if MONGOC_ENABLE_SASL != 1
-#  undef MONGOC_ENABLE_SASL
-#endif
+bool
+_bson_iso8601_date_parse (const char   *str,
+                          int32_t       len,
+                          int64_t      *out);
+
+BSON_END_DECLS
 
 
-#endif /* MONGOC_CONFIG_H */
+#endif /* BSON_ISO8601_PRIVATE_H */

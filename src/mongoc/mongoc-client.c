@@ -21,6 +21,7 @@
 # include <netinet/tcp.h>
 #endif
 
+#include "mongoc-cursor-array-private.h"
 #include "mongoc-client.h"
 #include "mongoc-client-private.h"
 #include "mongoc-cluster-private.h"
@@ -92,7 +93,7 @@ mongoc_client_connect_tcp (const mongoc_uri_t       *uri,
    bson_return_val_if_fail (host, NULL);
 
    if ((options = mongoc_uri_get_options (uri)) &&
-       bson_iter_init_find (&iter, options, "connecttimeoutms") &&
+       bson_iter_init_find_case (&iter, options, "connecttimeoutms") &&
        BSON_ITER_HOLDS_INT32 (&iter)) {
       if (!(connecttimeoutms = bson_iter_int32(&iter))) {
          connecttimeoutms = MONGOC_DEFAULT_CONNECTTIMEOUTMS;
@@ -141,11 +142,16 @@ mongoc_client_connect_tcp (const mongoc_uri_t       *uri,
                                       rp->ai_addr,
                                       (socklen_t)rp->ai_addrlen,
                                       expire_at)) {
-         char errmsg_buf[32];
-         const char * errmsg;
+         char *errmsg;
+         char errmsg_buf[BSON_ERROR_BUFFER_SIZE];
+         char ip[255];
 
-         errmsg = bson_strerror_r (mongoc_socket_errno (sock), errmsg_buf, sizeof errmsg_buf);
-         MONGOC_WARNING ("Failed to connect, error: %d, %s\n",
+         mongoc_socket_inet_ntop (rp, ip, sizeof ip);
+         errmsg = bson_strerror_r (
+            mongoc_socket_errno (sock), errmsg_buf, sizeof errmsg_buf);
+         MONGOC_WARNING ("Failed to connect to: %s:%d, error: %d, %s\n",
+                         ip,
+                         host->port,
                          mongoc_socket_errno(sock),
                          errmsg);
          mongoc_socket_destroy (sock);
@@ -214,7 +220,7 @@ mongoc_client_connect_unix (const mongoc_uri_t       *uri,
    memset (&saddr, 0, sizeof saddr);
    saddr.sun_family = AF_UNIX;
    bson_snprintf (saddr.sun_path, sizeof saddr.sun_path - 1,
-                  "%s", host->host_and_port);
+                  "%s", host->host);
 
    sock = mongoc_socket_new (AF_UNIX, SOCK_STREAM, 0);
 
@@ -485,7 +491,7 @@ _mongoc_client_recv (mongoc_client_t *client,
    bson_return_val_if_fail(rpc, false);
    bson_return_val_if_fail(buffer, false);
    bson_return_val_if_fail(hint, false);
-   bson_return_val_if_fail(hint <= MONGOC_CLUSTER_MAX_NODES, false);
+   bson_return_val_if_fail(hint <= client->cluster.nodes_len, false);
 
    return _mongoc_cluster_try_recv (&client->cluster, rpc, buffer, hint,
                                     error);
@@ -1257,55 +1263,89 @@ mongoc_client_command_simple (mongoc_client_t           *client,
    return ret;
 }
 
+void
+mongoc_client_kill_cursor (mongoc_client_t *client,
+                           int64_t          cursor_id)
+{
+   mongoc_rpc_t rpc = {{ 0 }};
+
+   ENTRY;
+
+   bson_return_if_fail(client);
+   bson_return_if_fail(cursor_id);
+
+   rpc.kill_cursors.msg_len = 0;
+   rpc.kill_cursors.request_id = 0;
+   rpc.kill_cursors.response_to = 0;
+   rpc.kill_cursors.opcode = MONGOC_OPCODE_KILL_CURSORS;
+   rpc.kill_cursors.zero = 0;
+   rpc.kill_cursors.cursors = &cursor_id;
+   rpc.kill_cursors.n_cursors = 1;
+
+   _mongoc_client_sendv (client, &rpc, 1, 0, NULL, NULL, NULL);
+
+   EXIT;
+}
+
 
 char **
 mongoc_client_get_database_names (mongoc_client_t *client,
                                   bson_error_t    *error)
 {
    bson_iter_t iter;
-   bson_iter_t child;
-   bson_iter_t child2;
    const char *name;
-   bson_t cmd = BSON_INITIALIZER;
-   bson_t reply;
    char **ret = NULL;
    int i = 0;
+   mongoc_cursor_t *cursor;
+   const bson_t *doc;
 
    BSON_ASSERT (client);
 
-   BSON_APPEND_INT32 (&cmd, "listDatabases", 1);
+   cursor = mongoc_client_find_databases (client, error);
 
-   if (!mongoc_client_command_simple (client, "admin", &cmd, NULL,
-                                      &reply, error)) {
-      bson_destroy (&cmd);
-      return NULL;
-   }
-
-   if (bson_iter_init_find (&iter, &reply, "databases") &&
-       BSON_ITER_HOLDS_ARRAY (&iter) &&
-       bson_iter_recurse (&iter, &child)) {
-      while (bson_iter_next (&child)) {
-         if (BSON_ITER_HOLDS_DOCUMENT (&child) &&
-             bson_iter_recurse (&child, &child2) &&
-             bson_iter_find (&child2, "name") &&
-             BSON_ITER_HOLDS_UTF8 (&child2) &&
-             (name = bson_iter_utf8 (&child2, NULL)) &&
-             (0 != strcmp (name, "local"))) {
+   while (mongoc_cursor_next (cursor, &doc)) {
+      if (bson_iter_init (&iter, doc) &&
+          bson_iter_find (&iter, "name") &&
+          BSON_ITER_HOLDS_UTF8 (&iter) &&
+          (name = bson_iter_utf8 (&iter, NULL)) &&
+          (0 != strcmp (name, "local"))) {
             ret = bson_realloc (ret, sizeof(char*) * (i + 2));
             ret [i] = bson_strdup (name);
             ret [++i] = NULL;
          }
-      }
    }
 
    if (!ret) {
       ret = bson_malloc0 (sizeof (void*));
    }
 
-   bson_destroy (&cmd);
-   bson_destroy (&reply);
+   mongoc_cursor_destroy (cursor);
 
    return ret;
+}
+
+
+mongoc_cursor_t *
+mongoc_client_find_databases (mongoc_client_t *client,
+                              bson_error_t    *error)
+{
+   bson_t cmd = BSON_INITIALIZER;
+   mongoc_cursor_t *cursor;
+
+   BSON_ASSERT (client);
+
+   BSON_APPEND_INT32 (&cmd, "listDatabases", 1);
+
+   cursor = mongoc_client_command (client, "admin", MONGOC_QUERY_SLAVE_OK, 0, 0, 0,
+                                   &cmd, NULL, NULL);
+
+   _mongoc_cursor_array_init(cursor, "databases");
+
+   cursor->limit = 0;
+
+   bson_destroy (&cmd);
+
+   return cursor;
 }
 
 

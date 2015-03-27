@@ -19,6 +19,9 @@
 #include "mongoc-collection.h"
 #include "mongoc-collection-private.h"
 #include "mongoc-cursor.h"
+#include "mongoc-cursor-array-private.h"
+#include "mongoc-cursor-cursorid-private.h"
+#include "mongoc-cursor-transform-private.h"
 #include "mongoc-cursor-private.h"
 #include "mongoc-database.h"
 #include "mongoc-database-private.h"
@@ -266,7 +269,8 @@ mongoc_database_add_user_legacy (mongoc_database_t *database,
       bson_append_bool(&user, "readOnly", 8, false);
       bson_append_utf8(&user, "pwd", 3, pwd, -1);
    } else {
-      bson_copy_to_excluding(doc, &user, "pwd", (char *)NULL);
+      bson_init(&user);
+      bson_copy_to_excluding_noinit(doc, &user, "pwd", (char *)NULL);
       bson_append_utf8(&user, "pwd", 3, pwd, -1);
    }
 
@@ -327,6 +331,8 @@ mongoc_database_remove_user (mongoc_database_t *database,
 
       bson_destroy (&cmd);
       mongoc_collection_destroy (col);
+   } else if (error) {
+      memcpy (error, &lerror, sizeof *error);
    }
 
    RETURN (ret);
@@ -363,6 +369,8 @@ mongoc_database_remove_all_users (mongoc_database_t *database,
 
       bson_destroy (&cmd);
       mongoc_collection_destroy (col);
+   } else if (error) {
+      memcpy (error, &lerror, sizeof *error);
    }
 
    RETURN (ret);
@@ -585,15 +593,12 @@ mongoc_database_has_collection (mongoc_database_t *database,
                                 const char        *name,
                                 bson_error_t      *error)
 {
-   mongoc_collection_t *collection;
-   mongoc_read_prefs_t *read_prefs;
-   mongoc_cursor_t *cursor;
-   const bson_t *doc;
-   bson_iter_t iter;
+   bson_iter_t col_iter;
    bool ret = false;
    const char *cur_name;
-   bson_t q = BSON_INITIALIZER;
-   char ns[140];
+   bson_t filter = BSON_INITIALIZER;
+   mongoc_cursor_t *cursor;
+   const bson_t *doc;
 
    ENTRY;
 
@@ -604,50 +609,90 @@ mongoc_database_has_collection (mongoc_database_t *database,
       memset (error, 0, sizeof *error);
    }
 
-   bson_snprintf (ns, sizeof ns, "%s.%s", database->name, name);
+   BSON_APPEND_UTF8 (&filter, "name", name);
 
-   read_prefs = mongoc_read_prefs_new (MONGOC_READ_PRIMARY);
-   collection = mongoc_client_get_collection (database->client,
-                                              database->name,
-                                              "system.namespaces");
-   cursor = mongoc_collection_find (collection, MONGOC_QUERY_NONE, 0, 0, 0, &q,
-                                    NULL, read_prefs);
+   cursor = mongoc_database_find_collections (database, &filter, error);
 
-   while (!mongoc_cursor_error (cursor, error) &&
-          mongoc_cursor_more (cursor)) {
-      while (mongoc_cursor_next (cursor, &doc) &&
-          bson_iter_init_find (&iter, doc, "name") &&
-          BSON_ITER_HOLDS_UTF8 (&iter)) {
-         cur_name = bson_iter_utf8(&iter, NULL);
-         if (!strcmp(cur_name, ns)) {
+   if (!cursor ||
+       (error &&
+        ((error->domain != 0) ||
+         (error->code != 0)))) {
+      return ret;
+   }
+
+   while (mongoc_cursor_next (cursor, &doc)) {
+      if (bson_iter_init (&col_iter, doc) &&
+          bson_iter_find (&col_iter, "name") &&
+          BSON_ITER_HOLDS_UTF8 (&col_iter) &&
+          (cur_name = bson_iter_utf8 (&col_iter, NULL))) {
+         if (!strcmp (cur_name, name)) {
             ret = true;
-            GOTO(cleanup);
+            GOTO (cleanup);
          }
       }
    }
 
 cleanup:
    mongoc_cursor_destroy (cursor);
-   mongoc_collection_destroy (collection);
-   mongoc_read_prefs_destroy (read_prefs);
 
-   RETURN(ret);
+   RETURN (ret);
 }
 
+typedef struct
+{
+   const char *dbname;
+   size_t      dbname_len;
+   const char *name;
+} mongoc_database_find_collections_legacy_ctx_t;
 
-char **
-mongoc_database_get_collection_names (mongoc_database_t *database,
-                                      bson_error_t      *error)
+static mongoc_cursor_transform_mode_t
+_mongoc_database_find_collections_legacy_filter (const bson_t *bson,
+                                                 void         *ctx_)
+{
+   bson_iter_t iter;
+   mongoc_database_find_collections_legacy_ctx_t *ctx;
+
+   ctx = ctx_;
+
+   if (bson_iter_init_find (&iter, bson, "name")
+       && BSON_ITER_HOLDS_UTF8 (&iter)
+       && (ctx->name = bson_iter_utf8 (&iter, NULL))
+       && !strchr (ctx->name, '$')
+       && (0 == strncmp (ctx->name, ctx->dbname, ctx->dbname_len))) {
+      return MONGO_CURSOR_TRANSFORM_MUTATE;
+   } else {
+      return MONGO_CURSOR_TRANSFORM_DROP;
+   }
+}
+
+static void
+_mongoc_database_find_collections_legacy_mutate (const bson_t *bson,
+                                                 bson_t       *out,
+                                                 void         *ctx_)
+{
+   mongoc_database_find_collections_legacy_ctx_t *ctx;
+
+   ctx = ctx_;
+
+   bson_copy_to_excluding_noinit (bson, out, "name", NULL);
+   BSON_APPEND_UTF8 (out, "name", ctx->name + (ctx->dbname_len + 1));  /* +1 for the '.' */
+}
+
+/* Uses old way of querying system.namespaces. */
+mongoc_cursor_t *
+_mongoc_database_find_collections_legacy (mongoc_database_t *database,
+                                          const bson_t      *filter,
+                                          bson_error_t      *error)
 {
    mongoc_collection_t *col;
-   mongoc_cursor_t *cursor;
-   uint32_t len;
-   const bson_t *doc;
+   mongoc_cursor_t *cursor = NULL;
+   mongoc_read_prefs_t *read_prefs;
+   uint32_t dbname_len;
+   bson_t legacy_filter;
    bson_iter_t iter;
-   const char *name;
+   const char *col_filter;
    bson_t q = BSON_INITIALIZER;
-   char **ret = NULL;
-   int i = 0;
+   mongoc_database_find_collections_legacy_ctx_t *ctx;
 
    BSON_ASSERT (database);
 
@@ -655,34 +700,161 @@ mongoc_database_get_collection_names (mongoc_database_t *database,
                                        database->name,
                                        "system.namespaces");
 
-   cursor = mongoc_collection_find (col, MONGOC_QUERY_NONE, 0, 0, 0, &q,
-                                    NULL, NULL);
+   BSON_ASSERT (col);
 
-   len = (int) strlen (database->name) + 1;
+   dbname_len = (uint32_t)strlen (database->name);
 
-   while (mongoc_cursor_more (cursor) &&
-          !mongoc_cursor_error (cursor, error)) {
-      if (mongoc_cursor_next (cursor, &doc)) {
-         if (bson_iter_init_find (&iter, doc, "name") &&
-             BSON_ITER_HOLDS_UTF8 (&iter) &&
-             (name = bson_iter_utf8 (&iter, NULL)) &&
-             !strchr (name, '$') &&
-             (0 == strncmp (name, database->name, len - 1))) {
-            ret = bson_realloc (ret, sizeof(char*) * (i + 2));
-            ret [i] = bson_strdup (bson_iter_utf8 (&iter, NULL) + len);
-            ret [++i] = NULL;
+   ctx = bson_malloc (sizeof (*ctx));
+
+   ctx->dbname = database->name;
+   ctx->dbname_len = dbname_len;
+
+   /* Filtering on name needs to be handled differently for old servers. */
+   if (filter && bson_iter_init_find (&iter, filter, "name")) {
+      bson_string_t *buf;
+      /* on legacy servers, this must be a string (i.e. not a regex) */
+      if (!BSON_ITER_HOLDS_UTF8 (&iter)) {
+         bson_set_error (error,
+                         MONGOC_ERROR_NAMESPACE,
+                         MONGOC_ERROR_NAMESPACE_INVALID_FILTER_TYPE,
+                         "On legacy servers, a filter on name can only be a string.");
+         goto cleanup_filter;
+      }
+      BSON_ASSERT (BSON_ITER_HOLDS_UTF8 (&iter));
+      col_filter = bson_iter_utf8 (&iter, NULL);
+      bson_init (&legacy_filter);
+      bson_copy_to_excluding_noinit (filter, &legacy_filter, "name", NULL);
+      /* We must db-qualify filters on name. */
+      buf = bson_string_new (database->name);
+      bson_string_append_c (buf, '.');
+      bson_string_append (buf, col_filter);
+      BSON_APPEND_UTF8 (&legacy_filter, "name", buf->str);
+      bson_string_free (buf, true);
+      filter = &legacy_filter;
+   }
+
+   read_prefs = mongoc_read_prefs_new (MONGOC_READ_PRIMARY);
+
+   cursor = mongoc_collection_find (col, MONGOC_QUERY_NONE, 0, 0, 0,
+                                    filter ? filter : &q, NULL, read_prefs);
+
+   _mongoc_cursor_transform_init (
+      cursor,
+      _mongoc_database_find_collections_legacy_filter,
+      _mongoc_database_find_collections_legacy_mutate,
+      &bson_free,
+      ctx);
+
+   mongoc_read_prefs_destroy (read_prefs);
+
+ cleanup_filter:
+   mongoc_collection_destroy (col);
+
+   return cursor;
+}
+
+mongoc_cursor_t *
+mongoc_database_find_collections (mongoc_database_t *database,
+                                  const bson_t      *filter,
+                                  bson_error_t      *error)
+{
+   mongoc_cursor_t *cursor;
+   mongoc_read_prefs_t *read_prefs;
+   bson_t cmd = BSON_INITIALIZER;
+   bson_t child;
+   bson_error_t lerror;
+
+   BSON_ASSERT (database);
+
+   BSON_APPEND_INT32 (&cmd, "listCollections", 1);
+
+   if (filter) {
+      BSON_APPEND_DOCUMENT (&cmd, "filter", filter);
+      BSON_APPEND_DOCUMENT_BEGIN (&cmd, "cursor", &child);
+      bson_append_document_end (&cmd, &child);
+   }
+
+   read_prefs = mongoc_read_prefs_new (MONGOC_READ_PRIMARY);
+
+   cursor = mongoc_database_command (database, MONGOC_QUERY_SLAVE_OK, 0, 0, 0,
+                                     &cmd, NULL, read_prefs);
+
+   _mongoc_cursor_cursorid_init(cursor);
+
+   cursor->limit = 0;
+
+   if (_mongoc_cursor_cursorid_prime (cursor)) {
+       /* intentionally empty */
+   } else {
+      if (mongoc_cursor_error (cursor, &lerror)) {
+         if (lerror.code == MONGOC_ERROR_QUERY_COMMAND_NOT_FOUND) {
+            /* We are talking to a server that doesn' support listCollections. */
+            /* clear out the error. */
+            memset (&lerror, 0, sizeof lerror);
+            /* try again with using system.namespaces */
+            mongoc_cursor_destroy (cursor);
+            cursor = _mongoc_database_find_collections_legacy (
+               database, filter, error);
+         } else if (error) {
+            memcpy (error, &lerror, sizeof *error);
          }
+      } else {
+         /* TODO: remove this branch for general release.  Only relevant for RC */
+         mongoc_cursor_destroy (cursor);
+         cursor = mongoc_database_command (database, MONGOC_QUERY_SLAVE_OK, 0, 0, 0,
+                                           &cmd, NULL, read_prefs);
+
+         _mongoc_cursor_array_init(cursor, "collections");
+
+         cursor->limit = 0;
       }
    }
 
-   if (!ret && !mongoc_cursor_error (cursor, error)) {
-      ret = bson_malloc0 (sizeof (void*));
+   bson_destroy (&cmd);
+   mongoc_read_prefs_destroy (read_prefs);
+
+   return cursor;
+}
+
+char **
+mongoc_database_get_collection_names (mongoc_database_t *database,
+                                      bson_error_t      *error)
+{
+   bson_iter_t col;
+   const char *name;
+   char *namecopy;
+   mongoc_array_t strv_buf;
+   mongoc_cursor_t *cursor;
+   const bson_t *doc;
+
+   BSON_ASSERT (database);
+
+   cursor = mongoc_database_find_collections (database, NULL, error);
+
+   if (!cursor) {
+      return NULL;
    }
 
-   mongoc_cursor_destroy (cursor);
-   mongoc_collection_destroy (col);
+   _mongoc_array_init (&strv_buf, sizeof (char *));
 
-   return ret;
+   while (mongoc_cursor_next (cursor, &doc)) {
+      if (bson_iter_init (&col, doc) &&
+          bson_iter_find (&col, "name") &&
+          BSON_ITER_HOLDS_UTF8 (&col) &&
+          (name = bson_iter_utf8 (&col, NULL))) {
+          namecopy = bson_strdup (name);
+          _mongoc_array_append_val (&strv_buf, namecopy);
+      }
+   }
+
+   /* append a null pointer for the last value. also handles the case
+    * of no values. */
+   namecopy = NULL;
+   _mongoc_array_append_val (&strv_buf, namecopy);
+
+   mongoc_cursor_destroy (cursor);
+
+   return (char **) strv_buf.data;
 }
 
 
@@ -765,7 +937,46 @@ mongoc_database_create_collection (mongoc_database_t *database,
             return NULL;
          }
       }
+
+      if (bson_iter_init_find (&iter, options, "storage")) {
+         if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+            bson_set_error (error,
+                            MONGOC_ERROR_COMMAND,
+                            MONGOC_ERROR_COMMAND_INVALID_ARG,
+                            "The \"storage\" parameter must be a document");
+
+            return NULL;
+         }
+
+         if (bson_iter_find (&iter, "wiredtiger")) {
+            if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+               bson_set_error (error,
+                               MONGOC_ERROR_COMMAND,
+                               MONGOC_ERROR_COMMAND_INVALID_ARG,
+                               "The \"wiredtiger\" option must take a document argument with a \"configString\" field");
+               return NULL;
+            }
+
+            if (bson_iter_find (&iter, "configString")) {
+               if (!BSON_ITER_HOLDS_UTF8 (&iter)) {
+                  bson_set_error (error,
+                                  MONGOC_ERROR_COMMAND,
+                                  MONGOC_ERROR_COMMAND_INVALID_ARG,
+                                  "The \"configString\" parameter must be a string");
+                  return NULL;
+               }
+            } else {
+               bson_set_error (error,
+                               MONGOC_ERROR_COMMAND,
+                               MONGOC_ERROR_COMMAND_INVALID_ARG,
+                               "The \"wiredtiger\" option must take a document argument with a \"configString\" field");
+               return NULL;
+            }
+         }
+      }
+
    }
+
 
    bson_init (&cmd);
    BSON_APPEND_UTF8 (&cmd, "create", name);

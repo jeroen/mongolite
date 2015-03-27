@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2014 MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include "bson.h"
 #include "bson-config.h"
 #include "bson-json.h"
+#include "bson-iso8601-private.h"
 #include "b64_pton.h"
 
 #include <yajl/yajl_parser.h>
@@ -45,6 +46,8 @@ typedef enum
    BSON_JSON_ERROR,
    BSON_JSON_IN_START_MAP,
    BSON_JSON_IN_BSON_TYPE,
+   BSON_JSON_IN_BSON_TYPE_DATE_NUMBERLONG,
+   BSON_JSON_IN_BSON_TYPE_DATE_ENDMAP,
    BSON_JSON_IN_BSON_TYPE_TIMESTAMP_STARTMAP,
    BSON_JSON_IN_BSON_TYPE_TIMESTAMP_VALUES,
    BSON_JSON_IN_BSON_TYPE_TIMESTAMP_ENDMAP,
@@ -218,26 +221,29 @@ static yajl_alloc_funcs gYajlAllocFuncs = {
 #define STACK_PUSH_ARRAY(statement) \
    do { \
       if (bson->n >= (STACK_MAX - 1)) { return 0; } \
-      if (bson->n == -1) { return 0; } \
       bson->n++; \
       STACK_I = 0; \
       STACK_IS_ARRAY = 1; \
-      statement; \
+      if (bson->n != 0) { \
+         statement; \
+      } \
    } while (0)
 #define STACK_PUSH_DOC(statement) \
    do { \
       if (bson->n >= (STACK_MAX - 1)) { return 0; } \
       bson->n++; \
+      STACK_IS_ARRAY = 0; \
       if (bson->n != 0) { \
-         STACK_IS_ARRAY = 0; \
          statement; \
       } \
    } while (0)
 #define STACK_POP_ARRAY(statement) \
    do { \
       if (!STACK_IS_ARRAY) { return 0; } \
-      if (bson->n <= 0) { return 0; } \
-      statement; \
+      if (bson->n < 0) { return 0; } \
+      if (bson->n > 0) { \
+         statement; \
+      } \
       bson->n--; \
    } while (0)
 #define STACK_POP_DOC(statement) \
@@ -278,7 +284,6 @@ static yajl_alloc_funcs gYajlAllocFuncs = {
       bson->bson_type = (_type); \
       bson->bson_state = (_state); \
    }
-
 
 static bool
 _bson_json_all_whitespace (const char *utf8)
@@ -348,7 +353,7 @@ _bson_json_read_fixup_key (bson_json_reader_bson_t *bson) /* IN */
 {
    BSON_ASSERT (bson);
 
-   if (bson->n > 0 && STACK_IS_ARRAY) {
+   if (bson->n >= 0 && STACK_IS_ARRAY) {
       _bson_json_buf_ensure (&bson->key_buf, 12);
       bson->key_buf.len = bson_uint32_to_string (STACK_I, &bson->key,
                                                  (char *)bson->key_buf.buf, 12);
@@ -507,7 +512,7 @@ _bson_json_read_string (void                *_ctx, /* IN */
       BASIC_YAJL_CB_BAIL_IF_NOT_NORMAL ("string");
       bson_append_utf8 (STACK_BSON_CHILD, key, (int)len, (const char *)val, (int)vlen);
    } else if (rs == BSON_JSON_IN_BSON_TYPE || rs ==
-              BSON_JSON_IN_BSON_TYPE_TIMESTAMP_VALUES) {
+              BSON_JSON_IN_BSON_TYPE_TIMESTAMP_VALUES || rs == BSON_JSON_IN_BSON_TYPE_DATE_NUMBERLONG) {
       const char *val_w_null;
       _bson_json_buf_set (&bson->bson_type_buf[2], val, vlen, true);
       val_w_null = (const char *)bson->bson_type_buf[2].buf;
@@ -533,7 +538,7 @@ _bson_json_read_string (void                *_ctx, /* IN */
       case BSON_JSON_LF_TYPE:
          bson->bson_type_data.binary.has_subtype = true;
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 # define SSCANF sscanf_s
 #else
 # define SSCANF sscanf
@@ -587,10 +592,30 @@ _bson_json_read_string (void                *_ctx, /* IN */
                goto BAD_PARSE;
             }
 
-            bson_append_int64 (STACK_BSON_CHILD, key, (int)len, v64);
+            if (bson->read_state == BSON_JSON_IN_BSON_TYPE) {
+                bson->bson_type_data.v_int64.value = v64;
+            } else if (bson->read_state == BSON_JSON_IN_BSON_TYPE_DATE_NUMBERLONG) {
+                bson->bson_type_data.date.has_date = true;
+                bson->bson_type_data.date.date = v64;
+            } else {
+                goto BAD_PARSE;
+            }
          }
          break;
       case BSON_JSON_LF_DATE:
+         {
+            int64_t v64;
+
+            if (!_bson_iso8601_date_parse ((char *)val, (int)vlen, &v64)) {
+               _bson_json_read_set_error (reader, "Could not parse \"%s\" as a date",
+                                          val_w_null);
+               return 0;
+            } else {
+               bson->bson_type_data.date.has_date = true;
+               bson->bson_type_data.date.date = v64;
+            }
+         }
+         break;
       case BSON_JSON_LF_TIMESTAMP_T:
       case BSON_JSON_LF_TIMESTAMP_I:
       case BSON_JSON_LF_UNDEFINED:
@@ -622,7 +647,9 @@ _bson_json_read_start_map (void *_ctx) /* IN */
 {
    BASIC_YAJL_CB_PREAMBLE;
 
-   if (bson->read_state == BSON_JSON_IN_BSON_TYPE_TIMESTAMP_STARTMAP) {
+   if (bson->read_state == BSON_JSON_IN_BSON_TYPE && bson->bson_state == BSON_JSON_LF_DATE) {
+      bson->read_state = BSON_JSON_IN_BSON_TYPE_DATE_NUMBERLONG;
+   } else if (bson->read_state == BSON_JSON_IN_BSON_TYPE_TIMESTAMP_STARTMAP) {
       bson->read_state = BSON_JSON_IN_BSON_TYPE_TIMESTAMP_VALUES;
    } else {
       bson->read_state = BSON_JSON_IN_START_MAP;
@@ -704,6 +731,13 @@ _bson_json_read_map_key (void          *_ctx, /* IN */
          bson->bson_type = BSON_TYPE_TIMESTAMP;
          bson->read_state = BSON_JSON_IN_BSON_TYPE_TIMESTAMP_STARTMAP;
       } else {
+         _bson_json_read_set_error (reader,
+                                    "Invalid key %s.  Looking for values for %d",
+                                    val, bson->bson_type);
+         return 0;
+      }
+   } else if (bson->read_state == BSON_JSON_IN_BSON_TYPE_DATE_NUMBERLONG) {
+      if HANDLE_OPTION ("$numberLong", BSON_TYPE_DATE_TIME, BSON_JSON_LF_INT64) else {
          _bson_json_read_set_error (reader,
                                     "Invalid key %s.  Looking for values for %d",
                                     val, bson->bson_type);
@@ -899,6 +933,12 @@ _bson_json_read_end_map (void *_ctx) /* IN */
       return _bson_json_read_append_timestamp (reader, bson);
    } else if (bson->read_state == BSON_JSON_IN_BSON_TYPE_TIMESTAMP_ENDMAP) {
       bson->read_state = BSON_JSON_REGULAR;
+   } else if (bson->read_state == BSON_JSON_IN_BSON_TYPE_DATE_NUMBERLONG) {
+      bson->read_state = BSON_JSON_IN_BSON_TYPE_DATE_ENDMAP;
+
+      return _bson_json_read_append_date_time(reader, bson);
+   } else if (bson->read_state == BSON_JSON_IN_BSON_TYPE_DATE_ENDMAP) {
+      bson->read_state = BSON_JSON_REGULAR;
    } else if (bson->read_state == BSON_JSON_REGULAR) {
       STACK_POP_DOC (bson_append_document_end (STACK_BSON_PARENT,
                                                STACK_BSON_CHILD));
@@ -919,11 +959,23 @@ _bson_json_read_end_map (void *_ctx) /* IN */
 static int
 _bson_json_read_start_array (void *_ctx) /* IN */
 {
-   BASIC_YAJL_CB_PREAMBLE;
-   BASIC_YAJL_CB_BAIL_IF_NOT_NORMAL ("[");
+   const char *key;
+   size_t len;
+   bson_json_reader_t *reader = (bson_json_reader_t *)_ctx;
+   bson_json_reader_bson_t *bson = &reader->bson;
 
-   STACK_PUSH_ARRAY (bson_append_array_begin (STACK_BSON_PARENT, key, (int)len,
-                                              STACK_BSON_CHILD));
+   if (bson->n < 0) {
+      STACK_PUSH_ARRAY ();
+   } else {
+      _bson_json_read_fixup_key (bson);
+      key = bson->key;
+      len = bson->key_buf.len;
+
+      BASIC_YAJL_CB_BAIL_IF_NOT_NORMAL ("[");
+
+      STACK_PUSH_ARRAY (bson_append_array_begin (STACK_BSON_PARENT, key, (int)len,
+                                                 STACK_BSON_CHILD));
+   }
 
    return 1;
 }
@@ -943,6 +995,10 @@ _bson_json_read_end_array (void *_ctx) /* IN */
 
    STACK_POP_ARRAY (bson_append_array_end (STACK_BSON_PARENT,
                                            STACK_BSON_CHILD));
+   if (bson->n == -1) {
+      bson->read_state = BSON_JSON_DONE;
+      return 0;
+   }
 
    return 1;
 }
@@ -1186,7 +1242,7 @@ _bson_json_data_reader_cb (void    *_ctx,
       return -1;
    }
 
-   bytes = MIN (len, ctx->len - ctx->bytes_parsed);
+   bytes = BSON_MIN (len, ctx->len - ctx->bytes_parsed);
 
    memcpy (buf, ctx->data + ctx->bytes_parsed, bytes);
 
@@ -1349,7 +1405,8 @@ bson_json_reader_t *
 bson_json_reader_new_from_file (const char   *path,  /* IN */
                                 bson_error_t *error) /* OUT */
 {
-   char errmsg[32];
+   char errmsg_buf[BSON_ERROR_BUFFER_SIZE];
+   char *errmsg;
    int fd = -1;
 
    bson_return_val_if_fail (path, NULL);
@@ -1361,7 +1418,7 @@ bson_json_reader_new_from_file (const char   *path,  /* IN */
 #endif
 
    if (fd == -1) {
-      bson_strerror_r (errno, errmsg, sizeof errmsg);
+      errmsg = bson_strerror_r (errno, errmsg_buf, sizeof errmsg_buf);
       bson_set_error (error,
                       BSON_ERROR_READER,
                       BSON_ERROR_READER_BADFD,

@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_WRITE_COMMAND_PRIVATE_H
+#define MONGOC_WRITE_COMMAND_PRIVATE_H
 
 #if !defined (MONGOC_I_AM_A_DRIVER) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_WRITE_COMMAND_PRIVATE_H
-#define MONGOC_WRITE_COMMAND_PRIVATE_H
-
 
 #include <bson.h>
 
@@ -79,7 +76,7 @@ typedef struct
    uint32_t     n_commands;
    bson_t       upserted;
    bson_t       writeErrors;
-   bson_t       writeConcernErrors;
+   bson_t       writeConcernError;
    bool         failed;
    bson_error_t error;
    uint32_t     upsert_append_count;

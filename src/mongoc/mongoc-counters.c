@@ -113,7 +113,7 @@ mongoc_counters_calc_size (void)
            (n_cpu * n_groups * sizeof(mongoc_counter_slots_t)));
 
 #ifdef BSON_OS_UNIX
-   return MAX(getpagesize(), size);
+   return BSON_MAX(getpagesize(), size);
 #else
    return size;
 #endif
@@ -199,9 +199,8 @@ failure:
    close (fd);
 
 use_malloc:
+   MONGOC_WARNING("Falling back to malloc for counters.");
 #endif
-
-   MONGOC_WARNING ("Falling back to malloc for counters.");
 
    gCounterFallback = bson_malloc0 (size);
    atexit (mongoc_counters_destroy);

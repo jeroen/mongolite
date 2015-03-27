@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_GRIDFS_FILE_H
+#define MONGOC_GRIDFS_FILE_H
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_GRIDFS_FILE_H
-#define MONGOC_GRIDFS_FILE_H
-
 
 #include <bson.h>
 
@@ -82,7 +79,7 @@ ssize_t  mongoc_gridfs_file_readv           (mongoc_gridfs_file_t *file,
                                              size_t                min_bytes,
                                              uint32_t              timeout_msec);
 int      mongoc_gridfs_file_seek            (mongoc_gridfs_file_t *file,
-                                             uint64_t              delta,
+                                             int64_t               delta,
                                              int                   whence);
 uint64_t mongoc_gridfs_file_tell            (mongoc_gridfs_file_t *file);
 bool     mongoc_gridfs_file_save            (mongoc_gridfs_file_t *file);

@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_CLUSTER_PRIVATE_H
+#define MONGOC_CLUSTER_PRIVATE_H
 
 #if !defined (MONGOC_I_AM_A_DRIVER) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_CLUSTER_PRIVATE_H
-#define MONGOC_CLUSTER_PRIVATE_H
-
 
 #include <bson.h>
 
@@ -43,7 +40,6 @@
 BSON_BEGIN_DECLS
 
 
-#define MONGOC_CLUSTER_MAX_NODES 12
 #define MONGOC_CLUSTER_PING_NUM_SAMPLES 5
 
 
@@ -82,6 +78,7 @@ typedef struct
    int32_t             max_wire_version;
    int32_t             max_write_batch_size;
    char               *replSet;
+   int64_t             last_read_msec;
 } mongoc_cluster_node_t;
 
 
@@ -99,7 +96,8 @@ typedef struct
 
    unsigned                requires_auth : 1;
 
-   mongoc_cluster_node_t   nodes[MONGOC_CLUSTER_MAX_NODES];
+   mongoc_cluster_node_t  *nodes;
+   uint32_t                nodes_len;
    mongoc_client_t        *client;
    int32_t                 max_bson_size;
    int32_t                 max_msg_size;

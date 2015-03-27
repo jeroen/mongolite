@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_CURSOR_H
+#define MONGOC_CURSOR_H
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
 # error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_CURSOR_H
-#define MONGOC_CURSOR_H
-
 
 #include <bson.h>
 
@@ -46,7 +43,11 @@ void             mongoc_cursor_get_host (mongoc_cursor_t        *cursor,
                                          mongoc_host_list_t     *host);
 bool             mongoc_cursor_is_alive (const mongoc_cursor_t  *cursor);
 const bson_t    *mongoc_cursor_current  (const mongoc_cursor_t  *cursor);
+void             mongoc_cursor_set_batch_size (mongoc_cursor_t  *cursor,
+                                               uint32_t          batch_size);
+uint32_t         mongoc_cursor_get_batch_size (const mongoc_cursor_t *cursor);
 uint32_t         mongoc_cursor_get_hint (const mongoc_cursor_t  *cursor);
+int64_t          mongoc_cursor_get_id   (const mongoc_cursor_t  *cursor);
 
 
 BSON_END_DECLS

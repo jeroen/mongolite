@@ -32,8 +32,22 @@ static mongoc_index_opt_t gMongocIndexOptDefault = {
    0,
    -1,
    -1,
+   NULL,
+   NULL
 };
 
+static mongoc_index_opt_geo_t gMongocIndexOptGeoDefault = {
+   26,
+   -90,
+   90,
+   -1,
+   2
+};
+
+static mongoc_index_opt_wt_t gMongocIndexOptWTDefault = {
+   { MONGOC_INDEX_STORAGE_OPT_WIREDTIGER },
+   ""
+};
 
 const mongoc_index_opt_t *
 mongoc_index_opt_get_default (void)
@@ -41,6 +55,17 @@ mongoc_index_opt_get_default (void)
    return &gMongocIndexOptDefault;
 }
 
+const mongoc_index_opt_geo_t *
+mongoc_index_opt_geo_get_default (void)
+{
+   return &gMongocIndexOptGeoDefault;
+}
+
+const mongoc_index_opt_wt_t *
+mongoc_index_opt_wt_get_default (void)
+{
+   return &gMongocIndexOptWTDefault;
+}
 
 void
 mongoc_index_opt_init (mongoc_index_opt_t *opt)
@@ -48,4 +73,19 @@ mongoc_index_opt_init (mongoc_index_opt_t *opt)
    BSON_ASSERT (opt);
 
    memcpy (opt, &gMongocIndexOptDefault, sizeof *opt);
+}
+
+void
+mongoc_index_opt_geo_init (mongoc_index_opt_geo_t *opt)
+{
+   BSON_ASSERT (opt);
+
+   memcpy (opt, &gMongocIndexOptGeoDefault, sizeof *opt);
+}
+
+void mongoc_index_opt_wt_init (mongoc_index_opt_wt_t *opt)
+{
+   BSON_ASSERT(opt);
+
+   memcpy (opt, &gMongocIndexOptWTDefault, sizeof *opt);
 }

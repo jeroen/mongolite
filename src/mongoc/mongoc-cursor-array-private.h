@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_CURSOR_ARRAY_PRIVATE_H
+#define MONGOC_CURSOR_ARRAY_PRIVATE_H
 
 #if !defined (MONGOC_I_AM_A_DRIVER) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_CURSOR_ARRAY_PRIVATE_H
-#define MONGOC_CURSOR_ARRAY_PRIVATE_H
-
 
 #include <bson.h>
 
@@ -32,7 +29,17 @@
 BSON_BEGIN_DECLS
 
 
-void _mongoc_cursor_array_init (mongoc_cursor_t *cursor);
+void
+_mongoc_cursor_array_init (mongoc_cursor_t *cursor,
+                           const char      *field_name);
+
+bool
+_mongoc_cursor_array_prime (mongoc_cursor_t *cursor);
+
+
+void
+_mongoc_cursor_array_set_bson (mongoc_cursor_t *cursor,
+                               const bson_t    *bson);
 
 
 BSON_END_DECLS

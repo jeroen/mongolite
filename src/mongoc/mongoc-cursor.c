@@ -89,7 +89,7 @@ _mongoc_n_return (mongoc_cursor_t * cursor)
       uint32_t remaining = cursor->limit - cursor->count;
 
       /* use min of batch or remaining */
-      r = MIN(r, (int32_t)remaining);
+      r = BSON_MIN(r, (int32_t)remaining);
    }
 
    return r;
@@ -318,34 +318,11 @@ finish:
 }
 
 
-static void
-_mongoc_cursor_kill_cursor (mongoc_cursor_t *cursor,
-                            int64_t     cursor_id)
-{
-   mongoc_rpc_t rpc = {{ 0 }};
-
-   ENTRY;
-
-   bson_return_if_fail(cursor);
-   bson_return_if_fail(cursor_id);
-
-   rpc.kill_cursors.msg_len = 0;
-   rpc.kill_cursors.request_id = 0;
-   rpc.kill_cursors.response_to = 0;
-   rpc.kill_cursors.opcode = MONGOC_OPCODE_KILL_CURSORS;
-   rpc.kill_cursors.zero = 0;
-   rpc.kill_cursors.cursors = &cursor_id;
-   rpc.kill_cursors.n_cursors = 1;
-
-   _mongoc_client_sendv (cursor->client, &rpc, 1, 0, NULL, NULL, NULL);
-
-   EXIT;
-}
-
-
 void
 mongoc_cursor_destroy (mongoc_cursor_t *cursor)
 {
+   ENTRY;
+
    BSON_ASSERT(cursor);
 
    if (cursor->iface.destroy) {
@@ -373,7 +350,7 @@ _mongoc_cursor_destroy (mongoc_cursor_t *cursor)
             &cursor->client->cluster.nodes[cursor->hint - 1]);
       }
    } else if (cursor->rpc.reply.cursor_id) {
-      _mongoc_cursor_kill_cursor(cursor, cursor->rpc.reply.cursor_id);
+      mongoc_client_kill_cursor(cursor->client, cursor->rpc.reply.cursor_id);
    }
 
    if (cursor->reader) {
@@ -564,10 +541,6 @@ _mongoc_cursor_query (mongoc_cursor_t *cursor)
    }
 
    if (_mongoc_cursor_unwrap_failure(cursor)) {
-      if ((cursor->error.domain == MONGOC_ERROR_QUERY) &&
-          (cursor->error.code == MONGOC_ERROR_QUERY_NOT_TAILABLE)) {
-         cursor->failed = true;
-      }
       GOTO (failure);
    }
 
@@ -707,6 +680,8 @@ mongoc_cursor_error (mongoc_cursor_t *cursor,
                      bson_error_t    *error)
 {
    bool ret;
+
+   ENTRY;
 
    BSON_ASSERT(cursor);
 
@@ -998,6 +973,7 @@ _mongoc_cursor_clone (const mongoc_cursor_t *cursor)
    _clone->batch_size = cursor->batch_size;
    _clone->limit = cursor->limit;
    _clone->nslen = cursor->nslen;
+   _clone->has_fields = cursor->has_fields;
 
    if (cursor->read_prefs) {
       _clone->read_prefs = mongoc_read_prefs_copy (cursor->read_prefs);
@@ -1056,10 +1032,34 @@ mongoc_cursor_current (const mongoc_cursor_t *cursor) /* IN */
 }
 
 
+void
+mongoc_cursor_set_batch_size (mongoc_cursor_t *cursor,
+                              uint32_t         batch_size)
+{
+   bson_return_if_fail (cursor);
+   cursor->batch_size = batch_size;
+}
+
+uint32_t
+mongoc_cursor_get_batch_size (const mongoc_cursor_t *cursor)
+{
+   bson_return_val_if_fail (cursor, 0);
+
+   return cursor->batch_size;
+}
+
 uint32_t
 mongoc_cursor_get_hint (const mongoc_cursor_t *cursor)
 {
    bson_return_val_if_fail (cursor, 0);
 
    return cursor->hint;
+}
+
+int64_t
+mongoc_cursor_get_id (const mongoc_cursor_t  *cursor)
+{
+   BSON_ASSERT(cursor);
+
+   return cursor->rpc.reply.cursor_id;
 }

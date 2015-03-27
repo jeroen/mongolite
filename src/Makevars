@@ -4,6 +4,8 @@ SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
 
 OBJECTS = $(SOURCES:.c=.o)
 
+PKG_LIBS = -lssl -lcrypto -lsasl2
+
 all: $(OBJECTS)
 
 clean:

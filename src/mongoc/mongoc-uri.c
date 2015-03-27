@@ -23,7 +23,7 @@
 #include "mongoc-host-list-private.h"
 #include "mongoc-log.h"
 #include "mongoc-socket.h"
-#include "mongoc-uri.h"
+#include "mongoc-uri-private.h"
 
 
 #if defined(_WIN32) && !defined(strcasecmp)
@@ -39,10 +39,10 @@ struct _mongoc_uri_t
    char                   *password;
    char                   *database;
    bson_t                  options;
+   bson_t                  credentials;
    bson_t                  read_prefs;
    mongoc_write_concern_t *write_concern;
 };
-
 
 static void
 mongoc_uri_do_unescape (char **str)
@@ -55,6 +55,24 @@ mongoc_uri_do_unescape (char **str)
    }
 }
 
+void
+mongoc_uri_lowercase_hostname (const char *src,
+                               char *buf /* OUT */,
+                               int len)
+{
+   bson_unichar_t c;
+   const char *iter;
+   char *buf_iter;
+
+   /* TODO: this code only accepts ascii, and assumes that lowercased
+      chars are the same width as originals */
+   for (iter = src, buf_iter = buf;
+        iter && *iter && (c = bson_utf8_get_char(iter)) && buf_iter - buf < len;
+        iter = bson_utf8_next_char(iter), buf_iter++) {
+      assert(c < 128);
+      *buf_iter = tolower(c);
+   }
+}
 
 static void
 mongoc_uri_append_host (mongoc_uri_t  *uri,
@@ -65,7 +83,7 @@ mongoc_uri_append_host (mongoc_uri_t  *uri,
    mongoc_host_list_t *link_;
 
    link_ = bson_malloc0(sizeof *link_);
-   bson_strncpy (link_->host, host, sizeof link_->host);
+   mongoc_uri_lowercase_hostname(host, link_->host, sizeof link_->host);
    if (strchr (host, ':')) {
       bson_snprintf (link_->host_and_port, sizeof link_->host_and_port,
                      "[%s]:%hu", host, port);
@@ -86,10 +104,32 @@ mongoc_uri_append_host (mongoc_uri_t  *uri,
    }
 }
 
+/*
+ *--------------------------------------------------------------------------
+ *
+ * scan_to_unichar --
+ *
+ *       Scans 'str' until either a character matching 'match' is found,
+ *       until one of the characters in 'terminators' is encountered, or
+ *       until we reach the end of 'str'.
+ *
+ *       NOTE: 'terminators' may not include multibyte UTF-8 characters.
+ *
+ * Returns:
+ *       If 'match' is found, returns a copy of the section of 'str' before
+ *       that character.  Otherwise, returns NULL.
+ *
+ * Side Effects:
+ *       If 'match' is found, sets 'end' to begin at the matching character
+ *       in 'str'.
+ *
+ *--------------------------------------------------------------------------
+ */
 
 static char *
 scan_to_unichar (const char      *str,
-                 bson_unichar_t   stop,
+                 bson_unichar_t   match,
+                 const char      *terminators,
                  const char     **end)
 {
    bson_unichar_t c;
@@ -97,15 +137,21 @@ scan_to_unichar (const char      *str,
 
    for (iter = str;
         iter && *iter && (c = bson_utf8_get_char(iter));
-        iter = bson_utf8_next_char(iter))
-   {
-      if (c == stop) {
+        iter = bson_utf8_next_char(iter)) {
+      if (c == match) {
          *end = iter;
          return bson_strndup(str, iter - str);
       } else if (c == '\\') {
          iter = bson_utf8_next_char(iter);
          if (!bson_utf8_get_char(iter)) {
             break;
+         }
+      } else {
+         const char *term_iter;
+         for (term_iter = terminators; *term_iter; term_iter++) {
+            if (c == *term_iter) {
+               return NULL;
+            }
          }
       }
    }
@@ -138,8 +184,8 @@ mongoc_uri_parse_userpass (mongoc_uri_t  *uri,
    const char *end_user;
    char *s;
 
-   if ((s = scan_to_unichar(str, '@', &end_userpass))) {
-      if ((uri->username = scan_to_unichar(s, ':', &end_user))) {
+   if ((s = scan_to_unichar(str, '@', "", &end_userpass))) {
+      if ((uri->username = scan_to_unichar(s, ':', "", &end_user))) {
          uri->password = bson_strdup(end_user + 1);
       } else {
          uri->username = bson_strndup(str, end_userpass - str);
@@ -175,7 +221,7 @@ mongoc_uri_parse_host6 (mongoc_uri_t  *uri,
 #endif
    }
 
-   hostname = scan_to_unichar (str + 1, ']', &end_host);
+   hostname = scan_to_unichar (str + 1, ']', "", &end_host);
 
    mongoc_uri_do_unescape (&hostname);
    mongoc_uri_append_host (uri, hostname, port);
@@ -197,7 +243,7 @@ mongoc_uri_parse_host (mongoc_uri_t  *uri,
       return mongoc_uri_parse_host6 (uri, str);
    }
 
-   if ((hostname = scan_to_unichar(str, ':', &end_host))) {
+   if ((hostname = scan_to_unichar(str, ':', "?/,", &end_host))) {
       end_host++;
       if (!isdigit(*end_host)) {
          bson_free(hostname);
@@ -225,42 +271,33 @@ bool
 _mongoc_host_list_from_string (mongoc_host_list_t *host_list,
                                const char         *host_and_port)
 {
-   uint16_t port;
-   const char *end_host;
-   char *hostname = NULL;
+   bool rval = false;
+   char *uri_str = NULL;
+   mongoc_uri_t *uri = NULL;
+   const mongoc_host_list_t *uri_hl;
 
    bson_return_val_if_fail(host_list, false);
    bson_return_val_if_fail(host_and_port, false);
 
-   memset(host_list, 0, sizeof *host_list);
+   uri_str = bson_strdup_printf("mongodb://%s/", host_and_port);
+   if (! uri_str) goto CLEANUP;
 
-   if ((hostname = scan_to_unichar(host_and_port, ':', &end_host))) {
-      end_host++;
-      if (!isdigit(*end_host)) {
-         bson_free(hostname);
-         return false;
-      }
-#ifdef _MSC_VER
-      sscanf_s (end_host, "%hu", &port);
-#else
-      sscanf (end_host, "%hu", &port);
-#endif
-   } else {
-      hostname = bson_strdup(host_and_port);
-      port = MONGOC_DEFAULT_PORT;
-   }
+   uri = mongoc_uri_new(uri_str);
+   if (! uri) goto CLEANUP;
 
-   bson_strncpy (host_list->host_and_port, host_and_port,
-           sizeof host_list->host_and_port - 1);
+   uri_hl = mongoc_uri_get_hosts(uri);
+   if (uri_hl->next) goto CLEANUP;
 
-   bson_strncpy (host_list->host, hostname, sizeof host_list->host - 1);
+   memcpy(host_list, uri_hl, sizeof(*uri_hl));
 
-   host_list->port = port;
-   host_list->family = AF_INET;
+   rval = true;
 
-   bson_free(hostname);
+CLEANUP:
 
-   return true;
+   bson_free(uri_str);
+   if (uri) mongoc_uri_destroy(uri);
+
+   return rval;
 }
 
 
@@ -305,7 +342,7 @@ again:
          str++;
          goto again;
       }
-   } else if ((s = scan_to_unichar(str, ',', &end_hostport))) {
+   } else if ((s = scan_to_unichar(str, ',', "/", &end_hostport))) {
       if (!mongoc_uri_parse_host(uri, s)) {
          bson_free(s);
          return false;
@@ -314,8 +351,8 @@ again:
       str = end_hostport + 1;
       ret = true;
       goto again;
-   } else if ((s = scan_to_unichar(str, '/', &end_hostport)) ||
-              (s = scan_to_unichar(str, '?', &end_hostport))) {
+   } else if ((s = scan_to_unichar(str, '/', "", &end_hostport)) ||
+              (s = scan_to_unichar(str, '?', "", &end_hostport))) {
       if (!mongoc_uri_parse_host(uri, s)) {
          bson_free(s);
          return false;
@@ -342,7 +379,7 @@ mongoc_uri_parse_database (mongoc_uri_t  *uri,
 {
    const char *end_database;
 
-   if ((uri->database = scan_to_unichar(str, '?', &end_database))) {
+   if ((uri->database = scan_to_unichar(str, '?', "", &end_database))) {
       *end = end_database;
    } else if (*str) {
       uri->database = bson_strdup(str);
@@ -354,6 +391,37 @@ mongoc_uri_parse_database (mongoc_uri_t  *uri,
    return true;
 }
 
+
+static bool
+mongoc_uri_parse_auth_mechanism_properties (mongoc_uri_t *uri,
+                                            const char   *str)
+{
+   char *field;
+   char *value;
+   const char *end_scan;
+   bson_t properties;
+
+   bson_init(&properties);
+
+   /* build up the properties document */
+   while ((field = scan_to_unichar(str, ':', "&", &end_scan))) {
+      str = end_scan + 1;
+      if (!(value = scan_to_unichar(str, ',', ":&", &end_scan))) {
+         value = bson_strdup(str);
+         str = "";
+      } else {
+         str = end_scan + 1;
+      }
+      bson_append_utf8(&properties, field, -1, value, -1);
+      bson_free(field);
+      bson_free(value);
+   }
+
+   /* append our auth properties to our credentials */
+   bson_append_document(&uri->credentials, "mechanismProperties",
+                        -1, (const bson_t *)&properties);
+   return true;
+}
 
 static void
 mongoc_uri_parse_tags (mongoc_uri_t *uri, /* IN */
@@ -371,8 +439,8 @@ mongoc_uri_parse_tags (mongoc_uri_t *uri, /* IN */
    bson_init(&b);
 
 again:
-   if ((keyval = scan_to_unichar(str, ',', &end_keyval))) {
-      if ((key = scan_to_unichar(keyval, ':', &end_key))) {
+   if ((keyval = scan_to_unichar(str, ',', "", &end_keyval))) {
+      if ((key = scan_to_unichar(keyval, ':', "", &end_key))) {
          bson_append_utf8(&b, key, -1, end_key + 1, -1);
          bson_free(key);
       }
@@ -380,7 +448,7 @@ again:
       str = end_keyval + 1;
       goto again;
    } else {
-      if ((key = scan_to_unichar(str, ':', &end_key))) {
+       if ((key = scan_to_unichar(str, ':', "", &end_key))) {
          bson_append_utf8(&b, key, -1, end_key + 1, -1);
          bson_free(key);
       }
@@ -402,7 +470,7 @@ mongoc_uri_parse_option (mongoc_uri_t *uri,
    char *key;
    char *value;
 
-   if (!(key = scan_to_unichar(str, '=', &end_key))) {
+   if (!(key = scan_to_unichar(str, '=', "", &end_key))) {
       return false;
    }
 
@@ -439,6 +507,15 @@ mongoc_uri_parse_option (mongoc_uri_t *uri,
                         (0 == strcmp (value, "1")));
    } else if (!strcasecmp(key, "readpreferencetags")) {
       mongoc_uri_parse_tags(uri, value, &uri->read_prefs);
+   } else if (!strcasecmp(key, "authmechanism") ||
+              !strcasecmp(key, "authsource")) {
+      bson_append_utf8(&uri->credentials, key, -1, value, -1);
+   } else if (!strcasecmp(key, "authmechanismproperties")) {
+      if (!mongoc_uri_parse_auth_mechanism_properties(uri, value)) {
+         bson_free(key);
+         bson_free(value);
+         return false;
+      }
    } else {
       bson_append_utf8(&uri->options, key, -1, value, -1);
    }
@@ -458,7 +535,7 @@ mongoc_uri_parse_options (mongoc_uri_t *uri,
    char *option;
 
 again:
-   if ((option = scan_to_unichar(str, '&', &end_option))) {
+   if ((option = scan_to_unichar(str, '&', "", &end_option))) {
       if (!mongoc_uri_parse_option(uri, option)) {
          bson_free(option);
          return false;
@@ -475,6 +552,32 @@ again:
    return true;
 }
 
+
+static bool
+mongoc_uri_finalize_auth (mongoc_uri_t *uri) {
+   bson_iter_t iter;
+   const char *source = NULL;
+   const char *mechanism = mongoc_uri_get_auth_mechanism(uri);
+
+   if (bson_iter_init_find_case(&iter, &uri->credentials, "authSource")) {
+      source = bson_iter_utf8(&iter, NULL);
+   }
+
+   /* authSource with GSSAPI or X509 should always be external */
+   if (mechanism) {
+      if (!strcasecmp(mechanism, "GSSAPI") ||
+          !strcasecmp(mechanism, "MONGODB-X509")) {
+         if (source) {
+            if (strcasecmp(source, "$external")) {
+               return false;
+            }
+         } else {
+            bson_append_utf8(&uri->credentials, "authsource", -1, "$external", -1);
+         }
+      }
+   }
+   return true;
+}
 
 static bool
 mongoc_uri_parse (mongoc_uri_t *uri,
@@ -512,7 +615,7 @@ mongoc_uri_parse (mongoc_uri_t *uri,
       break;
    }
 
-   return true;
+   return mongoc_uri_finalize_auth(uri);
 }
 
 
@@ -540,6 +643,14 @@ mongoc_uri_get_replica_set (const mongoc_uri_t *uri)
 }
 
 
+const bson_t *
+mongoc_uri_get_credentials (const mongoc_uri_t *uri)
+{
+   bson_return_val_if_fail(uri, NULL);
+   return &uri->credentials;
+}
+
+
 const char *
 mongoc_uri_get_auth_mechanism (const mongoc_uri_t *uri)
 {
@@ -547,12 +658,36 @@ mongoc_uri_get_auth_mechanism (const mongoc_uri_t *uri)
 
    bson_return_val_if_fail (uri, NULL);
 
-   if (bson_iter_init_find_case (&iter, &uri->options, "authMechanism") &&
+   if (bson_iter_init_find_case (&iter, &uri->credentials, "authMechanism") &&
        BSON_ITER_HOLDS_UTF8 (&iter)) {
       return bson_iter_utf8 (&iter, NULL);
    }
 
    return NULL;
+}
+
+
+bool
+mongoc_uri_get_mechanism_properties (const mongoc_uri_t *uri, bson_t *properties)
+{
+   bson_iter_t iter;
+
+   if (!uri) {
+      return false;
+   }
+
+   if (bson_iter_init_find_case (&iter, &uri->credentials, "mechanismProperties") &&
+      BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+      uint32_t len = 0;
+      const uint8_t *data = NULL;
+
+      bson_iter_document (&iter, &len, &data);
+      bson_init_static (properties, data, len);
+
+      return true;
+   }
+
+   return false;
 }
 
 
@@ -636,6 +771,7 @@ mongoc_uri_new (const char *uri_string)
 
    uri = bson_malloc0(sizeof *uri);
    bson_init(&uri->options);
+   bson_init(&uri->credentials);
    bson_init(&uri->read_prefs);
 
    if (!uri_string) {
@@ -704,7 +840,7 @@ mongoc_uri_get_auth_source (const mongoc_uri_t *uri)
 
    bson_return_val_if_fail(uri, NULL);
 
-   if (bson_iter_init_find_case(&iter, &uri->options, "authSource")) {
+   if (bson_iter_init_find_case(&iter, &uri->credentials, "authSource")) {
       return bson_iter_utf8(&iter, NULL);
    }
 
@@ -736,6 +872,7 @@ mongoc_uri_destroy (mongoc_uri_t *uri)
       bson_free(uri->database);
       bson_free(uri->username);
       bson_destroy(&uri->options);
+      bson_destroy(&uri->credentials);
       bson_destroy(&uri->read_prefs);
       mongoc_write_concern_destroy(uri->write_concern);
 
@@ -811,7 +948,7 @@ mongoc_uri_unescape (const char *escaped_string)
    if (!bson_utf8_validate(escaped_string, len, false)) {
       MONGOC_WARNING("%s(): escaped_string contains invalid UTF-8",
                      __FUNCTION__);
-      return false;
+      return NULL;
    }
 
    ptr = escaped_string;

@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_BULK_OPERATION_PRIVATE_H
+#define MONGOC_BULK_OPERATION_PRIVATE_H
 
 #if !defined (MONGOC_I_AM_A_DRIVER) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
 #endif
-
-
-#ifndef MONGOC_BULK_OPERATION_PRIVATE_H
-#define MONGOC_BULK_OPERATION_PRIVATE_H
-
 
 #include "mongoc-array-private.h"
 #include "mongoc-client.h"
@@ -53,6 +50,7 @@ mongoc_bulk_operation_t *_mongoc_bulk_operation_new (mongoc_client_t            
                                                      bool                          ordered,
                                                      const mongoc_write_concern_t *write_concern);
 
+const mongoc_write_concern_t *mongoc_bulk_operation_get_write_concern (const mongoc_bulk_operation_t *bulk);
 
 BSON_END_DECLS
 

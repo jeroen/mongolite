@@ -490,7 +490,7 @@ mongoc_gridfs_file_writev (mongoc_gridfs_file_t *file,
          file->pos += r;
          bytes_written += r;
 
-         file->length = MAX (file->length, (int64_t)file->pos);
+         file->length = BSON_MAX (file->length, (int64_t)file->pos);
 
          if (iov_pos == iov[i].iov_len) {
             /** filled a bucket, keep going */
@@ -694,7 +694,7 @@ _mongoc_gridfs_file_refresh_page (mongoc_gridfs_file_t *file)
  */
 int
 mongoc_gridfs_file_seek (mongoc_gridfs_file_t *file,
-                         uint64_t         delta,
+                         int64_t               delta,
                          int                   whence)
 {
    uint64_t offset;
@@ -720,7 +720,7 @@ mongoc_gridfs_file_seek (mongoc_gridfs_file_t *file,
 
    BSON_ASSERT (file->length > (int64_t)offset);
 
-   if (offset % file->chunk_size != file->pos % file->chunk_size) {
+   if (offset / file->chunk_size != file->pos / file->chunk_size) {
       /** no longer on the same page */
 
       if (file->page) {
@@ -728,6 +728,7 @@ mongoc_gridfs_file_seek (mongoc_gridfs_file_t *file,
             _mongoc_gridfs_file_flush_page (file);
          } else {
             _mongoc_gridfs_file_page_destroy (file->page);
+            file->page = NULL;
          }
       }
 
