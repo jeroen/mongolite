@@ -1,7 +1,11 @@
 PKG_CPPFLAGS = -I../windows/openssl-1.0.1j/include -I../windows/libsasl-2.1.26/include -DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION -DBSON_DISABLE_CHECKS -I. -Iyajl -Ibson -Imongoc
 PKG_LIBS = -L../windows/openssl-1.0.1j/lib${R_ARCH} -L../windows/libsasl-2.1.26/lib${R_ARCH} -lsasl2 -lssl -lcrypto -lws2_32 -lgdi32 -lcrypt32 -lws2_32
 
+ifeq "${R_ARCH}" "/i386"
+SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c win32/*.c *.c)
+else
 SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
+endif
 
 OBJECTS = $(SOURCES:.c=.o)
 
