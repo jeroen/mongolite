@@ -5,12 +5,12 @@ Description: R bindings to the high-performance MongoDB C driver and
     high-level IO tools in the same spirit as jsonlite.
 Version: 0.1
 Date: 2015-03-27
-Author: Jeroen Ooms
+Author: Jeroen Ooms, MongoDB Inc.
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
 Depends: methods
 Imports: jsonlite
-License: MIT + file LICENSE
-URL: https://github.com/jeroenooms/mongolite
+License: Apache License 2.0
+URL: https://github.com/jeroenooms/mongolite, https://github.com/mongodb/mongo-c-driver
 BugReports: https://github.com/jeroenooms/mongolite/issues
 SystemRequirements:
     OpenSSL: libssl-dev (deb) or openssl-devel (rpm),
