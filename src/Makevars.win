@@ -9,10 +9,13 @@ endif
 
 OBJECTS = $(SOURCES:.c=.o)
 
-all: winpatches clean $(OBJECTS)
+all: winpatches clean winlibs $(OBJECTS)
 
 clean:
 	rm -f $(OBJECTS)
 
 winpatches:
 	sed -i "s/define BSON_OS 1/define BSON_OS 2/g" bson/bson-config.h
+
+winlibs:
+	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
