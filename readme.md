@@ -24,4 +24,8 @@ mongo_write_df(m, diamonds)
 
 # Perform a query and retrieve data
 out <- mongo_read_df(m, query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
+
+# Compare
+nrow(out)
+nrow(nrow(subset(diamonds, cut == "Premium" & price < 1000)))
 ```

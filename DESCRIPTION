@@ -7,7 +7,7 @@ Version: 0.1
 Date: 2015-03-27
 Author: Jeroen Ooms, MongoDB Inc.
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
-Depends: methods
+Depends: methods, utils
 Imports: jsonlite
 License: Apache License 2.0
 URL: https://github.com/jeroenooms/mongolite, https://github.com/mongodb/mongo-c-driver
