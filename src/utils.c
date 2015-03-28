@@ -84,8 +84,8 @@ SEXP R_mongo_cleanup() {
 }
 
 void fin_mongo(SEXP ptr){
-  #ifdef DEBUG
-  Rprintf("DEBUG: Destorying collection.\n");
+  #ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE ("DEBUG: Destorying collection.");
   #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
@@ -93,8 +93,8 @@ void fin_mongo(SEXP ptr){
 }
 
 void fin_bson(SEXP ptr){
-  #ifdef DEBUG
-  Rprintf("DEBUG: Destorying BSON.\n");
+  #ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("DEBUG: Destorying BSON.");
   #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   bson_destroy(R_ExternalPtrAddr(ptr));
@@ -102,8 +102,8 @@ void fin_bson(SEXP ptr){
 }
 
 void fin_cursor(SEXP ptr){
-  #ifdef DEBUG
-  Rprintf("DEBUG: Destorying cursor.\n");
+  #ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("DEBUG: Destorying cursor.");
   #endif
 
   if(!R_ExternalPtrAddr(ptr)) return;
@@ -112,8 +112,8 @@ void fin_cursor(SEXP ptr){
 }
 
 void fin_client(SEXP ptr){
-  #ifdef DEBUG
-  Rprintf("DEBUG: Destorying client.\n");
+  #ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("DEBUG: Destorying client.");
   #endif
 
   if(!R_ExternalPtrAddr(ptr)) return;
@@ -132,7 +132,7 @@ void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain
     case MONGOC_LOG_LEVEL_WARNING:
     case MONGOC_LOG_LEVEL_MESSAGE:
     case MONGOC_LOG_LEVEL_INFO:
-      Rprintf(message);
+      Rprintf("Mongo Message: %s\n", message);
       break;
     case MONGOC_LOG_LEVEL_DEBUG:
     case MONGOC_LOG_LEVEL_TRACE:

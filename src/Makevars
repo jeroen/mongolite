@@ -1,5 +1,5 @@
-PKG_CPPFLAGS = -D BSON_COMPILATION -DMONGOC_COMPILATION -DBSON_DISABLE_CHECKS -I. -Iyajl -Ibson -Imongoc
-PKG_CFLAGS = -include apple.h
+PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h \
+ -DBSON_COMPILATION -DMONGOC_COMPILATION -DBSON_DISABLE_CHECKS #-DMONGOLITE_DEBUG
 
 SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
 
