@@ -1,10 +1,17 @@
 Package: mongolite
 Type: Package
-Title: Interface to libmongo c library
+Title: Streaming Mongo I/O Client
+Description: Implements R bindings to the high-performance MongoDB C driver and
+    high-level tools in the same spirit as jsonlite.
 Version: 0.1
-Date: 2014-09-16
+Date: 2015-03-27
 Author: Jeroen Ooms
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
-Description: High level interface to libmongo c library.
-License: Apache License 2.0
+Depends: methods
 Imports: jsonlite
+License: MIT + file LICENSE
+URL: https://github.com/jeroenooms/mongolite
+BugReports: https://github.com/jeroenooms/mongolite/issues
+SystemRequirements:
+    OpenSSL: libssl-dev (deb) or openssl-devel (rpm),
+    SASL: libsasl2-dev (deb) or cyrus-sasl-devel (rpm)
