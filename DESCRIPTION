@@ -1,8 +1,8 @@
 Package: mongolite
 Type: Package
-Title: Streaming Mongo I/O Client
-Description: Implements R bindings to the high-performance MongoDB C driver and
-    high-level tools in the same spirit as jsonlite.
+Title: Streaming Mongo Client
+Description: R bindings to the high-performance MongoDB C driver and
+    high-level IO tools in the same spirit as jsonlite.
 Version: 0.1
 Date: 2015-03-27
 Author: Jeroen Ooms
