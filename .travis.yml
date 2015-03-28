@@ -1,0 +1,13 @@
+language: r
+
+warnings_are_errors: false
+#r_check_revdep: true
+
+apt_packages:
+  - libssl-dev
+  - libsasl2-dev
+
+notifications:
+  email:
+    on_success: change
+    on_failure: change
