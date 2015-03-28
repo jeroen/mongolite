@@ -85,7 +85,7 @@ SEXP R_mongo_cleanup() {
 
 void fin_mongo(SEXP ptr){
   #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE ("DEBUG: Destorying collection.");
+  MONGOC_MESSAGE ("destorying collection.");
   #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
@@ -94,7 +94,7 @@ void fin_mongo(SEXP ptr){
 
 void fin_bson(SEXP ptr){
   #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE("DEBUG: Destorying BSON.");
+  MONGOC_MESSAGE("destorying BSON.");
   #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   bson_destroy(R_ExternalPtrAddr(ptr));
@@ -103,7 +103,7 @@ void fin_bson(SEXP ptr){
 
 void fin_cursor(SEXP ptr){
   #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE("DEBUG: Destorying cursor.");
+  MONGOC_MESSAGE("destorying cursor.");
   #endif
 
   if(!R_ExternalPtrAddr(ptr)) return;
@@ -113,7 +113,7 @@ void fin_cursor(SEXP ptr){
 
 void fin_client(SEXP ptr){
   #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE("DEBUG: Destorying client.");
+  MONGOC_MESSAGE("destorying client.");
   #endif
 
   if(!R_ExternalPtrAddr(ptr)) return;
