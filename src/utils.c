@@ -72,6 +72,8 @@ SEXP client2r(mongoc_client_t *client){
 }
 
 SEXP R_mongo_init() {
+  static mongoc_log_func_t logfun = mongolite_log_handler;
+  mongoc_log_set_handler(logfun, NULL);
   mongoc_init();
   return R_NilValue;
 }
@@ -117,4 +119,8 @@ void fin_client(SEXP ptr){
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_client_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
+}
+
+void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain, const char *message, void *user_data) {
+  return;
 }
