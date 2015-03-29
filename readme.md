@@ -22,14 +22,14 @@ if(mongo_collection_count(m) > 0){
 
 # Insert test data
 data(diamonds, package="ggplot2")
-mongo_write_df(m, diamonds)
+mongo_stream_out(m, diamonds)
 
 # Check records
 mongo_collection_count(m)
 nrow(diamonds)
 
 # Perform a query and retrieve data
-out <- mongo_read_df(m, query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
+out <- mongo_stream_in(m, query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
 
 # Compare
 nrow(out)

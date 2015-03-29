@@ -1,7 +1,7 @@
 #' @export
 #' @importFrom jsonlite toJSON fromJSON unbox
 #' @importFrom utils txtProgressBar setTxtProgressBar
-mongo_write_df <- function(m, data, verbose = TRUE){
+mongo_stream_out <- function(m, data, verbose = TRUE){
   stopifnot(is.data.frame(data))
   n <- nrow(data)
   jsonlines <- jsonlite:::asJSON(data, collapse = FALSE)
@@ -17,7 +17,7 @@ mongo_write_df <- function(m, data, verbose = TRUE){
 }
 
 #' @export
-mongo_read_df <- function(m, ..., verbose = TRUE){
+mongo_stream_in <- function(m, ..., verbose = TRUE){
   cur <- mongo_collection_find(m, ...)
   i <- 0
   out <- list()
