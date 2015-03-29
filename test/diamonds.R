@@ -1,3 +1,4 @@
+# Run 'mongod' in the console to start MongoDB
 # install_github("jeroenooms/mongolite")
 library(mongolite)
 
@@ -9,7 +10,7 @@ if(mongo_collection_count(m) > 0){
 
 # Dump some test data
 data(diamonds, package="ggplot2")
-system.time(mongo_stream_out(m, diamonds))
+mongo_stream_out(m, diamonds)
 
 # Query
-system.time(out <- mongo_stream_in(m))
+out <- mongo_stream_in(m)
