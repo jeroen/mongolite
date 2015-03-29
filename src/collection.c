@@ -26,18 +26,12 @@ SEXP R_mongo_collection_name (SEXP ptr){
   return mkStringUTF8(name);
 }
 
-SEXP R_mongo_collection_count (SEXP ptr, SEXP query){
+SEXP R_mongo_collection_count (SEXP ptr, SEXP ptr_query){
   mongoc_collection_t *col = r2col(ptr);
-
-  if (!isString(query))
-    error("Argument query must be a string.");
+  bson_t *query = r2bson(ptr_query);
 
   bson_error_t err;
-  bson_t b_query;
-  if(!bson_init_from_json(&b_query, translateCharUTF8(asChar(query)), -1, &err))
-    error(err.message);
-
-  int64_t count = mongoc_collection_count (col, MONGOC_QUERY_NONE, &b_query, 0, 0, NULL, &err);
+  int64_t count = mongoc_collection_count (col, MONGOC_QUERY_NONE, query, 0, 0, NULL, &err);
   if (count < 0)
     error(err.message);
 

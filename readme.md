@@ -16,11 +16,17 @@ library(mongolite)
 m <- mongo_connect(collection = "diamonds")
 
 # Drop existing data if any
-try(mongo_collection_drop(m), silent = TRUE)
+if(mongo_collection_count(m) > 0){
+  mongo_collection_drop(m)
+}
 
 # Insert test data
 data(diamonds, package="ggplot2")
 mongo_write_df(m, diamonds)
+
+# Check records
+mongo_collection_count(m)
+nrow(diamonds)
 
 # Perform a query and retrieve data
 out <- mongo_read_df(m, query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
