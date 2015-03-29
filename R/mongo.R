@@ -39,7 +39,12 @@ mongo_cursor_more <- function(cursor){
   .Call(R_mongo_cursor_more, cursor)
 }
 
-#' @useDynLib mongolite R_mongo_cursor_next
-mongo_cursor_next <- function(cursor){
-  .Call(R_mongo_cursor_next, cursor)
+#' @useDynLib mongolite R_mongo_cursor_next_bson
+mongo_cursor_next_bson <- function(cursor){
+  .Call(R_mongo_cursor_next_bson, cursor)
+}
+
+#' @useDynLib mongolite R_mongo_cursor_next_page
+mongo_cursor_next_page <- function(cursor, size = 100){
+  .Call(R_mongo_cursor_next_page, cursor, size = size)
 }

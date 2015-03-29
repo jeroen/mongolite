@@ -17,24 +17,45 @@ mongo_stream_out <- function(m, data, verbose = TRUE){
 }
 
 #' @export
-mongo_stream_in <- function(m, ..., verbose = TRUE){
+mongo_stream_in <- function(m, handler = NULL, pagesize = 500, verbose = TRUE, ...){
   cur <- mongo_collection_find(m, ...)
-  i <- 0
-  out <- list()
 
-  # Rstudio bug
-  if(verbose) cat("\n")
-
-  # The mongo_cursor_more function seems broken
-  while(!is.null(val <- mongo_cursor_next(cur))) {
-    i <- i+1
-    if(verbose && (i %% 100 == 0)){
-      cat("\r Found", i, "records.")
+  # Default handler appends to big list
+  count <- 0
+  cb <- if(is.null(handler)){
+    out <- list()
+    function(x){
+      out <<- c(out, x)
+      count <<- count + length(x)
     }
-    out[[i]] <- bson_to_list(val)
+  } else {
+    function(x){
+      handler(jsonlite:::simplify(x))
+      count <<- count + length(x)
+    }
+  }
+
+  # Read data page by page
+  repeat {
+    page <- mongo_cursor_next_page(cur, pagesize)
+    if(is.null(page[[1]])){
+      break
+    } else if(is.null(page[[pagesize]])) {
+      cb(Filter(is.list, page))
+      break
+    } else {
+      cb(page)
+    }
+    if(verbose) {
+      cat("\r Found", count, "records...")
+    }
   }
   if(verbose){
-    cat("\r Finished", i, "records.\n")
+    cat("\r Done! Imported", count, "records.\n")
   }
-  jsonlite:::simplify(out)
+  if(is.null(handler)){
+    jsonlite:::simplify(out)
+  } else {
+    invisible()
+  }
 }

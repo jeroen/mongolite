@@ -16,3 +16,4 @@ void fin_cursor(SEXP ptr);
 void fin_mongo(SEXP ptr);
 void fin_client(SEXP ptr);
 void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain, const char *message, void *user_data);
+SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter);
