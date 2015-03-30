@@ -69,7 +69,7 @@ zips <- mongo_stream_in(m)
 Nested data
 -----------
 
-Example bulk data from [openweathermap](http://openweathermap.org/current#bulk) which contains deeply nested data. 
+Bulk samples from [openweathermap](http://openweathermap.org/current#bulk) with deeply nested data. 
 
 ```r
 m <- mongo_connect(collection = "weather")
