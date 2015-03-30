@@ -49,6 +49,8 @@ nrow(subset(diamonds, cut == "Premium" & price < 1000))
 Combine with jsonlite
 ---------------------
 
+Example data with zipcodes from [mongolite tutorial](http://docs.mongodb.org/manual/tutorial/aggregation-zip-code-data-set/).
+
 ```r
 library(jsonlite)
 library(mongolite)
