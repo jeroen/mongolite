@@ -5,7 +5,7 @@ LIBMONGOC = $(wildcard mongoc/*.c)
 LIBBSON = $(wildcard bson/*.c)
 LIBYAJL = $(wildcard yajl/*.c)
 
-PKG_LIBS = -L. -lssl -lcrypto -lsasl2 -lyajl -lbson -lmongoc
+PKG_LIBS = -L. -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2
 
 all: clean libyajl.a libbson.a libmongoc.a
 
