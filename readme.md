@@ -78,4 +78,5 @@ stream_in(gzcon(url("http://78.46.48.103/sample/daily_14.json.gz")), handler = f
 }, pagesize = 50)
 
 berlin <- mongo_stream_in(m, query = '{"city.name" : "Berlin"}')
+print(berlin$data)
 ```
