@@ -1,13 +1,23 @@
 PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h \
- -DBSON_COMPILATION -DMONGOC_COMPILATION -DBSON_DISABLE_CHECKS #-DMONGOLITE_DEBUG
+ -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
 
-SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
+LIBMONGOC = $(wildcard mongoc/*.c)
+LIBBSON = $(wildcard bson/*.c)
+LIBYAJL = $(wildcard yajl/*.c)
 
-OBJECTS = $(SOURCES:.c=.o)
+PKG_LIBS = -L. -lssl -lcrypto -lsasl2 -lyajl -lbson -lmongoc
 
-PKG_LIBS = -lssl -lcrypto -lsasl2
-
-all: $(OBJECTS)
+all: clean libyajl.a libbson.a libmongoc.a
 
 clean:
-	rm -f $(OBJECTS)
+	rm -f *.o mongoc/*.o bson/*.o yajl/*.o
+	rm -f *.a
+
+libyajl.a: $(LIBYAJL:.c=.o)
+	ar rcs libyajl.a yajl/*.o
+
+libbson.a: $(LIBBSON:.c=.o)
+	ar rcs libbson.a bson/*.o
+
+libmongoc.a: $(LIBMONGOC:.c=.o)
+	ar rcs libmongoc.a mongoc/*.o

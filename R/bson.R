@@ -49,12 +49,12 @@ print.mongo_collection <- function(x, ...){
   cat(paste0("Mongo collection '", mongo_collection_name(x), "'\n"));
 }
 
-setGeneric("serialize")
-setOldClass("bson")
-setMethod("serialize", "bson", function(object, connection){
-  if(!missing(connection)) {
-    writeBin(bson_to_raw(object), connection)
-  } else {
-    bson_to_raw(object);
-  }
-});
+#setGeneric("serialize")
+#setOldClass("bson")
+#setMethod("serialize", "bson", function(object, connection){
+#  if(!missing(connection)) {
+#    writeBin(bson_to_raw(object), connection)
+#  } else {
+#    bson_to_raw(object);
+#  }
+#});

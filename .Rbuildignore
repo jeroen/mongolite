@@ -1,4 +1,8 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
-src/readme.txt
-windows
+^src/readme.txt$
+^src/.*\.a$
+^windows$
+^.travis.yml$
+^readme.md$
+^test$
