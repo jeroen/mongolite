@@ -1,7 +1,7 @@
 #' @export
 #' @importFrom jsonlite toJSON fromJSON unbox
 #' @importFrom utils txtProgressBar setTxtProgressBar
-mongo_stream_out <- function(m, data, verbose = TRUE){
+mongo_stream_out <- function(data, mongo, verbose = TRUE){
   stopifnot(is.data.frame(data))
   n <- nrow(data)
   jsonlines <- jsonlite:::asJSON(data, collapse = FALSE)
@@ -10,15 +10,15 @@ mongo_stream_out <- function(m, data, verbose = TRUE){
     on.exit(close(pb))
   }
   for(i in seq_len(n)){
-    mongo_collection_insert(m, jsonlines[i])
+    mongo_collection_insert(mongo, jsonlines[i])
     if(verbose) setTxtProgressBar(pb, i/n)
   }
   invisible()
 }
 
 #' @export
-mongo_stream_in <- function(m, handler = NULL, pagesize = 500, verbose = TRUE, ...){
-  cur <- mongo_collection_find(m, ...)
+mongo_stream_in <- function(mongo, handler = NULL, pagesize = 500, verbose = TRUE, ...){
+  cur <- mongo_collection_find(mongo, ...)
 
   # Default handler appends to big list
   count <- 0
