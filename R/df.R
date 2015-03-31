@@ -4,7 +4,7 @@
 mongo_stream_out <- function(data, mongo, verbose = TRUE){
   stopifnot(is.data.frame(data))
   n <- nrow(data)
-  jsonlines <- jsonlite:::asJSON(data, collapse = FALSE)
+  jsonlines <- jsonlite:::asJSON(data, collapse = FALSE, POSIXt = "mongo", raw = "mongo")
   if(verbose){
     pb <- txtProgressBar(style = 3)
     on.exit(close(pb))
