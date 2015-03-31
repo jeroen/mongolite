@@ -5,8 +5,8 @@ mydf <- data.frame(
   int = as.integer(c(1L, 2L, NA)),
   logical = c(T, F, NA),
   real = c(pi, 0, NA),
-  date = Sys.Date() + 1:3,
-  time = Sys.time() + 1:3
+  date = Sys.Date() + c(1, NA, 3),
+  time = Sys.time() + c(1, NA, 3)
 )
 mydf$raw <- list(charToRaw("foobar"), NULL, charToRaw("bla"))
 

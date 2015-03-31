@@ -96,13 +96,11 @@ SEXP ConvertValue(bson_iter_t* iter){
 }
 
 SEXP ConvertDate(bson_iter_t* iter){
-  SEXP out = PROTECT(ScalarReal((double) bson_iter_date_time(iter) / 1000));
-  SEXP classes = PROTECT(allocVector(STRSXP, 2));
-  SET_STRING_ELT(classes, 0, mkChar("POSIXt"));
-  SET_STRING_ELT(classes, 1, mkChar("POSIXct"));
-  setAttrib(out, R_ClassSymbol, classes);
-  UNPROTECT(2);
-  return out;
+  SEXP list = PROTECT(allocVector(VECSXP, 1));
+  SET_VECTOR_ELT(list, 0, ScalarReal((double) bson_iter_date_time(iter)));
+  setAttrib(list, R_NamesSymbol, mkString("$date"));
+  UNPROTECT(1);
+  return list;
 }
 
 SEXP ConvertBinary(bson_iter_t* iter){
