@@ -53,7 +53,7 @@ mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TR
 
   if(is.null(handler)){
     if(count != estimate){
-      warning("Database state seems to have changed while retrieving records.", call. = FALSE)
+      message("Database state has changed while retrieving records.", call. = FALSE)
       out <- Filter(function(x){!is.null(x)}, out)
     }
     as.data.frame(jsonlite:::simplify(out))
