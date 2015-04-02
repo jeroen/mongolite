@@ -1,7 +1,7 @@
 #' @export
 #' @importFrom jsonlite toJSON fromJSON unbox
 #' @importFrom utils txtProgressBar setTxtProgressBar
-mongo_stream_out <- function(data, mongo, pagesize = 500, verbose = TRUE, ...){
+mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
   stopifnot(is.data.frame(data))
   FUN <- function(x){
     mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, collapse = FALSE), ...)
@@ -10,16 +10,20 @@ mongo_stream_out <- function(data, mongo, pagesize = 500, verbose = TRUE, ...){
 }
 
 #' @export
-mongo_stream_in <- function(mongo, handler = NULL, pagesize = 500, verbose = TRUE, ...){
-  cur <- mongo_collection_find(mongo, ...)
+mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TRUE, query = '{}', ...){
+  cur <- mongo_collection_find(mongo, query = query,  ...)
 
   # Default handler appends to big list
   count <- 0
   cb <- if(is.null(handler)){
-    out <- list()
+    estimate <- mongo_collection_count(mongo, query = query)
+    out <- vector(mode = "list", length = estimate)
     function(x){
-      out <<- c(out, x)
-      count <<- count + length(x)
+      if(length(x)){
+        from <- count+1
+        count <<- count + length(x)
+        out[from:count] <<- x
+      }
     }
   } else {
     function(x){
@@ -46,8 +50,13 @@ mongo_stream_in <- function(mongo, handler = NULL, pagesize = 500, verbose = TRU
   if(verbose){
     cat("\r Done! Imported", count, "records.\n")
   }
+
   if(is.null(handler)){
-    jsonlite:::simplify(out)
+    if(count != estimate){
+      warning("Database state seems to have changed while retrieving records.", call. = FALSE)
+      out <- Filter(function(x){!is.null(x)}, out)
+    }
+    as.data.frame(jsonlite:::simplify(out))
   } else {
     invisible()
   }

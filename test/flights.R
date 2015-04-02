@@ -6,7 +6,7 @@ if(mongo_collection_count(m) > 0){
   mongo_collection_drop(m)
 }
 
-mongo_stream_out(flights, m, pagesize=1000)
+mongo_stream_out(flights, m)
 mongo_collection_count(m)
 flights2 <- mongo_stream_in(m)
 all.equal(as.data.frame(flights), flights2)
