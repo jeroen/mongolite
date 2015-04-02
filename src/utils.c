@@ -18,6 +18,14 @@ SEXP mkRaw(const unsigned char *buf, int len){
   return out;
 }
 
+SEXP bson2list(bson_t *b){
+  bson_iter_t iter1;
+  bson_iter_t iter2;
+  bson_iter_init(&iter1, b);
+  bson_iter_init(&iter2, b);
+  return ConvertObject(&iter1, &iter2);
+}
+
 bson_t* r2bson(SEXP ptr){
   bson_t *b = R_ExternalPtrAddr(ptr);
   if(!b)

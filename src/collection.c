@@ -6,7 +6,7 @@
 SEXP R_mongo_collection_drop (SEXP ptr);
 SEXP R_mongo_collection_name (SEXP ptr);
 SEXP R_mongo_collection_count (SEXP ptr, SEXP query);
-SEXP R_mongo_collection_insert(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_error);
+SEXP R_mongo_collection_insert_bson(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_error);
 SEXP R_mongo_collection_create_index(SEXP ptr, SEXP keys);
 SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP all);
 
@@ -39,7 +39,7 @@ SEXP R_mongo_collection_count (SEXP ptr, SEXP ptr_query){
   return ScalarReal((double) count);
 }
 
-SEXP R_mongo_collection_insert(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_error){
+SEXP R_mongo_collection_insert_bson(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_error){
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *b = r2bson(ptr_bson);
   mongoc_insert_flags_t flags = asLogical(stop_on_error) ? MONGOC_INSERT_NONE : MONGOC_INSERT_CONTINUE_ON_ERROR;
@@ -49,6 +49,49 @@ SEXP R_mongo_collection_insert(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_error){
     error(err.message);
 
   return ScalarLogical(1);
+}
+
+SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_error){
+  if(!isString(json_vec) || !length(json_vec))
+    error("json_vec must be character string of at least length 1");
+
+  //ordered means serial execution
+  bool ordered = asLogical(stop_on_error);
+
+  //create bulk operation
+  bson_error_t err;
+  bson_t *b;
+  bson_t reply;
+  mongoc_bulk_operation_t *bulk = mongoc_collection_create_bulk_operation (r2col(ptr_col), ordered, NULL);
+  for(int i = 0; i < length(json_vec); i++){
+    b = bson_new_from_json ((uint8_t*)translateCharUTF8(asChar(STRING_ELT(json_vec, i))), -1, &err);
+    if(!b){
+      mongoc_bulk_operation_destroy (bulk);
+      error(err.message);
+    }
+    mongoc_bulk_operation_insert(bulk, b);
+    bson_destroy (b);
+    b = NULL;
+  }
+
+  //execute bulk operation
+  bool success = mongoc_bulk_operation_execute (bulk, &reply, &err);
+  mongoc_bulk_operation_destroy (bulk);
+
+  //check for errors
+  if(!success){
+    if(ordered){
+      Rf_errorcall(R_NilValue, err.message);
+    } else {
+      Rf_warningcall(R_NilValue, "Not all inserts were successful: %s\n", err.message);
+    }
+  }
+
+  //get output
+  SEXP out = PROTECT(bson2list(&reply));
+  bson_destroy (&reply);
+  UNPROTECT(1);
+  return out;
 }
 
 SEXP R_mongo_collection_create_index(SEXP ptr_col, SEXP ptr_bson) {

@@ -1,19 +1,12 @@
 #' @export
 #' @importFrom jsonlite toJSON fromJSON unbox
 #' @importFrom utils txtProgressBar setTxtProgressBar
-mongo_stream_out <- function(data, mongo, verbose = TRUE){
+mongo_stream_out <- function(data, mongo, pagesize = 500, verbose = TRUE, ...){
   stopifnot(is.data.frame(data))
-  n <- nrow(data)
-  jsonlines <- jsonlite:::asJSON(data, collapse = FALSE, POSIXt = "mongo", raw = "mongo")
-  if(verbose){
-    pb <- txtProgressBar(style = 3)
-    on.exit(close(pb))
+  FUN <- function(x){
+    mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, collapse = FALSE), ...)
   }
-  for(i in seq_len(n)){
-    mongo_collection_insert(mongo, jsonlines[i])
-    if(verbose) setTxtProgressBar(pb, i/n)
-  }
-  invisible()
+  jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
 }
 
 #' @export

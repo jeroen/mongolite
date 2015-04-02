@@ -49,11 +49,7 @@ SEXP R_bson_to_raw(SEXP ptr){
 
 SEXP R_bson_to_list(SEXP ptr) {
   bson_t *b = r2bson(ptr);
-  bson_iter_t iter1;
-  bson_iter_t iter2;
-  bson_iter_init(&iter1, b);
-  bson_iter_init(&iter2, b);
-  return ConvertObject(&iter1, &iter2);
+  return bson2list(b);
 }
 
 SEXP ConvertValue(bson_iter_t* iter){
