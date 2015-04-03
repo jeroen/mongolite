@@ -129,3 +129,17 @@ SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_fields, SEXP
 
   return cursor2r(c);
 }
+
+SEXP R_mongo_collection_command(SEXP ptr_col, SEXP command){
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_t *cmd = r2bson(command);
+  bson_t reply;
+  bson_error_t err;
+  if(!mongoc_collection_command_simple(col, cmd, NULL, &reply, &err))
+    Rf_error(err.message);
+
+  SEXP out = PROTECT(bson2list(&reply));
+  bson_destroy (&reply);
+  UNPROTECT(1);
+  return out;
+}

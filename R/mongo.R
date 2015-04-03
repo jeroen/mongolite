@@ -19,6 +19,11 @@ mongo_collection_count <- function(col, query = "{}"){
   .Call(R_mongo_collection_count, col, bson_or_json(query))
 }
 
+#' @useDynLib mongolite R_mongo_collection_command
+mongo_collection_command <- function(col, command = "{}"){
+  .Call(R_mongo_collection_command, col, bson_or_json(command))
+}
+
 #' @useDynLib mongolite R_mongo_collection_insert_bson
 mongo_collection_insert_bson <- function(col, doc, stop_on_error = TRUE){
   .Call(R_mongo_collection_insert_bson, col, bson_or_json(doc), stop_on_error)
