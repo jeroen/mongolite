@@ -10,7 +10,6 @@ Authors@R: c(
     person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver and libbson")
   )
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
-Depends: utils
 Imports: jsonlite
 License: Apache License 2.0
 URL: https://github.com/jeroenooms/mongolite, https://github.com/mongodb/mongo-c-driver

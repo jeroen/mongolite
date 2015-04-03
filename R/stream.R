@@ -1,6 +1,5 @@
 #' @export
 #' @importFrom jsonlite toJSON fromJSON unbox
-#' @importFrom utils txtProgressBar setTxtProgressBar
 mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
   stopifnot(is.data.frame(data))
   FUN <- function(x){
