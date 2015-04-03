@@ -1,5 +1,4 @@
-#' @export
-#' @importFrom jsonlite toJSON fromJSON unbox
+#' @importFrom jsonlite toJSON fromJSON
 mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
   stopifnot(is.data.frame(data))
   FUN <- function(x){
@@ -8,7 +7,6 @@ mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
   jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
 }
 
-#' @export
 mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TRUE, query = '{}', ...){
   cur <- mongo_collection_find(mongo, query = query,  ...)
 
