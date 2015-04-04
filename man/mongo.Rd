@@ -16,13 +16,20 @@ mongo(url = "mongodb://localhost", db = "test", collection = "test")
 \description{
 Initiate a new MongoDB client.
 }
+\section{Methods}{
+
+\describe{
+  \item{\code{count(query = '{}')}}{Count the number of records for a given query. If no query is specified, counts all records.}
+  \item{\code{drop()}}{Delete all records from the collection.}
+}
+}
 \examples{
 \dontrun{dplyr example
 library(nycflights13)
 
 # Insert some data
 con <- mongo(collection = "myflights")
-if(con$count > 0) con$drop()
+if(con$count() > 0) con$drop()
 con$insert(flights)
 
 # Basic operations

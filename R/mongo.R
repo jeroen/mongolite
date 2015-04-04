@@ -34,8 +34,8 @@ mongo_collection_insert_page <- function(col, json, stop_on_error = TRUE){
 }
 
 #' @useDynLib mongolite R_mongo_collection_remove
-mongo_collection_remove <- function(col, doc, all = TRUE){
-  .Call(R_mongo_collection_remove, col, bson_or_json(doc), all)
+mongo_collection_remove <- function(col, doc, multiple = TRUE){
+  .Call(R_mongo_collection_remove, col, bson_or_json(doc), multiple)
 }
 
 #' @useDynLib mongolite R_mongo_collection_find
@@ -56,4 +56,12 @@ mongo_cursor_next_bson <- function(cursor){
 #' @useDynLib mongolite R_mongo_cursor_next_page
 mongo_cursor_next_page <- function(cursor, size = 100){
   .Call(R_mongo_cursor_next_page, cursor, size = size)
+}
+
+#' @useDynLib mongolite R_mongo_collection_find_indexes
+mongo_collection_find_indexes <- function(col){
+  cur <- .Call(R_mongo_collection_find_indexes, col)
+  out <- mongo_cursor_next_page(cur)
+  out <- Filter(length, out)
+  jsonlite:::simplify(out)
 }

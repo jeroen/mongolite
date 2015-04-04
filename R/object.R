@@ -18,29 +18,45 @@
 #' con$count('{"month":1, "day":1}')
 #' mydata <- con$find(query = '{"month":1, "day":1}')
 #' }
+#' @section Methods:
+#' \describe{
+#'   \item{\code{count(query = '{}')}}{Count the number of records for a given query. If no query is specified, counts all records.}
+#'   \item{\code{drop()}}{Delete all records from the collection.}
+#' }
 mongo <- function(url = "mongodb://localhost", db = "test", collection = "test"){
   con <- mongo_connect(url, db, collection)
   mongo_object(con)
 }
 
+
 mongo_object <- function(con){
-  insert <- function(data, pagesize = 1000, verbose = TRUE, ...){
-    mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose, ...)
-  }
-  find <- function(query = '{}', handler = NULL, pagesize = 1000, verbose = TRUE){
-    mongo_stream_in(con, handler = handler, pagesize = pagesize, verbose = verbose, query = query)
-  }
-  count <- function(query = '{}'){
-    mongo_collection_count(con, query)
-  }
-  drop <- function(){
-    mongo_collection_drop(con)
-  }
-  name <- function(){
-    mongo_collection_name(con)
-  }
-  command <- function(command = '{}'){
-    mongo_collection_command(con, command = command)
-  }
-  environment()
+  self <- local({
+    insert <- function(data, pagesize = 1000, verbose = TRUE, ...)
+      mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose, ...)
+
+    find <- function(query = '{}', handler = NULL, pagesize = 1000, verbose = TRUE)
+      mongo_stream_in(con, handler = handler, pagesize = pagesize, verbose = verbose, query = query)
+
+    count <- function(query = '{}')
+      mongo_collection_count(con, query)
+
+    remove <- function(query = '{}', multiple = TRUE)
+      mongo_collection_remove(con, query, multiple)
+
+    drop <- function()
+      mongo_collection_drop(con)
+
+    info <- function(){
+      list(name = mongo_collection_name(con))
+    }
+    execute <- function(command = '{}'){
+      mongo_collection_command(con, command = command)
+    }
+    indexes <- function(add = NULL, remove = NULL)
+      mongo_collection_find_indexes(con)
+
+    environment()
+  })
+  lockEnvironment(self, TRUE)
+  structure(self, class=c("mongo", "jeroen", class(self)))
 }

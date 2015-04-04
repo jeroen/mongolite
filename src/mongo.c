@@ -3,8 +3,6 @@
 #include <mongoc.h>
 #include <utils.h>
 
-SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection);
-
 SEXP R_mongo_connect(SEXP uri_string, SEXP db, SEXP collection) {
     mongoc_client_t *client;
     mongoc_collection_t *col;

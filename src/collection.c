@@ -143,3 +143,14 @@ SEXP R_mongo_collection_command(SEXP ptr_col, SEXP command){
   UNPROTECT(1);
   return out;
 }
+
+SEXP R_mongo_collection_find_indexes(SEXP ptr_col) {
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_error_t err;
+
+  mongoc_cursor_t *c = mongoc_collection_find_indexes (col, &err);
+  if(!c)
+    Rf_error(err.message);
+
+  return cursor2r(c);
+}
