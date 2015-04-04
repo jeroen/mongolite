@@ -11,6 +11,9 @@ SEXP R_mongo_collection_new(SEXP uri_string, SEXP db, SEXP collection) {
   if(!client)
     error("Invalid uri_string. Try mongodb://localhost");
 
+  //set ssl certificates here
+  mongoc_client_set_ssl_opts(client, mongoc_ssl_opt_get_default());
+
   col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
   SEXP out = PROTECT(col2r(col));
   setAttrib(out, install("client"), client2r(client));
