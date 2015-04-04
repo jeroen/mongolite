@@ -1,6 +1,6 @@
 #' MongoDB client
 #'
-#' Initiate a new MongoDB client.
+#' Initiate a new MongoDB collection.
 #'
 #' @export
 #' @param url address of the mongodb server
@@ -21,7 +21,7 @@
 #' @section Methods:
 #' \describe{
 #'   \item{\code{count(query = '{}')}}{Count the number of records for a given query. If no query is specified, counts all records.}
-#'   \item{\code{drop()}}{Delete all records from the collection.}
+#'   \item{\code{drop()}}{Delete entire collection and all data.}
 #'   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve 'fields' from all records matching a query. If handler = NULL, data will returned as a single data frame.}
 #'   \item{\code{index(add = NULL, remove = NULL)}}{find, add or remove indexes from the collection. Always returns a data frame with current indexes.}
 #'   \item{\code{info()}}{Returns collection name and statistics (if available).}

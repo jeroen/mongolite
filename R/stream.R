@@ -27,7 +27,7 @@ mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TR
     }
   } else {
     function(x){
-      handler(jsonlite:::simplify(x))
+      handler(post_process(x))
       count <<- count + length(x)
     }
   }
@@ -60,8 +60,17 @@ mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TR
       out <- Filter(function(x){!is.null(x)}, out)
     }
     if(verbose) message("Simplifying into dataframe...")
-    as.data.frame(jsonlite:::simplify(out))
+    post_process(out)
   } else {
     invisible()
   }
+}
+
+post_process <- function(x){
+  df <- as.data.frame(jsonlite:::simplify(x))
+  idcol <- match("_id", names(df))
+  if(!is.na(idcol)){
+    df[[idcol]] <- vapply(df[[idcol]], function(x){paste(format(x), collapse="")}, character(1))
+  }
+  df
 }

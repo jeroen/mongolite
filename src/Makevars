@@ -33,7 +33,7 @@ LIBMONGOC = mongoc/mongoc-array.c mongoc/mongoc-b64.c mongoc/mongoc-buffer.c \
 
 PKG_LIBS = -L. -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2
 
-all: clean libyajl.a libbson.a libmongoc.a
+all: libyajl.a libbson.a libmongoc.a
 
 clean:
 	rm -f *.o mongoc/*.o bson/*.o yajl/*.o
