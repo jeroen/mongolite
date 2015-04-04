@@ -47,7 +47,7 @@
 /*
  * Define to 1 if you have clock_gettime() available.
  */
-#define BSON_HAVE_CLOCK_GETTIME 0
+#define BSON_HAVE_CLOCK_GETTIME 1
 #if BSON_HAVE_CLOCK_GETTIME != 1
 # undef BSON_HAVE_CLOCK_GETTIME
 #endif
