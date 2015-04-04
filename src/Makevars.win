@@ -1,22 +1,28 @@
-PKG_CPPFLAGS = -I../windows/openssl-1.0.1j/include -I../windows/libsasl-2.1.26/include -DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION -DBSON_DISABLE_CHECKS -I. -Iyajl -Ibson -Imongoc
-PKG_CFLAGS = -Wno-unused-value
-PKG_LIBS = -L../windows/openssl-1.0.1j/lib${R_ARCH} -L../windows/libsasl-2.1.26/lib${R_ARCH} -lsasl2 -lssl -lcrypto -lws2_32 -lgdi32 -lcrypt32 -lws2_32
+PKG_CPPFLAGS = -I../windows/openssl-1.0.1j/include -I../windows/libsasl-2.1.26/include -DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION -I. -Iyajl -Ibson -Imongoc
+PKG_CFLAGS = -Wno-unused-value -Wno-unused-but-set-variable
+PKG_LIBS = -L. -L../windows/openssl-1.0.1j/lib${R_ARCH} -L../windows/libsasl-2.1.26/lib${R_ARCH} -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2 -lcrypto -lgdi32 -lcrypt32 -lws2_32
 
-ifeq "${R_ARCH}" "/i386"
-SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c win32/*.c *.c)
-else
-SOURCES = $(wildcard yajl/*.c bson/*.c mongoc/*.c *.c)
-endif
+LIBMONGOC = $(wildcard mongoc/*.c win32/*.c)
+LIBBSON = $(wildcard bson/*.c)
+LIBYAJL = $(wildcard yajl/*.c)
 
-OBJECTS = $(SOURCES:.c=.o)
-
-all: winpatches clean winlibs $(OBJECTS)
+all: clean winpatches winlibs libyajl.a libbson.a libmongoc.a
 
 clean:
-	rm -f $(OBJECTS)
+	rm -f *.o mongoc/*.o bson/*.o yajl/*.o
+	rm -f *.a
 
 winpatches:
 	sed -i "s/define BSON_OS 1/define BSON_OS 2/g" bson/bson-config.h
 
 winlibs:
 	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
+
+libyajl.a: $(LIBYAJL:.c=.o)
+	ar rcs libyajl.a yajl/*.o
+
+libbson.a: $(LIBBSON:.c=.o)
+	ar rcs libbson.a bson/*.o
+
+libmongoc.a: $(LIBMONGOC:.c=.o)
+	ar rcs libmongoc.a mongoc/*.o win32/*.o

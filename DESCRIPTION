@@ -3,7 +3,7 @@ Type: Package
 Title: Streaming Mongo Client
 Description: R bindings to the high-performance MongoDB C driver and
     high-level IO tools in the same spirit as jsonlite.
-Version: 0.1
+Version: 0.1.9000
 Date: 2015-03-27
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen.ooms@stat.ucla.edu", role = c("aut", "cre")),
