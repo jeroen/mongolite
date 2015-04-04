@@ -12,7 +12,7 @@ print.jeroen <- function(x, ...){
 #' @export
 `$.jeroen` <- function(x, y){
   if(!exists(y, x, inherits = FALSE)){
-    stop("Class '", is(m), "' has no field '", y, "'", call. = FALSE)
+    stop("Class '", is(x), "' has no field '", y, "'", call. = FALSE)
   }
   get(y, x, inherits = FALSE)
 }
