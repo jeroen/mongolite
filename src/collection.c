@@ -3,12 +3,20 @@
 #include <mongoc.h>
 #include <utils.h>
 
-SEXP R_mongo_collection_drop (SEXP ptr);
-SEXP R_mongo_collection_name (SEXP ptr);
-SEXP R_mongo_collection_count (SEXP ptr, SEXP query);
-SEXP R_mongo_collection_insert_bson(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_error);
-SEXP R_mongo_collection_create_index(SEXP ptr, SEXP keys);
-SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP all);
+SEXP R_mongo_collection_new(SEXP uri_string, SEXP db, SEXP collection) {
+  mongoc_client_t *client;
+  mongoc_collection_t *col;
+
+  client = mongoc_client_new (translateCharUTF8(asChar(uri_string)));
+  if(!client)
+    error("Invalid uri_string. Try mongodb://localhost");
+
+  col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
+  SEXP out = PROTECT(col2r(col));
+  setAttrib(out, install("client"), client2r(client));
+  UNPROTECT(1);
+  return out;
+}
 
 SEXP R_mongo_collection_drop (SEXP ptr){
   mongoc_collection_t *col = r2col(ptr);

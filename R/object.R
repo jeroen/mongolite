@@ -24,7 +24,7 @@
 #'   \item{\code{drop()}}{Delete all records from the collection.}
 #' }
 mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"){
-  con <- mongo_connect(url, db, collection)
+  con <- mongo_collection_new(url, db, collection)
   mongo_object(con)
 }
 

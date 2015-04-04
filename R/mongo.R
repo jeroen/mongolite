@@ -1,6 +1,6 @@
-#' @useDynLib mongolite R_mongo_connect
-mongo_connect <- function(uri = "mongodb://localhost", db = "test", collection = "test"){
-  .Call(R_mongo_connect, uri, db, collection)
+#' @useDynLib mongolite R_mongo_collection_new
+mongo_collection_new <- function(uri = "mongodb://localhost", db = "test", collection = "test"){
+  .Call(R_mongo_collection_new, uri, db, collection)
 }
 
 #' @useDynLib mongolite R_mongo_collection_drop
