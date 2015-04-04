@@ -9,7 +9,7 @@ LIBYAJL = $(wildcard yajl/*.c)
 all: clean winpatches winlibs libyajl.a libbson.a libmongoc.a
 
 clean:
-	rm -f *.o mongoc/*.o bson/*.o yajl/*.o
+	rm -f *.o mongoc/*.o bson/*.o yajl/*.o win32/*.o
 	rm -f *.a
 
 winpatches:
@@ -25,4 +25,8 @@ libbson.a: $(LIBBSON:.c=.o)
 	ar rcs libbson.a bson/*.o
 
 libmongoc.a: $(LIBMONGOC:.c=.o)
+ifeq "$(WIN)" "64"
+	ar rcs libmongoc.a mongoc/*.o
+else
 	ar rcs libmongoc.a mongoc/*.o win32/*.o
+endif
