@@ -4,14 +4,14 @@
 \alias{mongo}
 \title{MongoDB client}
 \usage{
-mongo(url = "mongodb://localhost", db = "test", collection = "test")
+mongo(collection = "test", db = "test", url = "mongodb://localhost")
 }
 \arguments{
-\item{url}{address of the mongodb server}
+\item{collection}{name of collection}
 
 \item{db}{name of database}
 
-\item{collection}{name of collection}
+\item{url}{address of the mongodb server}
 }
 \description{
 Initiate a new MongoDB client.

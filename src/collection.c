@@ -165,3 +165,12 @@ SEXP R_mongo_collection_find_indexes(SEXP ptr_col) {
 
   return cursor2r(c);
 }
+
+SEXP R_mongo_collection_rename(SEXP ptr_col, SEXP db, SEXP name) {
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_error_t err;
+
+  if(!mongoc_collection_rename(col, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(name)), false, &err))
+    error(err.message);
+  return ScalarLogical(1);
+}

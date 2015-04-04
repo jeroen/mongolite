@@ -13,6 +13,11 @@ mongo_collection_name <- function(col){
   .Call(R_mongo_collection_name, col)
 }
 
+#' @useDynLib mongolite R_mongo_collection_rename
+mongo_collection_rename <- function(col, db = "test", name){
+  .Call(R_mongo_collection_rename, col, db, name)
+}
+
 #' @useDynLib mongolite R_mongo_collection_count
 mongo_collection_count <- function(col, query = "{}"){
   .Call(R_mongo_collection_count, col, bson_or_json(query))

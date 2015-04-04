@@ -23,11 +23,10 @@
 #'   \item{\code{count(query = '{}')}}{Count the number of records for a given query. If no query is specified, counts all records.}
 #'   \item{\code{drop()}}{Delete all records from the collection.}
 #' }
-mongo <- function(url = "mongodb://localhost", db = "test", collection = "test"){
+mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"){
   con <- mongo_connect(url, db, collection)
   mongo_object(con)
 }
-
 
 mongo_object <- function(con){
   self <- local({
@@ -46,12 +45,15 @@ mongo_object <- function(con){
     drop <- function()
       mongo_collection_drop(con)
 
-    info <- function(){
+    info <- function()
       list(name = mongo_collection_name(con))
-    }
-    execute <- function(command = '{}'){
+
+    execute <- function(command = '{}')
       mongo_collection_command(con, command = command)
-    }
+
+    rename <- function(name, db = "test")
+      mongo_collection_rename(con, db, name)
+
     indexes <- function(add = NULL, remove = NULL){
       if(length(add))
         mongo_collection_create_index(con, add);
