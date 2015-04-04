@@ -21,6 +21,12 @@ Initiate a new MongoDB client.
 \describe{
   \item{\code{count(query = '{}')}}{Count the number of records for a given query. If no query is specified, counts all records.}
   \item{\code{drop()}}{Delete all records from the collection.}
+  \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve 'fields' from all records matching a query. If handler = NULL, data will returned as a single data frame.}
+  \item{\code{index(add = NULL, remove = NULL)}}{find, add or remove indexes from the collection. Always returns a data frame with current indexes.}
+  \item{\code{info()}}{Returns collection name and statistics (if available).}
+  \item{\code{insert(data, pagesize = 1000, verbose = TRUE)}}{Insert a data frame into the collection.}
+  \item{\code{remove(query = "{}", multiple = TRUE)}}{Remove record(s) from the collection.}
+  \item{\code{rename(name, db = "test")}}{Change the name or database of a collection. Changing name is cheap, but changing database is expensive.}
 }
 }
 \examples{
