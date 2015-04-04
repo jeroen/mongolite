@@ -75,5 +75,5 @@ mongo_object <- function(con){
 
 #' @export
 print.mongo <- function(x, ...){
-  print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(m)$con), "'"))
+  print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(x)$con), "'"))
 }
