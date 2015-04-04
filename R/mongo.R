@@ -8,6 +8,12 @@ mongo_collection_drop <- function(col){
   .Call(R_mongo_collection_drop, col)
 }
 
+# This is identical to m$execute('{"collStats":"cmdtest"}')
+#' @useDynLib mongolite R_mongo_collection_stats
+mongo_collection_stats <- function(col){
+  .Call(R_mongo_collection_stats, col)
+}
+
 #' @useDynLib mongolite R_mongo_collection_name
 mongo_collection_name <- function(col){
   .Call(R_mongo_collection_name, col)

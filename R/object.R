@@ -45,16 +45,17 @@ mongo_object <- function(con){
     drop <- function()
       mongo_collection_drop(con)
 
-    info <- function()
-      list(name = mongo_collection_name(con))
-
-    execute <- function(command = '{}')
-      mongo_collection_command(con, command = command)
+    info <- function(){
+      list(
+        name = mongo_collection_name(con),
+        stats = mongo_collection_stats(con)
+      )
+    }
 
     rename <- function(name, db = "test")
       mongo_collection_rename(con, db, name)
 
-    indexes <- function(add = NULL, remove = NULL){
+    index <- function(add = NULL, remove = NULL){
       if(length(add))
         mongo_collection_create_index(con, add);
 
