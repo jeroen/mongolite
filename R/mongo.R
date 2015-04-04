@@ -48,6 +48,16 @@ mongo_cursor_more <- function(cursor){
   .Call(R_mongo_cursor_more, cursor)
 }
 
+#' @useDynLib mongolite R_mongo_collection_create_index
+mongo_collection_create_index <- function(col, doc = '{}'){
+  .Call(R_mongo_collection_create_index, col, bson_or_json(doc))
+}
+
+#' @useDynLib mongolite R_mongo_collection_drop_index
+mongo_collection_drop_index <- function(col, name){
+  .Call(R_mongo_collection_drop_index, col, name)
+}
+
 #' @useDynLib mongolite R_mongo_cursor_next_bson
 mongo_cursor_next_bson <- function(cursor){
   .Call(R_mongo_cursor_next_bson, cursor)

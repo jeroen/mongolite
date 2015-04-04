@@ -52,9 +52,15 @@ mongo_object <- function(con){
     execute <- function(command = '{}'){
       mongo_collection_command(con, command = command)
     }
-    indexes <- function(add = NULL, remove = NULL)
-      mongo_collection_find_indexes(con)
+    indexes <- function(add = NULL, remove = NULL){
+      if(length(add))
+        mongo_collection_create_index(con, add);
 
+      if(length(remove))
+        mongo_collection_drop_index(con, remove);
+
+      mongo_collection_find_indexes(con)
+    }
     environment()
   })
   lockEnvironment(self, TRUE)

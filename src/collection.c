@@ -106,6 +106,17 @@ SEXP R_mongo_collection_create_index(SEXP ptr_col, SEXP ptr_bson) {
   return ScalarLogical(1);
 }
 
+SEXP R_mongo_collection_drop_index(SEXP ptr_col, SEXP name) {
+  mongoc_collection_t *col = r2col(ptr_col);
+  const char *str = CHAR(asChar(name));
+  bson_error_t err;
+
+  if(!mongoc_collection_drop_index(col, str, &err))
+    error(err.message);
+
+  return ScalarLogical(1);
+}
+
 SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP all){
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *b = r2bson(ptr_bson);
