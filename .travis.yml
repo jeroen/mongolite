@@ -1,6 +1,6 @@
 language: r
 
-warnings_are_errors: false
+warnings_are_errors: true
 #r_check_revdep: true
 
 apt_packages:
