@@ -66,3 +66,8 @@ mongo_object <- function(con){
   lockEnvironment(self, TRUE)
   structure(self, class=c("mongo", "jeroen", class(self)))
 }
+
+#' @export
+print.mongo <- function(x, ...){
+  print.jeroen(x, title = paste0("<Mongo collection> '", x$info()$name, "'"))
+}

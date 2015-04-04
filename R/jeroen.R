@@ -1,9 +1,9 @@
 # A poor man's oo class system.
 
 #' @export
-print.jeroen <- function(x, ...){
+print.jeroen <- function(x, title = paste0("<", is(x), ">"), ...){
   ns <- ls(x)
-  cat("<", is(x), ">\n", sep = "")
+  cat(title, "\n")
   lapply(ns, function(fn){
     cat(format_function(x[[fn]], fn), sep = "\n")
   })
