@@ -48,7 +48,7 @@ mongo_object <- function(con){
     info <- function(){
       list(
         name = mongo_collection_name(con),
-        stats = mongo_collection_stats(con)
+        stats = tryCatch(mongo_collection_stats(con), error = function(e) NULL)
       )
     }
 
@@ -72,5 +72,5 @@ mongo_object <- function(con){
 
 #' @export
 print.mongo <- function(x, ...){
-  print.jeroen(x, title = paste0("<Mongo collection> '", x$info()$name, "'"))
+  print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(m)$con), "'"))
 }
