@@ -35,6 +35,7 @@ mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"
 }
 
 mongo_object <- function(con){
+  client <- attr(con, "client")
   self <- local({
     insert <- function(data, pagesize = 1000, verbose = TRUE, ...)
       mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose, ...)
@@ -57,7 +58,8 @@ mongo_object <- function(con){
     info <- function(){
       list(
         name = mongo_collection_name(con),
-        stats = tryCatch(mongo_collection_stats(con), error = function(e) NULL)
+        stats = tryCatch(mongo_collection_stats(con), error = function(e) NULL),
+        server = mongo_client_server_status(client)
       )
     }
 

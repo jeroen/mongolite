@@ -47,6 +47,13 @@ mongoc_cursor_t* r2cursor(SEXP ptr){
   return c;
 }
 
+mongoc_client_t* r2client(SEXP ptr){
+  mongoc_client_t *client = R_ExternalPtrAddr(ptr);
+  if(!client)
+    error("Client has been destroyed.");
+  return client;
+}
+
 SEXP bson2r(bson_t* b){
   SEXP ptr = PROTECT(R_MakeExternalPtr(b, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_bson, 1);

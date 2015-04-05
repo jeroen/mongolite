@@ -3,6 +3,11 @@ mongo_collection_new <- function(uri = "mongodb://localhost", db = "test", colle
   .Call(R_mongo_collection_new, uri, db, collection)
 }
 
+#' @useDynLib mongolite R_mongo_client_server_status
+mongo_client_server_status <- function(client){
+  .Call(R_mongo_client_server_status, client)
+}
+
 #' @useDynLib mongolite R_mongo_collection_drop
 mongo_collection_drop <- function(col){
   .Call(R_mongo_collection_drop, col)

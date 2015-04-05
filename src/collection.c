@@ -15,15 +15,13 @@ SEXP R_mongo_collection_new(SEXP uri_string, SEXP db, SEXP collection) {
   mongoc_client_set_ssl_opts(client, mongoc_ssl_opt_get_default());
 
   //check if server is online
-  bson_t reply;
   bson_error_t err;
-  if(!mongoc_client_get_server_status(client, NULL, &reply, &err))
+  if(!mongoc_client_get_server_status(client, NULL, NULL, &err))
     error(err.message);
 
   col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
   SEXP out = PROTECT(col2r(col));
   setAttrib(out, install("client"), client2r(client));
-  setAttrib(out, install("server"), bson2list(&reply));
   UNPROTECT(1);
   return out;
 }
@@ -126,7 +124,7 @@ SEXP R_mongo_collection_create_index(SEXP ptr_col, SEXP ptr_bson) {
 
 SEXP R_mongo_collection_drop_index(SEXP ptr_col, SEXP name) {
   mongoc_collection_t *col = r2col(ptr_col);
-  const char *str = CHAR(asChar(name));
+  const char *str = translateCharUTF8(asChar(name));
   bson_error_t err;
 
   if(!mongoc_collection_drop_index(col, str, &err))
