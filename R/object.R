@@ -45,7 +45,7 @@ mongo_object <- function(con){
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
-    aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = FALSE){
+    aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE){
       cur <- mongo_collection_aggregate(con, pipeline)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
@@ -53,7 +53,7 @@ mongo_object <- function(con){
     count <- function(query = '{}')
       mongo_collection_count(con, query)
 
-    remove <- function(query = '{}', multiple = TRUE)
+    remove <- function(query, multiple = TRUE)
       mongo_collection_remove(con, query, multiple)
 
     drop <- function()
