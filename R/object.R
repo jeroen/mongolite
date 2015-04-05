@@ -40,10 +40,9 @@ mongo_object <- function(con){
     insert <- function(data, pagesize = 1000, verbose = TRUE)
       mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose)
 
-    find <- function(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0,
-      handler = NULL, pagesize = 1000, verbose = TRUE){
-        mongo_stream_in(con, handler = handler, pagesize = pagesize, verbose = verbose,
-          query = query, fields = fields, skip = skip, limit = limit)
+    find <- function(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE){
+      cur <- mongo_collection_find(con, query = query, fields = fields, skip = skip, limit = limit)
+      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
     count <- function(query = '{}')
