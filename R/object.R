@@ -24,7 +24,7 @@
 #'   \item{\code{drop()}}{Delete entire collection and all data.}
 #'   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve 'fields' from all records matching a query. If handler = NULL, data will returned as a single data frame.}
 #'   \item{\code{index(add = NULL, remove = NULL)}}{find, add or remove indexes from the collection. Always returns a data frame with current indexes.}
-#'   \item{\code{info()}}{Returns collection name and statistics (if available).}
+#'   \item{\code{info()}}{Returns collection statistics and server info (if available).}
 #'   \item{\code{insert(data, pagesize = 1000, verbose = TRUE)}}{Insert a data frame into the collection.}
 #'   \item{\code{remove(query = "{}", multiple = TRUE)}}{Remove record(s) from the collection.}
 #'   \item{\code{rename(name, db = "test")}}{Change the name or database of a collection. Changing name is cheap, but changing database is expensive.}
@@ -37,8 +37,8 @@ mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"
 mongo_object <- function(con){
   client <- attr(con, "client")
   self <- local({
-    insert <- function(data, pagesize = 1000, verbose = TRUE, ...)
-      mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose, ...)
+    insert <- function(data, pagesize = 1000, verbose = TRUE)
+      mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose)
 
     find <- function(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0,
       handler = NULL, pagesize = 1000, verbose = TRUE){

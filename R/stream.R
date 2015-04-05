@@ -1,14 +1,19 @@
 #' @importFrom jsonlite toJSON fromJSON
-mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
+mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE){
   stopifnot(is.data.frame(data))
+  stopifnot(is.numeric(pagesize))
   FUN <- function(x){
-    mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, digits = 9, collapse = FALSE), ...)
+    mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, digits = 9, collapse = FALSE))
   }
   jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
 }
 
 mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TRUE,
   query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0){
+
+  # Type validation
+  stopifnot(is.null(handler) || is.function(handler))
+  stopifnot(is.numeric(pagesize))
 
   # Default handler appends to big list
   count <- 0

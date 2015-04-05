@@ -1,5 +1,8 @@
 #' @useDynLib mongolite R_mongo_collection_new
 mongo_collection_new <- function(uri = "mongodb://localhost", db = "test", collection = "test"){
+  stopifnot(is.character(uri))
+  stopifnot(is.character(db))
+  stopifnot(is.character(collection))
   .Call(R_mongo_collection_new, uri, db, collection)
 }
 
@@ -65,8 +68,14 @@ mongo_cursor_more <- function(cursor){
 }
 
 #' @useDynLib mongolite R_mongo_collection_create_index
-mongo_collection_create_index <- function(col, doc = '{}'){
-  .Call(R_mongo_collection_create_index, col, bson_or_json(doc))
+mongo_collection_create_index <- function(col, field = '{}'){
+  stopifnot(is.character(field))
+  stopifnot(length(field) == 1)
+  if(!jsonlite::validate(field)){
+    if(grepl("[{}]", field)) stop("Index is not valid json or field name.")
+    field <- jsonlite::toJSON(structure(list(1), names = field), auto_unbox = TRUE)
+  }
+  .Call(R_mongo_collection_create_index, col, bson_or_json(field))
 }
 
 #' @useDynLib mongolite R_mongo_collection_drop_index
@@ -89,5 +98,5 @@ mongo_collection_find_indexes <- function(col){
   cur <- .Call(R_mongo_collection_find_indexes, col)
   out <- mongo_cursor_next_page(cur)
   out <- Filter(length, out)
-  jsonlite:::simplify(out)
+  as.data.frame(jsonlite:::simplify(out))
 }

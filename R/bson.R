@@ -1,8 +1,9 @@
-
+# High level wrapper
+#' @importFrom jsonlite validate
 bson_or_json <- function(x){
   if(is(x, "bson")){
     return(x)
-  } else if(is.character(x)) {
+  } else if(is.character(x) && validate(x)) {
     json_to_bson(paste(x, collapse = "\n"))
   } else {
     stop("argument must be bson or json.")
