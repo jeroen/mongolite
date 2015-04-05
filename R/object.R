@@ -45,6 +45,11 @@ mongo_object <- function(con){
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
+    aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = FALSE){
+      cur <- mongo_collection_aggregate(con, pipeline)
+      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
+    }
+
     count <- function(query = '{}')
       mongo_collection_count(con, query)
 
@@ -62,7 +67,7 @@ mongo_object <- function(con){
       )
     }
 
-    rename <- function(name, db = "test")
+    rename <- function(name, db = NULL)
       mongo_collection_rename(con, db, name)
 
     index <- function(add = NULL, remove = NULL){

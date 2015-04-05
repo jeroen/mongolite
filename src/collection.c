@@ -198,8 +198,20 @@ SEXP R_mongo_collection_find_indexes(SEXP ptr_col) {
 SEXP R_mongo_collection_rename(SEXP ptr_col, SEXP db, SEXP name) {
   mongoc_collection_t *col = r2col(ptr_col);
   bson_error_t err;
+  const char *new_db = NULL;
+  if(db != R_NilValue)
+    new_db = translateCharUTF8(asChar(db));
 
-  if(!mongoc_collection_rename(col, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(name)), false, &err))
+  if(!mongoc_collection_rename(col, new_db, translateCharUTF8(asChar(name)), false, &err))
     error(err.message);
   return ScalarLogical(1);
+}
+
+SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline) {
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_t *pipeline = r2bson(ptr_pipeline);
+  mongoc_cursor_t *c = mongoc_collection_aggregate (col, MONGOC_QUERY_NONE, pipeline, NULL, NULL);
+  if(!c)
+    error("Error executing pipeline.");
+  return cursor2r(c);
 }

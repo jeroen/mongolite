@@ -28,7 +28,7 @@ mongo_collection_name <- function(col){
 }
 
 #' @useDynLib mongolite R_mongo_collection_rename
-mongo_collection_rename <- function(col, db = "test", name){
+mongo_collection_rename <- function(col, db = NULL, name){
   .Call(R_mongo_collection_rename, col, db, name)
 }
 
@@ -60,6 +60,11 @@ mongo_collection_remove <- function(col, doc, multiple = TRUE){
 #' @useDynLib mongolite R_mongo_collection_find
 mongo_collection_find <- function(col, query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0){
   .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(fields), skip, limit)
+}
+
+#' @useDynLib mongolite R_mongo_collection_aggregate
+mongo_collection_aggregate <- function(col, pipeline = '{}'){
+  .Call(R_mongo_collection_aggregate, col, bson_or_json(pipeline))
 }
 
 #' @useDynLib mongolite R_mongo_cursor_more
