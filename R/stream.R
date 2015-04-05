@@ -49,6 +49,7 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
 
   if(is.null(handler)){
     if(verbose) cat("\r Imported", count, "records. Simplifying into dataframe...")
+    attr(out, "tail") = NULL
     out <- as.list(out)
     post_process(out)
   } else {
