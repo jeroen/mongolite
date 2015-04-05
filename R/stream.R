@@ -21,7 +21,7 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
     function(x){
       if(length(x)){
         count <<- count + length(x)
-        out[[as.character(count)]] <<- x
+        out[[sprintf("%010d", count)]] <<- x
       }
     }
   } else {
