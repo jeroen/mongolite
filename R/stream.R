@@ -17,11 +17,11 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
   # Default handler appends to big list
   count <- 0
   cb <- if(is.null(handler)){
-    out <- new.env()
+    out <- pairlist()
     function(x){
       if(length(x)){
         count <<- count + length(x)
-        out[[sprintf("%010d", count)]] <<- x
+        out <<- join_pairlist(out, as.pairlist(x))
       }
     }
   } else {
@@ -49,7 +49,7 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
 
   if(is.null(handler)){
     if(verbose) cat("\r Imported", count, "records. Simplifying into dataframe...")
-    out <- unlist(lapply(sort(ls(out)), get, out, inherits = FALSE), FALSE, FALSE)
+    out <- as.list(out)
     post_process(out)
   } else {
     invisible()
