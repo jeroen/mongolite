@@ -18,16 +18,11 @@ mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TR
   # Default handler appends to big list
   count <- 0
   cb <- if(is.null(handler)){
-    estimate <- mongo_collection_count(mongo, query = query) - skip
-    if(limit > 0){
-      estimate <- min(limit, estimate)
-    }
-    out <- vector(mode = "list", length = estimate)
+    out <- new.env()
     function(x){
       if(length(x)){
-        from <- count+1
         count <<- count + length(x)
-        out[from:count] <<- x
+        out[[as.character(count)]] <<- x
       }
     }
   } else {
@@ -60,11 +55,8 @@ mongo_stream_in <- function(mongo, handler = NULL, pagesize = 1000, verbose = TR
   }
 
   if(is.null(handler)){
-    if(count != estimate){
-      message("Database state has changed while retrieving records.")
-      out <- Filter(function(x){!is.null(x)}, out)
-    }
     if(verbose) message("Simplifying into dataframe...")
+    out <- unlist(as.list(out, FALSE), FALSE, FALSE)
     post_process(out)
   } else {
     invisible()
