@@ -53,7 +53,7 @@ mongo_object <- function(con){
     count <- function(query = '{}')
       mongo_collection_count(con, query)
 
-    remove <- function(query, multiple = TRUE)
+    remove <- function(query, multiple = FALSE)
       mongo_collection_remove(con, query, multiple)
 
     drop <- function()
