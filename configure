@@ -22,3 +22,5 @@ else
   echo "SASL not found. Please install SASL development library, e.g: libsasl2-dev (deb) or cyrus-sasl-devel (rpm) or sasl_dev (csw)"
   exit 1
 fi
+
+exit 0
