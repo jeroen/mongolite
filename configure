@@ -1,0 +1,24 @@
+# OSX ships with both OpenSSL and SASL
+if [ $(echo "$OSTYPE" | grep "darwin") ]; then
+  exit 0
+fi
+
+# Find OpenSSL library
+if [ "$OPENSSL_INCLUDES" ]; then
+  echo "OPENSSL_INCLUDES=$OPENSSL_INCLUDES" >> src/Makevars
+elif [ -r /usr/local/include/openssl/rand.h ] || [ -r /usr/include/openssl/rand.h ] || [ -r /opt/csw/include/openssl/rand.h ]; then
+  echo "Found system OpenSSL."
+else
+  echo "OpenSSL not found. Please install OpenSSL development library, e.g: libssl-dev (deb) or openssl-devel (rpm) or libssl_dev (csw)"
+  exit 1
+fi
+
+# Find SASL2 library
+if [ "$SASL_INCLUDES" ]; then
+  echo "SASL_INCLUDES=$SASL_INCLUDES" >> src/Makevars
+elif [ -r /usr/local/include/sasl/sasl.h ] || [ -r /usr/include/sasl/sasl.h ] || [ -r /opt/csw/include/sasl/sasl.h ]; then
+  echo "Found system SASL."
+else
+  echo "SASL not found. Please install SASL development library, e.g: libsasl2-dev (deb) or cyrus-sasl-devel (rpm) or sasl_dev (csw)"
+  exit 1
+fi
