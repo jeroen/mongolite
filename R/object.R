@@ -59,6 +59,9 @@ mongo_object <- function(con){
     drop <- function()
       mongo_collection_drop(con)
 
+    update <- function(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)
+      mongo_collection_update(con, query, update, upsert, multiple)
+
     info <- function(){
       list(
         name = mongo_collection_name(con),

@@ -67,6 +67,25 @@ SEXP R_mongo_collection_insert_bson(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_er
   return ScalarLogical(1);
 }
 
+SEXP R_mongo_collection_update(SEXP ptr_col, SEXP ptr_selector, SEXP ptr_update, SEXP upsert, SEXP multiple){
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_t *selector = r2bson(ptr_selector);
+  bson_t *update = r2bson(ptr_update);
+
+  //set update flags
+  mongoc_update_flags_t flags = MONGOC_UPDATE_NONE;
+  if(asLogical(upsert))
+    flags = flags + MONGOC_UPDATE_UPSERT;
+  if(asLogical(multiple))
+    flags = flags + MONGOC_UPDATE_MULTI_UPDATE;
+
+  bson_error_t err;
+  if(!mongoc_collection_update(col, flags, selector, update, NULL, &err))
+    error(err.message);
+
+  return ScalarLogical(1);
+}
+
 SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_error){
   if(!isString(json_vec) || !length(json_vec))
     error("json_vec must be character string of at least length 1");

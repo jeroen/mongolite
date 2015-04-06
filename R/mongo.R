@@ -47,6 +47,13 @@ mongo_collection_insert_bson <- function(col, doc, stop_on_error = TRUE){
   .Call(R_mongo_collection_insert_bson, col, bson_or_json(doc), stop_on_error)
 }
 
+#' @useDynLib mongolite R_mongo_collection_update
+mongo_collection_update <- function(col, selector, update, upsert = TRUE, multiple = TRUE){
+  stopifnot(is.logical(upsert))
+  stopifnot(is.logical(multiple))
+  .Call(R_mongo_collection_update, col, bson_or_json(selector), bson_or_json(update), upsert, multiple)
+}
+
 #' @useDynLib mongolite R_mongo_collection_insert_page
 mongo_collection_insert_page <- function(col, json, stop_on_error = TRUE){
   .Call(R_mongo_collection_insert_page, col, json, stop_on_error)
