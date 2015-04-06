@@ -6,12 +6,14 @@
 #' @param url address of the mongodb server
 #' @param db name of database
 #' @param collection name of collection
+#' @return Upon success returns a pointer to a collection on the server.
+#' The collection can be interfaced using the methods described below.
 #' @examples \dontrun{
 #' # dplyr example
 #' library(nycflights13)
 #'
 #' # Insert some data
-#' m <- mongo(collection = "myflights")
+#' m <- mongo(collection = "nycflights")
 #' m$drop()
 #' m$insert(flights)
 #'

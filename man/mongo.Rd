@@ -13,6 +13,10 @@ mongo(collection = "test", db = "test", url = "mongodb://localhost")
 
 \item{url}{address of the mongodb server}
 }
+\value{
+Upon success returns a pointer to a collection on the server.
+The collection can be interfaced using the methods described below.
+}
 \description{
 Connect to a MongoDB collection.
 }
@@ -37,7 +41,7 @@ Connect to a MongoDB collection.
 library(nycflights13)
 
 # Insert some data
-m <- mongo(collection = "myflights")
+m <- mongo(collection = "nycflights")
 m$drop()
 m$insert(flights)
 
