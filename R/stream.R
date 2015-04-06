@@ -2,6 +2,7 @@
 mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE){
   stopifnot(is.data.frame(data))
   stopifnot(is.numeric(pagesize))
+  stopifnot(is.logical(verbose))
   FUN <- function(x){
     mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, digits = 9, collapse = FALSE))
   }
@@ -14,6 +15,7 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
   # Type validation
   stopifnot(is.null(handler) || is.function(handler))
   stopifnot(is.numeric(pagesize))
+  stopifnot(is.logical(verbose))
 
   # Default handler appends to big list
   count <- 0

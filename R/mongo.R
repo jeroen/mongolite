@@ -29,6 +29,8 @@ mongo_collection_name <- function(col){
 
 #' @useDynLib mongolite R_mongo_collection_rename
 mongo_collection_rename <- function(col, db = NULL, name){
+  stopifnot(is.character(name))
+  stopifnot(is.null(db) || is.character(name))
   .Call(R_mongo_collection_rename, col, db, name)
 }
 
@@ -61,11 +63,14 @@ mongo_collection_insert_page <- function(col, json, stop_on_error = TRUE){
 
 #' @useDynLib mongolite R_mongo_collection_remove
 mongo_collection_remove <- function(col, doc, multiple = TRUE){
+  stopifnot(is.logical(multiple))
   .Call(R_mongo_collection_remove, col, bson_or_json(doc), multiple)
 }
 
 #' @useDynLib mongolite R_mongo_collection_find
 mongo_collection_find <- function(col, query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0){
+  stopifnot(is.numeric(skip))
+  stopifnot(is.numeric(limit))
   .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(fields), skip, limit)
 }
 
@@ -84,7 +89,8 @@ mongo_collection_create_index <- function(col, field = '{}'){
   stopifnot(is.character(field))
   stopifnot(length(field) == 1)
   if(!jsonlite::validate(field)){
-    if(grepl("[{}]", field)) stop("Index is not valid json or field name.")
+    if(grepl("[{}]", field))
+      stop("Index is not valid json or field name.")
     field <- jsonlite::toJSON(structure(list(1), names = field), auto_unbox = TRUE)
   }
   .Call(R_mongo_collection_create_index, col, bson_or_json(field))
