@@ -6,6 +6,7 @@ mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE){
     mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, digits = 9, collapse = FALSE))
   }
   jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
+  TRUE
 }
 
 mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE){

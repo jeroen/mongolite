@@ -14,10 +14,12 @@ SEXP R_mongo_collection_new(SEXP uri_string, SEXP db, SEXP collection) {
   //set ssl certificates here
   mongoc_client_set_ssl_opts(client, mongoc_ssl_opt_get_default());
 
-  //check if server is online
+  //verify that server is online
   bson_error_t err;
-  if(!mongoc_client_get_server_status(client, NULL, NULL, &err))
+  if(!mongoc_client_get_server_status(client, NULL, NULL, &err)){
+    mongoc_client_destroy(client);
     error(err.message);
+  }
 
   col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
   SEXP out = PROTECT(col2r(col));

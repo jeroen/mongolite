@@ -44,6 +44,7 @@
 #'   \item{\code{rename(name, db = "test")}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
 #' }
+#' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"){
   con <- mongo_collection_new(url, db, collection)
   mongo_object(con)
