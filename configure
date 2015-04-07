@@ -3,6 +3,11 @@ if [ $(echo "$OSTYPE" | grep "darwin") ]; then
   exit 0
 fi
 
+# Fix for solaris
+if [ $(echo "$OSTYPE" | grep "solaris") ]; then
+  sed -i "s/lsasl2/lsasl/g" src/Makevars
+fi
+
 # Find OpenSSL library
 if [ -r /usr/local/include/openssl/rand.h ] || [ -r /usr/include/openssl/rand.h ] || [ -r /opt/csw/include/openssl/rand.h ]; then
   echo "Found system OpenSSL."
@@ -18,11 +23,5 @@ else
   echo "SASL not found. Please install SASL development library, e.g: libsasl2-dev (deb) or cyrus-sasl-devel (rpm) or sasl_dev (csw)"
   exit 1
 fi
-
-# Fix for solaris
-if [ $(echo "$OSTYPE" | grep "solaris") ]; then
-  sed -i "s/lsasl2/lsasl/g" src/Makevars
-fi
-
 
 exit 0
