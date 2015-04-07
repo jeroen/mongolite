@@ -24,7 +24,7 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
     function(x){
       if(length(x)){
         count <<- count + length(x)
-        out[[sprintf("%010d", count)]] <<- x
+        out[[as.character(count)]] <<- x
       }
     }
   } else {
@@ -52,8 +52,8 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
 
   if(is.null(handler)){
     if(verbose) cat("\r Imported", count, "records. Simplifying into dataframe...\n")
-    out <- unlist(lapply(sort(ls(out)), get, out, inherits = FALSE), FALSE, FALSE)
-    post_process(out)
+    out <- as.list(out, sorted = FALSE)
+    post_process(unlist(out[order(as.numeric(names(out)))], FALSE, FALSE))
   } else {
     invisible()
   }
