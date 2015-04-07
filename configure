@@ -6,7 +6,7 @@ fi
 # Fix for solaris
 if [ $(echo "$OSTYPE" | grep "solaris") ]; then
   echo "Patching for Solaris"
-  sed -i "s/lsasl2/lsasl/g" src/Makevars
+  perl -pi -w -e 's/lsasl2/lsasl/g;' src/Makevars
 fi
 
 # Find OpenSSL library
