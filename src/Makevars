@@ -1,4 +1,5 @@
 PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h \
+ -I/opt/csw/include \
  -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
 
 LIBYAJL = yajl/yajl_alloc.c yajl/yajl_buf.c yajl/yajl_encode.c yajl/yajl_gen.c \
