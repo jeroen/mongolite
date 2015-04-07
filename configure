@@ -1,11 +1,5 @@
 # OSX ships with both OpenSSL and SASL
-if [ $(echo "$OSTYPE" | grep "solaris") ]; then
-  exit 0
-fi
-
-# Solaris too ships with OpenSSL and SASL
-if [ $(echo "$OSTYPE" | grep "solaris") ]; then
-  sed -i "s/lsasl2/lsasl/g" src/Makevars
+if [ $(echo "$OSTYPE" | grep "darwin") ]; then
   exit 0
 fi
 
@@ -24,5 +18,11 @@ else
   echo "SASL not found. Please install SASL development library, e.g: libsasl2-dev (deb) or cyrus-sasl-devel (rpm) or sasl_dev (csw)"
   exit 1
 fi
+
+# Fix for solaris
+if [ $(echo "$OSTYPE" | grep "solaris") ]; then
+  sed -i "s/lsasl2/lsasl/g" src/Makevars
+fi
+
 
 exit 0
