@@ -18,6 +18,7 @@ To install the R package:
 
 ```r
 library(devtools)
+install_github("jeroenooms/jsonlite")
 install_github("jeroenooms/mongolite")
 ```
 
