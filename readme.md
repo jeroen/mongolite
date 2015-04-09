@@ -25,60 +25,85 @@ Hello World
 -----------
 
 ```r
+# Init connection to local mongod
 library(mongolite)
-
-# Initiate connection to local mongod
-m <- mongo_connect(collection = "diamonds")
+m <- mongo(collection = "diamonds")
 
 # Insert test data
 data(diamonds, package="ggplot2")
-mongo_stream_out(diamonds, m)
+m$insert(diamonds)
 
 # Check records
-mongo_collection_count(m)
+m$count()
 nrow(diamonds)
 
 # Perform a query and retrieve data
-out <- mongo_stream_in(m, query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
+out <- m$find('{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
 
 # Compare
 nrow(out)
 nrow(subset(diamonds, cut == "Premium" & price < 1000))
 ```
 
+Flights
+-------
+
+Some example queries from the dplyr tutorials.
+
+```r
+# Insert some data
+data(flights, package = "nycflights13")
+m <- mongo(collection = "nycflights")
+m$insert(flights)
+
+# Basic queries
+m$count('{"month":1, "day":1}')
+jan1 <- m$find('{"month":1, "day":1}')
+
+# Sorting
+jan1 <- m$find('{"$query":{"month":1,"day":1}, "$orderby":{"distance":-1}}')
+head(jan1)
+
+# Select columns
+jan1 <- m$find('{"month":1,"day":1}', fields = '{"_id":0, "distance":1, "carrier":1}')
+
+# Tabulate
+m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
+```
+
 Combine with jsonlite
 ---------------------
 
-Example data with zipcodes from [mongolite tutorial](http://docs.mongodb.org/manual/tutorial/aggregation-zip-code-data-set/).
+Example data with zipcodes from [mongolite tutorial](http://docs.mongodb.org/manual/tutorial/aggregation-zip-code-data-set/). This dataset has an `_id` column so you cannot insert it more than once.
 
 ```r
 library(jsonlite)
 library(mongolite)
 
 # Stream from url into mongo
-m <- mongo_connect(collection = "zips")
+m <- mongo("zips")
 stream_in(url("http://media.mongodb.org/zips.json"), handler = function(df){
-  mongo_stream_out(df, m, verbose = FALSE)
+  m$insert(df, verbose = FALSE)
 })
 
 # Check count
-mongo_collection_count(m)
+m$count()
 
 # Import. Note the 'location' column is actually an array!
-zips <- mongo_stream_in(m)
+zips <- m$find()
 ```
 
 Nested data
 -----------
 
-Bulk samples from [openweathermap](http://openweathermap.org/current#bulk) with deeply nested data. 
+Stream large bulk samples from [openweathermap](http://openweathermap.org/current#bulk) with deeply nested data (takes a while).
 
 ```r
-m <- mongo_connect(collection = "weather")
+m <- mongo("weather")
 stream_in(gzcon(url("http://78.46.48.103/sample/daily_14.json.gz")), handler = function(df){
-  mongo_stream_out(df, m, verbose = FALSE)  
+  m$insert(df, verbose = FALSE)  
 }, pagesize = 50)
 
-berlin <- mongo_stream_in(m, query = '{"city.name" : "Berlin"}')
+berlin <- m$find('{"city.name" : "Berlin"}')
 print(berlin$data)
 ```
