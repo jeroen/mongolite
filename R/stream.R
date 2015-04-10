@@ -37,17 +37,13 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
   # Read data page by page
   repeat {
     page <- mongo_cursor_next_page(cur, pagesize)
-    if(is.null(page[[1]])){
-      break
-    } else if(is.null(page[[pagesize]])) {
-      cb(Filter(is.list, page))
-      break
-    } else {
+    if(length(page)){
       cb(page)
+      if(verbose)
+        cat("\r Found", count, "records...")
     }
-    if(verbose) {
-      cat("\r Found", count, "records...")
-    }
+    if(length(page) < pagesize)
+      break
   }
 
   if(is.null(handler)){
