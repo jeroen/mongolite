@@ -1,6 +1,6 @@
 Package: mongolite
 Type: Package
-Title: Streaming Mongo Client
+Title: Streaming Mongo Client for R
 Description: R bindings to the high-performance MongoDB C driver and
     high-level IO tools in the same spirit as jsonlite.
 Version: 0.2
@@ -10,7 +10,7 @@ Authors@R: c(
     person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver")
   )
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
-Imports: jsonlite (>= 0.9.15)
+Imports: jsonlite (>= 0.9.16)
 License: Apache License 2.0
 URL: https://github.com/jeroenooms/mongolite, https://github.com/mongodb/mongo-c-driver
 BugReports: https://github.com/jeroenooms/mongolite/issues
