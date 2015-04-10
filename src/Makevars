@@ -41,10 +41,10 @@ clean:
 	rm -f *.a
 
 libyajl.a: $(LIBYAJL:.c=.o)
-	ar rcs libyajl.a yajl/*.o
+	$(AR) rcs libyajl.a yajl/*.o
 
 libbson.a: $(LIBBSON:.c=.o)
-	ar rcs libbson.a bson/*.o
+	$(AR) rcs libbson.a bson/*.o
 
 libmongoc.a: $(LIBMONGOC:.c=.o)
-	ar rcs libmongoc.a mongoc/*.o
+	$(AR) rcs libmongoc.a mongoc/*.o
