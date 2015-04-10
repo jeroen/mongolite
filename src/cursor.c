@@ -31,9 +31,7 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){
   bson_iter_t iter2;
   SEXP list = PROTECT(allocVector(VECSXP, n));
   for(int i = 0; i < n && mongoc_cursor_next(c, &b); i++){
-    bson_iter_init(&iter1, b);
-    bson_iter_init(&iter2, b);
-    SET_VECTOR_ELT(list, i, ConvertObject(&iter1, &iter2));
+    SET_VECTOR_ELT(list, i, bson2list(b));
   }
   UNPROTECT(1);
   return list;
