@@ -3,8 +3,8 @@ Type: Package
 Title: Streaming Mongo Client
 Description: R bindings to the high-performance MongoDB C driver and
     high-level IO tools in the same spirit as jsonlite.
-Version: 0.1.9003
-Date: 2015-04-25
+Version: 0.2
+Date: 2015-04-10
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen.ooms@stat.ucla.edu", role = c("aut", "cre")),
     person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver")
@@ -15,7 +15,7 @@ License: Apache License 2.0
 URL: https://github.com/jeroenooms/mongolite, https://github.com/mongodb/mongo-c-driver
 BugReports: https://github.com/jeroenooms/mongolite/issues
 SystemRequirements:
-    OpenSSL: libssl-dev (deb) or openssl-devel (rpm),
-    SASL: libsasl2-dev (deb) or cyrus-sasl-devel (rpm)
+    OpenSSL: libssl-dev (deb) or openssl-devel (rpm) or libssl_dev (csw).
+    SASL: libsasl2-dev (deb) or cyrus-sasl-devel (rpm) or sasl_dev (csw).
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
