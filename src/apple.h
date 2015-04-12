@@ -8,5 +8,7 @@
 #endif
 
 /* workaround for non ANSI-C BSON_MAX and BSON_MIN macros*/
+#ifdef __GNUC__
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
