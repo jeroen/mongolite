@@ -6,3 +6,7 @@
 #define DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER
 #endif
 #endif
+
+/* workaround for non ANSI-C BSON_MAX and BSON_MIN macros*/
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))

@@ -33,8 +33,9 @@ LIBMONGOC = mongoc/mongoc-array.c mongoc/mongoc-b64.c mongoc/mongoc-buffer.c \
 #LIBYAJL = $(wildcard yajl/*.c)
 
 PKG_LIBS = -L. -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2
+PKG_CFLAGS = -Wall -pedantic
 
-all: libyajl.a libbson.a libmongoc.a
+all: clean libyajl.a libbson.a libmongoc.a
 
 clean:
 	rm -f *.o mongoc/*.o bson/*.o yajl/*.o
