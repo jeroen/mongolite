@@ -12,13 +12,11 @@ SEXP R_mongo_cursor_next_bson (SEXP ptr){
   mongoc_cursor_t *c = r2cursor(ptr);
   const bson_t *b = NULL;
   if(!mongoc_cursor_next(c, &b)){
-    /*
-    # Bug in mongoc? See https://github.com/mongodb/mongo-c-driver/issues/66
     bson_error_t err;
-    mongoc_cursor_error (c, &err);
-    error(err.message);
-    */
-    return R_NilValue;
+    if(mongoc_cursor_error (c, &err))
+      Rf_error(err.message);
+    else
+      return R_NilValue;
   }
   return bson2r((bson_t*) b);
 }
@@ -46,5 +44,11 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){
     SET_VECTOR_ELT(shortlist, i, VECTOR_ELT(list, i));
   }
   UNPROTECT(2);
+
+  //also check for errors
+  bson_error_t err;
+  if(mongoc_cursor_error (c, &err))
+    Rf_error(err.message);
+
   return shortlist;
 }

@@ -175,13 +175,6 @@ SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_fields, SEXP
   mongoc_cursor_t *c = mongoc_collection_find(col, flags, asInteger(skip), asInteger(limit),
     0, query, fields, NULL);
 
-  //need to keep checking while iterating
-  bson_error_t err;
-  if(mongoc_cursor_error (c, &err)){
-    mongoc_cursor_destroy(c);
-    Rf_error(err.message);
-  }
-
   return cursor2r(c);
 }
 
