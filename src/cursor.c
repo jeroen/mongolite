@@ -14,7 +14,7 @@ SEXP R_mongo_cursor_next_bson (SEXP ptr){
   if(!mongoc_cursor_next(c, &b)){
     bson_error_t err;
     if(mongoc_cursor_error (c, &err))
-      Rf_error(err.message);
+      stop(err.message);
     else
       return R_NilValue;
   }
@@ -48,7 +48,7 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){
   //also check for errors
   bson_error_t err;
   if(mongoc_cursor_error (c, &err))
-    Rf_error(err.message);
+    stop(err.message);
 
   return shortlist;
 }

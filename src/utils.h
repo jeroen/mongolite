@@ -2,6 +2,8 @@
 #include <bson.h>
 #include <mongoc.h>
 
+#define stop(...) Rf_errorcall(R_NilValue, __VA_ARGS__)
+
 SEXP mkStringUTF8(const char* str);
 SEXP mkRaw(const unsigned char *buf, int len);
 bson_t* r2bson(SEXP ptr);

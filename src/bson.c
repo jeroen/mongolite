@@ -15,7 +15,7 @@ SEXP R_json_to_bson(SEXP json){
 
   b = bson_new_from_json ((uint8_t*)translateCharUTF8(asChar(json)), -1, &err);
   if(!b)
-    error(err.message);
+    stop(err.message);
 
   return bson2r(b);
 }
@@ -32,7 +32,7 @@ SEXP R_raw_to_bson(SEXP buf){
 
   b = bson_new_from_data(data, len);
   if(!b)
-    error(err.message);
+    stop(err.message);
 
   return bson2r(b);
 }
@@ -87,7 +87,7 @@ SEXP ConvertValue(bson_iter_t* iter){
     bson_iter_recurse (iter, &child2);
     return ConvertObject(&child1, &child2);
   } else {
-    error("Unimplemented BSON type %d\n", bson_iter_type(iter));
+    stop("Unimplemented BSON type %d\n", bson_iter_type(iter));
   }
 }
 
