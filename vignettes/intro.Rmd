@@ -1,16 +1,16 @@
 ---
-title: "Getting started with mongolite"
+title: "Getting started with MongoDB in R"
 date: "`r Sys.Date()`"
 output:
   html_document
 vignette: >
-  %\VignetteIndexEntry{Intro to the mongolite package}
+  %\VignetteIndexEntry{Getting started with MongoDB in R}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---
 
-Install
--------
+Getting started with mongolite
+==============================
 
 On most platforms, starting the MongoDB server is as easy as:
 
@@ -18,13 +18,7 @@ On most platforms, starting the MongoDB server is as easy as:
 mongod
 ```
 
-To install the latest development version:
-
-```r
-library(devtools)
-install_github("jeroenooms/jsonlite")
-install_github("jeroenooms/mongolite")
-```
+If this is the first time you run MongoDB, you need to create a directory `/data/db` and make it writable (use `C:/data/db` on Windows).
 
 Hello World
 -----------
@@ -48,6 +42,9 @@ out <- m$find('{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
 # Compare
 nrow(out)
 nrow(subset(diamonds, cut == "Premium" & price < 1000))
+
+# Remove the collection
+m$drop()
 ```
 
 Flights
@@ -74,6 +71,9 @@ jan1 <- m$find('{"month":1,"day":1}', fields = '{"_id":0, "distance":1, "carrier
 
 # Tabulate
 m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
+
+# Remove the collection
+m$drop()
 ```
 
 Combine with jsonlite
