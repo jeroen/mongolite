@@ -2,35 +2,31 @@ PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h \
  -I/opt/csw/include \
  -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
 
-LIBYAJL = yajl/yajl_alloc.c yajl/yajl_buf.c yajl/yajl_encode.c yajl/yajl_gen.c \
-          yajl/yajl_lex.c yajl/yajl_parser.c yajl/yajl_tree.c yajl/yajl_version.c \
-          yajl/yajl.c
+LIBYAJL = yajl/yajl_alloc.o yajl/yajl_buf.o yajl/yajl_encode.o yajl/yajl_gen.o \
+          yajl/yajl_lex.o yajl/yajl_parser.o yajl/yajl_tree.o yajl/yajl_version.o \
+          yajl/yajl.o
 
-LIBBSON = bson/bcon.c bson/bson-atomic.c bson/bson-clock.c bson/bson-context.c \
-          bson/bson-error.c bson/bson-iso8601.c bson/bson-iter.c bson/bson-json.c \
-          bson/bson-keys.c bson/bson-md5.c bson/bson-memory.c bson/bson-oid.c \
-          bson/bson-reader.c bson/bson-string.c bson/bson-timegm.c bson/bson-utf8.c \
-          bson/bson-value.c bson/bson-version.c bson/bson-writer.c bson/bson.c
+LIBBSON = bson/bcon.o bson/bson-atomic.o bson/bson-clock.o bson/bson-context.o \
+          bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
+          bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
+          bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
+          bson/bson-value.o bson/bson-version.o bson/bson-writer.o bson/bson.o
 
-LIBMONGOC = mongoc/mongoc-array.c mongoc/mongoc-b64.c mongoc/mongoc-buffer.c \
-            mongoc/mongoc-bulk-operation.c mongoc/mongoc-client-pool.c mongoc/mongoc-client.c \
-            mongoc/mongoc-cluster.c mongoc/mongoc-collection.c mongoc/mongoc-counters.c \
-            mongoc/mongoc-cursor-array.c mongoc/mongoc-cursor-cursorid.c \
-            mongoc/mongoc-cursor-transform.c mongoc/mongoc-cursor.c mongoc/mongoc-database.c \
-            mongoc/mongoc-gridfs-file-list.c mongoc/mongoc-gridfs-file-page.c \
-            mongoc/mongoc-gridfs-file.c mongoc/mongoc-gridfs.c mongoc/mongoc-index.c \
-            mongoc/mongoc-init.c mongoc/mongoc-list.c mongoc/mongoc-log.c \
-            mongoc/mongoc-matcher-op.c mongoc/mongoc-matcher.c mongoc/mongoc-queue.c \
-            mongoc/mongoc-rand.c mongoc/mongoc-read-prefs.c mongoc/mongoc-rpc.c \
-            mongoc/mongoc-sasl.c mongoc/mongoc-scram.c mongoc/mongoc-socket.c mongoc/mongoc-ssl.c \
-            mongoc/mongoc-stream-buffered.c mongoc/mongoc-stream-file.c \
-            mongoc/mongoc-stream-gridfs.c mongoc/mongoc-stream-socket.c mongoc/mongoc-stream-tls.c \
-            mongoc/mongoc-stream.c mongoc/mongoc-uri.c mongoc/mongoc-util.c \
-            mongoc/mongoc-write-command.c mongoc/mongoc-write-concern.c
-
-#LIBMONGOC = $(wildcard mongoc/*.c)
-#LIBBSON = $(wildcard bson/*.c)
-#LIBYAJL = $(wildcard yajl/*.c)
+LIBMONGOC = mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
+            mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
+            mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
+            mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor-cursorid.o \
+            mongoc/mongoc-cursor-transform.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
+            mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
+            mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
+            mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
+            mongoc/mongoc-matcher-op.o mongoc/mongoc-matcher.o mongoc/mongoc-queue.o \
+            mongoc/mongoc-rand.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
+            mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
+            mongoc/mongoc-stream-buffered.o mongoc/mongoc-stream-file.o \
+            mongoc/mongoc-stream-gridfs.o mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
+            mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
+            mongoc/mongoc-write-command.o mongoc/mongoc-write-concern.o
 
 PKG_LIBS = -L. -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2
 
@@ -39,14 +35,14 @@ $(SHLIB): all
 all: libyajl.a libbson.a libmongoc.a
 
 clean:
-	rm -f *.o mongoc/*.o bson/*.o yajl/*.o
-	rm -f *.a
+	rm -f $(LIBYAJL) $(LIBBSON) $(LIBMONGOC)
+	rm -f *.o *.a
 
-libyajl.a: $(LIBYAJL:.c=.o)
-	$(AR) rcs libyajl.a yajl/*.o
+libyajl.a: $(LIBYAJL)
+	$(AR) rcs libyajl.a $(LIBYAJL)
 
-libbson.a: $(LIBBSON:.c=.o)
-	$(AR) rcs libbson.a bson/*.o
+libbson.a: $(LIBBSON)
+	$(AR) rcs libbson.a $(LIBBSON)
 
-libmongoc.a: $(LIBMONGOC:.c=.o)
-	$(AR) rcs libmongoc.a mongoc/*.o
+libmongoc.a: $(LIBMONGOC)
+	$(AR) rcs libmongoc.a $(LIBMONGOC)
