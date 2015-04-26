@@ -142,9 +142,9 @@ void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain
       Rf_error(message);
       break;
     case MONGOC_LOG_LEVEL_CRITICAL:
+    case MONGOC_LOG_LEVEL_WARNING:
       Rf_warningcall_immediate(R_NilValue, message);
       break;
-    case MONGOC_LOG_LEVEL_WARNING:
     case MONGOC_LOG_LEVEL_MESSAGE:
     case MONGOC_LOG_LEVEL_INFO:
       Rprintf("Mongo Message: %s\n", message);
