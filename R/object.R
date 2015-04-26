@@ -22,8 +22,12 @@
 #' jan1 <- m$find('{"month":1, "day":1}')
 #'
 #' # Sorting
-#' jan1 <- m$find('{"$query":{"month":1,"day":1}, "$orderby":{"distance":-1}}')
+#' jan1 <- m$find('{"month":1,"day":1}', sort='{"distance":-1}')
 #' head(jan1)
+#'
+#' # Sorting on large data requires index
+#' m$index(add = "distance")
+#' allflights <- m$find(sort='{"distance":-1}')
 #'
 #' # Select columns
 #' jan1 <- m$find('{"month":1,"day":1}', fields = '{"_id":0, "distance":1, "carrier":1}')
@@ -56,8 +60,8 @@ mongo_object <- function(con){
     insert <- function(data, pagesize = 1000, verbose = TRUE)
       mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose)
 
-    find <- function(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE){
-      cur <- mongo_collection_find(con, query = query, fields = fields, skip = skip, limit = limit)
+    find <- function(query = '{}', fields = '{"_id":0}', sort = '{"_id":1}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE){
+      cur <- mongo_collection_find(con, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 

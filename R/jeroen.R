@@ -1,4 +1,4 @@
-# A poor man's oo class system.
+# A poor man's oo system.
 
 #' @export
 print.jeroen <- function(x, title = paste0("<", is(x), ">"), ...){
@@ -25,6 +25,7 @@ print.jeroen <- function(x, title = paste0("<", is(x), ">"), ...){
 
 # Pretty format function headers
 format_function <- function(fun, name = deparse(substitute(fun))){
+  #header <- sub("\\{$", "", capture.output(fun)[1])
   header <- head(deparse(args(fun)), -1)
   header <- sub("^[ ]*", "   ", header)
   header[1] <- sub("^[ ]*function ?", paste0(" $", name), header[1])
