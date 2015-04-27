@@ -1,5 +1,4 @@
 #include <utils.h>
-#include <bson.h>
 
 SEXP mkStringUTF8(const char* str){
   SEXP out = PROTECT(allocVector(STRSXP, 1));
