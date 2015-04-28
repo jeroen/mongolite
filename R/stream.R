@@ -10,12 +10,13 @@ mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE){
   TRUE
 }
 
-mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE){
+mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE, customOut = NULL){
 
   # Type validation
   stopifnot(is.null(handler) || is.function(handler))
   stopifnot(is.numeric(pagesize))
   stopifnot(is.logical(verbose))
+  stopifnot(is.null(customOut) || is.function(customOut))
 
   # Default handler appends to big list
   count <- 0
@@ -44,6 +45,22 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
     }
     if(length(page) < pagesize)
       break
+  }
+
+  # new customOut param accepts user defined function to unpack a single document
+  # from a collection, useful for documents with a nested structure
+  if(!is.null(customOut) && is.function(customOut)){
+    if(verbose) cat("\r Imported", count, "records. Converting to dataframe...\n")
+    out <- as.list(out, sorted = FALSE)
+    if(length(out) == 1){
+      # add .progress bar or comment to console as documents are iterated through?
+      df <- plyr::ldply(.data = out[[names(out)]], .fun = customOut)
+    } else {
+      df <- plyr::ldply(.data = out, .fun = function(onePage) {
+        plyr::ldply(onePage, customOut)
+      })
+    }
+    return(df)
   }
 
   if(is.null(handler)){

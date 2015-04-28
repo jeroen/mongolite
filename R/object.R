@@ -40,7 +40,7 @@
 #'   \item{\code{aggregate(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE)}}{Execute a pipeline using the Mongo aggregation framework.}
 #'   \item{\code{count(query = '{}')}}{Count the number of records matching a given \code{query}. Default counts all records in collection.}
 #'   \item{\code{drop()}}{Delete entire collection with all data and metadata.}
-#'   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve \code{fields} from records matching \code{query}. Default \code{handler} will return all data as a single dataframe.}
+#'   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE, customOut = NULL)}}{Retrieve \code{fields} from records matching \code{query}. Default \code{handler} will return all data as a single dataframe, \code{customOut} accepts a user defined function to unpack documents in a collection that have a nested structure.}
 #'   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. Returns a dataframe with current indexes.}
 #'   \item{\code{info()}}{Returns collection statistics and server info (if available).}
 #'   \item{\code{insert(data, pagesize = 1000, verbose = TRUE)}}{Insert a dataframe into the collection.}
@@ -60,9 +60,9 @@ mongo_object <- function(con){
     insert <- function(data, pagesize = 1000, verbose = TRUE)
       mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose)
 
-    find <- function(query = '{}', fields = '{"_id":0}', sort = '{"_id":1}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE){
-      cur <- mongo_collection_find(con, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
-      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
+    find <- function(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE, customOut = NULL){
+      cur <- mongo_collection_find(con, query = query, fields = fields, skip = skip, limit = limit)
+      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose, customOut = customOut)
     }
 
     aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE){
