@@ -1,5 +1,4 @@
 #include <utils.h>
-#include <bson.h>
 
 SEXP mkStringUTF8(const char* str){
   SEXP out = PROTECT(allocVector(STRSXP, 1));
@@ -86,18 +85,6 @@ SEXP client2r(mongoc_client_t *client){
   return ptr;
 }
 
-SEXP R_mongo_init() {
-  static mongoc_log_func_t logfun = mongolite_log_handler;
-  mongoc_init();
-  mongoc_log_set_handler(logfun, NULL);
-  return R_NilValue;
-}
-
-SEXP R_mongo_cleanup() {
-  mongoc_cleanup();
-  return R_NilValue;
-}
-
 void fin_mongo(SEXP ptr){
   #ifdef MONGOLITE_DEBUG
   MONGOC_MESSAGE ("destorying collection.");
@@ -134,24 +121,4 @@ void fin_client(SEXP ptr){
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_client_destroy(R_ExternalPtrAddr(ptr));
   R_ClearExternalPtr(ptr);
-}
-
-void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain, const char *message, void *user_data) {
-  switch (log_level) {
-    case MONGOC_LOG_LEVEL_ERROR:
-      Rf_error(message);
-      break;
-    case MONGOC_LOG_LEVEL_CRITICAL:
-      Rf_warningcall_immediate(R_NilValue, message);
-      break;
-    case MONGOC_LOG_LEVEL_WARNING:
-    case MONGOC_LOG_LEVEL_MESSAGE:
-    case MONGOC_LOG_LEVEL_INFO:
-      Rprintf("Mongo Message: %s\n", message);
-      break;
-    case MONGOC_LOG_LEVEL_DEBUG:
-    case MONGOC_LOG_LEVEL_TRACE:
-    default:
-      break;
-  }
 }

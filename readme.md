@@ -62,8 +62,12 @@ m$count('{"month":1, "day":1}')
 jan1 <- m$find('{"month":1, "day":1}')
 
 # Sorting
-jan1 <- m$find('{"$query":{"month":1,"day":1}, "$orderby":{"distance":-1}}')
+jan1 <- m$find('{"month":1,"day":1}', sort='{"distance":-1}')
 head(jan1)
+
+# Sorting on large data requires index
+m$index(add = "distance")
+allflights <- m$find(sort='{"distance":-1}')
 
 # Select columns
 jan1 <- m$find('{"month":1,"day":1}', fields = '{"_id":0, "distance":1, "carrier":1}')

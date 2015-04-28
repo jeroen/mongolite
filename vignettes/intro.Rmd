@@ -9,9 +9,6 @@ vignette: >
   \usepackage[utf8]{inputenc}
 ---
 
-Getting started with mongolite
-==============================
-
 On most platforms, starting the MongoDB server is as easy as:
 
 ```
