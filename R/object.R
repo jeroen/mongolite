@@ -60,15 +60,9 @@ mongo_object <- function(con){
     insert <- function(data, pagesize = 1000, verbose = TRUE)
       mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose)
 
-<<<<<<< HEAD
     find <- function(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE, customOut = NULL){
       cur <- mongo_collection_find(con, query = query, fields = fields, skip = skip, limit = limit)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose, customOut = customOut)
-=======
-    find <- function(query = '{}', fields = '{"_id":0}', sort = '{"_id":1}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE){
-      cur <- mongo_collection_find(con, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
-      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
->>>>>>> upstream/master
     }
 
     aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE){
