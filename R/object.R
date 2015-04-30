@@ -50,12 +50,12 @@
 #' }
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"){
-  con <- mongo_collection_new(url, db, collection)
-  mongo_object(con)
+  client <- mongo_client_new(url)
+  con <- mongo_collection_new(client, db, collection)
+  mongo_object(con, client)
 }
 
-mongo_object <- function(con){
-  client <- attr(con, "client")
+mongo_object <- function(con, client){
   self <- local({
     insert <- function(data, pagesize = 1000, verbose = TRUE)
       mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose)

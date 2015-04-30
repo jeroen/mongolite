@@ -1,9 +1,15 @@
 #' @useDynLib mongolite R_mongo_collection_new
-mongo_collection_new <- function(uri = "mongodb://localhost", db = "test", collection = "test"){
-  stopifnot(is.character(uri))
+mongo_collection_new <- function(client, db = "test", collection = "test"){
+  stopifnot(is(client, "mongo_client"))
   stopifnot(is.character(db))
   stopifnot(is.character(collection))
-  .Call(R_mongo_collection_new, uri, db, collection)
+  .Call(R_mongo_collection_new, client, db, collection)
+}
+
+#' @useDynLib mongolite R_mongo_client_new
+mongo_client_new <- function(uri = "mongodb://localhost"){
+  stopifnot(is.character(uri))
+  .Call(R_mongo_client_new, uri)
 }
 
 #' @useDynLib mongolite R_mongo_client_server_status

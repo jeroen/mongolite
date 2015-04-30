@@ -3,27 +3,11 @@
 #include <mongoc.h>
 #include <utils.h>
 
-SEXP R_mongo_collection_new(SEXP uri_string, SEXP db, SEXP collection) {
-  mongoc_client_t *client;
-  mongoc_collection_t *col;
-
-  client = mongoc_client_new (translateCharUTF8(asChar(uri_string)));
-  if(!client)
-    stop("Invalid uri_string. Try mongodb://localhost");
-
-  //set ssl certificates here
-  mongoc_client_set_ssl_opts(client, mongoc_ssl_opt_get_default());
-
-  //verify that server is online
-  bson_error_t err;
-  if(!mongoc_client_get_server_status(client, NULL, NULL, &err)){
-    mongoc_client_destroy(client);
-    stop(err.message);
-  }
-
-  col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
+SEXP R_mongo_collection_new(SEXP ptr_client, SEXP collection, SEXP db) {
+  mongoc_client_t *client = r2client(ptr_client);
+  mongoc_collection_t *col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
   SEXP out = PROTECT(col2r(col));
-  setAttrib(out, install("client"), client2r(client));
+  setAttrib(out, install("client"), ptr_client);
   UNPROTECT(1);
   return out;
 }
