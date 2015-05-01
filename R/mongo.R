@@ -77,7 +77,7 @@ mongo_collection_remove <- function(col, doc, multiple = TRUE){
 mongo_collection_find <- function(col, query = '{}', sort = '{"_id":1}', fields = '{"_id":0}', skip = 0, limit = 0){
   stopifnot(is.numeric(skip))
   stopifnot(is.numeric(limit))
-  if(!missing(sort) && !identical(sort, '{}')){
+  if(!missing(sort) && !identical(sort, '{}') && !("$query" %in% names(fromJSON(query)))){
     query <- paste('{"$query":', query, ', "$orderby":', sort, '}')
   }
   .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(fields), skip, limit)
