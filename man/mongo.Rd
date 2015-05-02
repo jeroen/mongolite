@@ -62,6 +62,12 @@ jan1 <- m$find('{"month":1,"day":1}', fields = '{"_id":0, "distance":1, "carrier
 
 # Tabulate
 m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
+
+# Map-reduce (histogram)
+m$mapreduce(
+  map = "function(){emit(Math.floor(this.distance/100)*100, 1)}",
+  reduce = "function(id, counts){return Array.sum(counts)}"
+)
 }
 }
 \references{

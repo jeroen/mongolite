@@ -35,8 +35,11 @@
 #' # Tabulate
 #' m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
 #'
-#' # Map-reduce
-#' m$mapreduce("function(){emit(this.carrier, this.distance)}", "function(id, dist){return Array.sum(dist)}")
+#' # Map-reduce (histogram)
+#' hist <- m$mapreduce(
+#'   map = "function(){emit(Math.floor(this.distance/100)*100, 1)}",
+#'   reduce = "function(id, counts){return Array.sum(counts)}"
+#' )
 #' }
 #' @section Methods:
 #' \describe{
