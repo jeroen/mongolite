@@ -1,6 +1,3 @@
-#include <Rinternals.h>
-#include <bson.h>
-#include <mongoc.h>
 #include <utils.h>
 
 SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter);

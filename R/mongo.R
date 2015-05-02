@@ -45,9 +45,27 @@ mongo_collection_count <- function(col, query = "{}"){
   .Call(R_mongo_collection_count, col, bson_or_json(query))
 }
 
+#' @useDynLib mongolite R_mongo_collection_command_simple
+mongo_collection_command_simple <- function(col, command = "{}"){
+  #returns data
+  .Call(R_mongo_collection_command_simple, col, bson_or_json(command))
+}
+
 #' @useDynLib mongolite R_mongo_collection_command
 mongo_collection_command <- function(col, command = "{}"){
+  #returns cursor
   .Call(R_mongo_collection_command, col, bson_or_json(command))
+}
+
+# Wrapper for mapReduce command
+mongo_collection_mapreduce <- function(col, map, reduce){
+  mr <- list(
+    mapreduce = mongo_collection_name(col),
+    map = map,
+    reduce = reduce,
+    out = list(inline = 1)
+  )
+  mongo_collection_command(col, jsonlite:::toJSON(mr, auto_unbox=TRUE))
 }
 
 #' @useDynLib mongolite R_mongo_collection_insert_bson

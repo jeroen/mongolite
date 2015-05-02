@@ -1,6 +1,3 @@
-#include <Rinternals.h>
-#include <bson.h>
-#include <mongoc.h>
 #include <utils.h>
 
 SEXP R_mongo_cursor_more (SEXP ptr){

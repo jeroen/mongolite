@@ -1,6 +1,3 @@
-#include <Rinternals.h>
-#include <bson.h>
-#include <mongoc.h>
 #include <utils.h>
 
 SEXP R_mongo_collection_new(SEXP ptr_client, SEXP collection, SEXP db) {
@@ -162,7 +159,7 @@ SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_fields, SEXP
   return cursor2r(c);
 }
 
-SEXP R_mongo_collection_command(SEXP ptr_col, SEXP command){
+SEXP R_mongo_collection_command_simple(SEXP ptr_col, SEXP command){
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *cmd = r2bson(command);
   bson_t reply;
@@ -218,5 +215,14 @@ SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline) {
   mongoc_cursor_t *c = mongoc_collection_aggregate (col, MONGOC_QUERY_NONE, pipeline, NULL, NULL);
   if(!c)
     stop("Error executing pipeline.");
+  return cursor2r(c);
+}
+
+SEXP R_mongo_collection_command(SEXP ptr_col, SEXP ptr_cmd){
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_t *cmd = r2bson(ptr_cmd);
+  mongoc_cursor_t *c = mongoc_collection_command(col, MONGOC_QUERY_NONE, 0, 0, 0, cmd, NULL, NULL);
+  if(!c)
+    stop("Error executing command.");
   return cursor2r(c);
 }

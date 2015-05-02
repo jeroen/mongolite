@@ -82,6 +82,12 @@ mongo_object <- function(con, client){
     update <- function(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)
       mongo_collection_update(con, query, update, upsert, multiple)
 
+    mapreduce <- function(map, reduce){
+      cur <- mongo_collection_mapreduce(con, map, reduce)
+      out <- mongo_stream_in(cur, verbose = FALSE)
+      out[[1, "results"]]
+    }
+
     info <- function(){
       list(
         name = mongo_collection_name(con),
