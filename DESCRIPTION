@@ -1,8 +1,8 @@
 Package: mongolite
 Type: Package
-Title: Streaming 'MongoDB' Client for R
-Description: R bindings to the high-performance 'MongoDB' C driver and
-    high-level IO tools in the same spirit as 'jsonlite'.
+Title: High-performance 'MongoDB' Client for R
+Description: High-level 'MongoDB' client based on 'jsonlite' and mongo-c-driver.
+    Includes support for streaming, indexing, map-reduce, SSL, LDAP (SASL) authentication.
 Version: 0.2.9100
 Date: 2015-04-10
 Authors@R: c(
