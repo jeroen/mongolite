@@ -1,0 +1,6 @@
+0.3
+ - Update mongo-c-driver and libbson to 1.1.5
+ - Add support for map-reduce
+
+0.2
+ - Initial release
