@@ -65,7 +65,7 @@ mongo_collection_mapreduce <- function(col, map, reduce){
     reduce = reduce,
     out = list(inline = 1)
   )
-  mongo_collection_command(col, jsonlite:::toJSON(mr, auto_unbox=TRUE))
+  mongo_collection_command(col, jsonlite::toJSON(mr, auto_unbox = TRUE))
 }
 
 #' @useDynLib mongolite R_mongo_collection_insert_bson
