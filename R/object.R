@@ -34,6 +34,9 @@
 #'
 #' # Tabulate
 #' m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
+#'
+#' # Map-reduce
+#' m$mapreduce("function(){emit(this.carrier, this.distance)}", "function(id, dist){return Array.sum(dist)}")
 #' }
 #' @section Methods:
 #' \describe{

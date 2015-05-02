@@ -94,6 +94,9 @@ stream_in(url("http://media.mongodb.org/zips.json"), handler = function(df){
 # Check count
 m$count()
 
+# Map-reduce
+m$mapreduce("function(){emit(this.carrier, this.distance)}", "function(id, dist){return Array.sum(dist)}")
+
 # Import. Note the 'location' column is actually an array!
 zips <- m$find()
 ```
