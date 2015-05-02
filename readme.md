@@ -74,6 +74,9 @@ jan1 <- m$find('{"month":1,"day":1}', fields = '{"_id":0, "distance":1, "carrier
 
 # Tabulate
 m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
+
+# Map-reduce
+m$mapreduce("function(){emit(this.carrier, this.distance)}", "function(id, dist){return Array.sum(dist)}")
 ```
 
 Combine with jsonlite
@@ -93,9 +96,6 @@ stream_in(url("http://media.mongodb.org/zips.json"), handler = function(df){
 
 # Check count
 m$count()
-
-# Map-reduce
-m$mapreduce("function(){emit(this.carrier, this.distance)}", "function(id, dist){return Array.sum(dist)}")
 
 # Import. Note the 'location' column is actually an array!
 zips <- m$find()
