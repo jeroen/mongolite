@@ -25,7 +25,7 @@ Connect to a MongoDB collection.
 \describe{
   \item{\code{aggregate(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE)}}{Execute a pipeline using the Mongo aggregation framework.}
   \item{\code{count(query = '{}')}}{Count the number of records matching a given \code{query}. Default counts all records in collection.}
-  \item{\code{distinct(key, query = '{}')}{Return a list with unique values of a given field for a particular query.}}
+  \item{\code{distinct(key, query = '{}')}}{Return unique values of a field given a particular query.}
   \item{\code{drop()}}{Delete entire collection with all data and metadata.}
   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve \code{fields} from records matching \code{query}. Default \code{handler} will return all data as a single dataframe.}
   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. Returns a dataframe with current indexes.}
