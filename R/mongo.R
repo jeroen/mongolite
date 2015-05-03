@@ -59,13 +59,23 @@ mongo_collection_command <- function(col, command = "{}"){
 
 # Wrapper for mapReduce command
 mongo_collection_mapreduce <- function(col, map, reduce){
-  mr <- list(
+  cmd <- list(
     mapreduce = mongo_collection_name(col),
     map = map,
     reduce = reduce,
     out = list(inline = 1)
   )
-  mongo_collection_command(col, jsonlite::toJSON(mr, auto_unbox = TRUE))
+  mongo_collection_command(col, jsonlite::toJSON(cmd, auto_unbox = TRUE))
+}
+
+# The query param doesn't seem to work.
+mongo_collection_distinct <- function(col, key, query){
+  cmd <- list(
+    distinct = mongo_collection_name(col),
+    key = key,
+    query = query
+  )
+  mongo_collection_command_simple(col, jsonlite::toJSON(cmd, auto_unbox = TRUE))
 }
 
 #' @useDynLib mongolite R_mongo_collection_insert_bson
