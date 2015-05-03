@@ -68,14 +68,13 @@ mongo_collection_mapreduce <- function(col, map, reduce){
   mongo_collection_command(col, jsonlite::toJSON(cmd, auto_unbox = TRUE))
 }
 
-# The query param doesn't seem to work.
 mongo_collection_distinct <- function(col, key, query){
   cmd <- list(
     distinct = mongo_collection_name(col),
     key = key,
-    query = query
+    query = structure(query, class="json")
   )
-  mongo_collection_command_simple(col, jsonlite::toJSON(cmd, auto_unbox = TRUE))
+  mongo_collection_command_simple(col, jsonlite::toJSON(cmd, json_verbatim = TRUE, auto_unbox = TRUE))
 }
 
 #' @useDynLib mongolite R_mongo_collection_insert_bson

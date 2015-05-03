@@ -94,8 +94,8 @@ mongo_object <- function(con, client){
       out[[1, "results"]]
     }
 
-    distinct <- function(key){
-      out <- mongo_collection_distinct(con, key, '{}')
+    distinct <- function(key, query = '{}'){
+      out <- mongo_collection_distinct(con, key, query)
       out$values
     }
 
