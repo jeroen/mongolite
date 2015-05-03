@@ -35,21 +35,27 @@
 #' # Tabulate
 #' m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
 #'
-#' # Map-reduce (histogram)
+#' # Map-reduce (binning)
 #' hist <- m$mapreduce(
 #'   map = "function(){emit(Math.floor(this.distance/100)*100, 1)}",
 #'   reduce = "function(id, counts){return Array.sum(counts)}"
 #' )
+#'
+#' # Unique values
+#' m$distinct("carrier", '{"distance":{"$gt":3000}}')
+#'
 #' }
 #' @section Methods:
 #' \describe{
 #'   \item{\code{aggregate(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE)}}{Execute a pipeline using the Mongo aggregation framework.}
 #'   \item{\code{count(query = '{}')}}{Count the number of records matching a given \code{query}. Default counts all records in collection.}
+#'   \item{\code{distinct(key, query = '{}')}{Return a list with unique values of a given field for a particular query.}}
 #'   \item{\code{drop()}}{Delete entire collection with all data and metadata.}
 #'   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve \code{fields} from records matching \code{query}. Default \code{handler} will return all data as a single dataframe.}
 #'   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. Returns a dataframe with current indexes.}
 #'   \item{\code{info()}}{Returns collection statistics and server info (if available).}
 #'   \item{\code{insert(data, pagesize = 1000, verbose = TRUE)}}{Insert a dataframe into the collection.}
+#'   \item{\code{mapreduce(map, reduce)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function.}
 #'   \item{\code{remove(query = "{}", multiple = FALSE)}}{Remove record(s) matching \code{query} from the collection.}
 #'   \item{\code{rename(name, db = "test")}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
@@ -96,7 +102,7 @@ mongo_object <- function(con, client){
 
     distinct <- function(key, query = '{}'){
       out <- mongo_collection_distinct(con, key, query)
-      out$values
+      jsonlite:::simplify(out$values)
     }
 
     info <- function(){
