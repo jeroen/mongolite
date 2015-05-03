@@ -43,7 +43,6 @@
 #'
 #' # Unique values
 #' m$distinct("carrier", '{"distance":{"$gt":3000}}')
-#'
 #' }
 #' @section Methods:
 #' \describe{
@@ -52,7 +51,7 @@
 #'   \item{\code{distinct(key, query = '{}')}}{List unique values of a field given a particular query.}
 #'   \item{\code{drop()}}{Delete entire collection with all data and metadata.}
 #'   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve \code{fields} from records matching \code{query}. Default \code{handler} will return all data as a single dataframe.}
-#'   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. Returns a dataframe with current indexes.}
+#'   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. The \code{add} and \code{remove} arguments can either be a field name or json object. Returns a dataframe with current indexes.}
 #'   \item{\code{info()}}{Returns collection statistics and server info (if available).}
 #'   \item{\code{insert(data, pagesize = 1000, verbose = TRUE)}}{Insert a dataframe into the collection.}
 #'   \item{\code{mapreduce(map, reduce)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function.}
