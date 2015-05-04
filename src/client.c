@@ -1,4 +1,4 @@
-#include <utils.h>
+#include <mongolite.h>
 
 SEXP R_mongo_client_server_status(SEXP ptr_client) {
   bson_t reply;

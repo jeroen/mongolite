@@ -1,4 +1,4 @@
-#include <utils.h>
+#include <mongolite.h>
 
 SEXP R_mongo_collection_new(SEXP ptr_client, SEXP collection, SEXP db) {
   mongoc_client_t *client = r2client(ptr_client);

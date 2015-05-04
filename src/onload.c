@@ -1,4 +1,4 @@
-#include <utils.h>
+#include <mongolite.h>
 
 SEXP R_mongo_init() {
   static mongoc_log_func_t logfun = mongolite_log_handler;

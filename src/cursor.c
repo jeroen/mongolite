@@ -1,4 +1,4 @@
-#include <utils.h>
+#include <mongolite.h>
 
 SEXP R_mongo_cursor_more (SEXP ptr){
   mongoc_cursor_t *c = r2cursor(ptr);
