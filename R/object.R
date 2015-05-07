@@ -62,7 +62,7 @@
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"){
   client <- mongo_client_new(url)
-  con <- mongo_collection_new(client, db, collection)
+  con <- mongo_collection_new(client, collection, db)
   mongo_object(con, client)
 }
 
