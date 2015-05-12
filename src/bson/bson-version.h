@@ -53,7 +53,7 @@
  *
  * BSON version.
  */
-#define BSON_VERSION (1.1.5-dev)
+#define BSON_VERSION (1.1.5)
 
 
 /**
@@ -62,7 +62,7 @@
  * BSON version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define BSON_VERSION_S "1.1.5-dev"
+#define BSON_VERSION_S "1.1.5"
 
 
 /**

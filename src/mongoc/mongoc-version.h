@@ -53,7 +53,7 @@
  *
  * MONGOC version.
  */
-#define MONGOC_VERSION (1.1.5-dev)
+#define MONGOC_VERSION (1.1.5)
 
 
 /**
@@ -62,7 +62,7 @@
  * MONGOC version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define MONGOC_VERSION_S "1.1.5-dev"
+#define MONGOC_VERSION_S "1.1.5"
 
 
 /**
