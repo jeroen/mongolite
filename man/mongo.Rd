@@ -62,6 +62,10 @@ allflights <- m$find(sort='{"distance":-1}')
 # Select columns
 jan1 <- m$find('{"month":1,"day":1}', fields = '{"_id":0, "distance":1, "carrier":1}')
 
+# List unique values
+m$distinct("carrier")
+m$distinct("carrier", '{"distance":{"$gt":3000}}')
+
 # Tabulate
 m$aggregate('[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]')
 
@@ -71,8 +75,8 @@ hist <- m$mapreduce(
   reduce = "function(id, counts){return Array.sum(counts)}"
 )
 
-# Unique values
-m$distinct("carrier", '{"distance":{"$gt":3000}}')
+# Remove the collection
+m$drop()
 }
 }
 \references{
