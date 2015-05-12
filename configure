@@ -7,6 +7,7 @@ fi
 if [ $(uname) = "SunOS" ]; then
   echo "Patching for Solaris"
   perl -pi -w -e 's/lsasl2/lsasl/g;' src/Makevars
+  perl -pi -w -e 's/32_ADD_AND_FETCH 1/32_ADD_AND_FETCH 0/g;' src/bson/bson-config.h
   perl -pi -w -e 's/64_ADD_AND_FETCH 1/64_ADD_AND_FETCH 0/g;' src/bson/bson-config.h
 fi
 
