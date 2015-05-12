@@ -7,10 +7,3 @@
 #endif
 #endif
 
-/* workaround for non ANSI-C BSON_MAX and BSON_MIN macros */
-/* not needed, CRAN seems to be nice today
-#ifdef __GNUC__
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
-*/
