@@ -113,6 +113,7 @@ mongo_object <- function(col, client, verbose){
     }
 
     import <- function(con){
+      stopifnot(is(con, "connection"))
       if(!isOpen(con)){
         open(con, "r")
         on.exit(close(con))
