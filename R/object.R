@@ -95,43 +95,11 @@ mongo_object <- function(col, client, verbose){
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
-    export <- function(con = stdout()){
-      stopifnot(is(con, "connection"))
-      if(!isOpen(con)){
-        open(con, "w")
-        on.exit(close(con))
-      }
-      cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
-      count = 0;
-      while(length(json <- mongo_cursor_next_json(cur))){
-        writeLines(json, con)
-        count <- count + 1;
-        if(verbose)
-          cat("\rExported", count, "lines...")
-      }
-      if(verbose) cat("\rDone! Exported a total of", count, "lines.\n")
-      invisible(count)
-    }
+    export <- function(con = stdout())
+      mongo_export(col, con, verbose = verbose)
 
-    import <- function(con){
-      stopifnot(is(con, "connection"))
-      if(!isOpen(con)){
-        open(con, "r")
-        on.exit(close(con))
-      }
-      count <- 0;
-      while(length(json <- readLines(con, n = 1000))) {
-        json <- Filter(function(x){!grepl("^\\s*$", x)}, json)
-        if(!all(vapply(json, jsonlite::validate, logical(1))))
-          stop("Invalid JSON. Data must be in newline delimited json format (http://ndjson.org/)")
-        mongo_collection_insert_page(col, json)
-        count <- count + length(json)
-        if(verbose)
-          cat("\rImported", count, "lines...")
-      }
-      if(verbose) cat("\rDone! Imported a total of", count, "lines.\n")
-      invisible(count)
-    }
+    import <- function(con)
+      mongo_import(col, con, verbose = verbose)
 
     aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000){
       cur <- mongo_collection_aggregate(col, pipeline)
