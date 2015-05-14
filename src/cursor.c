@@ -18,6 +18,19 @@ SEXP R_mongo_cursor_next_bson (SEXP ptr){
   return bson2r((bson_t*) b);
 }
 
+SEXP R_mongo_cursor_next_json (SEXP ptr){
+  mongoc_cursor_t *c = r2cursor(ptr);
+  const bson_t *b = NULL;
+  if(!mongoc_cursor_next(c, &b)){
+    bson_error_t err;
+    if(mongoc_cursor_error (c, &err))
+      stop(err.message);
+    else
+      return R_NilValue;
+  }
+  return mkStringUTF8(bson_as_json ((bson_t*) b, NULL));
+}
+
 SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){
   mongoc_cursor_t *c = r2cursor(ptr);
   int n = asInteger(size);

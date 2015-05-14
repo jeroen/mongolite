@@ -103,12 +103,13 @@ mongo_object <- function(col, client, verbose){
       }
       cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
       count = 0;
-      while(length(bson <- mongo_cursor_next_bson(cur))){
-        writeLines(bson_to_json(bson), con)
+      while(length(json <- mongo_cursor_next_json(cur))){
+        writeLines(json, con)
         count <- count + 1;
         if(verbose)
-          cat("\rExported ", count, "lines.")
+          cat("\rExported", count, "lines...")
       }
+      if(verbose) cat("\rDone! Exported a total of", count, "lines.\n")
       invisible(count)
     }
 
