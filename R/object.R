@@ -45,8 +45,20 @@
 #'   reduce = "function(id, counts){return Array.sum(counts)}"
 #' )
 #'
+#' # Stream jsonlines into a connection
+#' tmp <- tempfile()
+#' m$export(file(tmp))
+#'
 #' # Remove the collection
 #' m$drop()
+#'
+#' # Import from jsonlines stream from connection
+#' dmd <- mongo("diamonds")
+#' dmd$import(url("http://jeroenooms.github.io/data/diamonds.json))
+#' dmd$count()
+#'
+#' # Export
+#' dmd$drop()
 #' }
 #' @section Methods:
 #' \describe{
@@ -66,98 +78,98 @@
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"){
   client <- mongo_client_new(url)
-  con <- mongo_collection_new(client, collection, db)
-  mongo_object(con, client)
+  col <- mongo_collection_new(client, collection, db)
+  mongo_object(col, client)
 }
 
-mongo_object <- function(con, client){
+mongo_object <- function(col, client){
   self <- local({
     insert <- function(data, pagesize = 1000, verbose = TRUE)
-      mongo_stream_out(data, con, pagesize = pagesize, verbose = verbose)
+      mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose)
 
     find <- function(query = '{}', fields = '{"_id":0}', sort = '{"_id":1}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE){
-      cur <- mongo_collection_find(con, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
+      cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
-    export <- function(out = stdout()){
-      stopifnot(is(out, "connection"))
-      if(!isOpen(out)){
-        open(out, "w")
-        on.exit(close(out))
+    export <- function(con = stdout()){
+      stopifnot(is(con, "connection"))
+      if(!isOpen(con)){
+        open(con, "w")
+        on.exit(close(con))
       }
-      cur <- mongo_collection_find(con, query = '{}', fields = '{}', sort = '{"_id":1}')
+      cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
       count = 0;
       while(length(bson <- mongo_cursor_next_bson(cur))){
-        writeLines(bson_to_json(bson), out)
+        writeLines(bson_to_json(bson), con)
         count <- count + 1;
       }
       return(count)
     }
 
-    import <- function(input){
-      if(!isOpen(input)){
-        open(input, "r")
-        on.exit(close(input))
+    import <- function(con){
+      if(!isOpen(con)){
+        open(con, "r")
+        on.exit(close(con))
       }
       count <- 0;
-      while(length(json <- readLines(input, n = 1000))) {
+      while(length(json <- readLines(con, n = 1000))) {
         json <- Filter(function(x){!grepl("^\\s*$", x)}, json)
         if(!all(vapply(json, jsonlite::validate, logical(1))))
           stop("Invalid JSON. Data must be in newline delimited json format (http://ndjson.org/)")
-        mongo_collection_insert_page(con, json)
+        mongo_collection_insert_page(col, json)
         count <- count + length(json)
       }
       return(count)
     }
 
     aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE){
-      cur <- mongo_collection_aggregate(con, pipeline)
+      cur <- mongo_collection_aggregate(col, pipeline)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
     count <- function(query = '{}')
-      mongo_collection_count(con, query)
+      mongo_collection_count(col, query)
 
     remove <- function(query, multiple = FALSE)
-      mongo_collection_remove(con, query, multiple)
+      mongo_collection_remove(col, query, multiple)
 
     drop <- function()
-      mongo_collection_drop(con)
+      mongo_collection_drop(col)
 
     update <- function(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)
-      mongo_collection_update(con, query, update, upsert, multiple)
+      mongo_collection_update(col, query, update, upsert, multiple)
 
     mapreduce <- function(map, reduce){
-      cur <- mongo_collection_mapreduce(con, map, reduce)
+      cur <- mongo_collection_mapreduce(col, map, reduce)
       out <- mongo_stream_in(cur, verbose = FALSE)
       out[[1, "results"]]
     }
 
     distinct <- function(key, query = '{}'){
-      out <- mongo_collection_distinct(con, key, query)
+      out <- mongo_collection_distinct(col, key, query)
       jsonlite:::simplify(out$values)
     }
 
     info <- function(){
       list(
-        name = mongo_collection_name(con),
-        stats = tryCatch(mongo_collection_stats(con), error = function(e) NULL),
+        name = mongo_collection_name(col),
+        stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
         server = mongo_client_server_status(client)
       )
     }
 
     rename <- function(name, db = NULL)
-      mongo_collection_rename(con, db, name)
+      mongo_collection_rename(col, db, name)
 
     index <- function(add = NULL, remove = NULL){
       if(length(add))
-        mongo_collection_create_index(con, add);
+        mongo_collection_create_index(col, add);
 
       if(length(remove))
-        mongo_collection_drop_index(con, remove);
+        mongo_collection_drop_index(col, remove);
 
-      mongo_collection_find_indexes(con)
+      mongo_collection_find_indexes(col)
     }
     environment()
   })
@@ -167,5 +179,5 @@ mongo_object <- function(con, client){
 
 #' @export
 print.mongo <- function(x, ...){
-  print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(x)$con), "'"))
+  print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(x)$col), "'"))
 }

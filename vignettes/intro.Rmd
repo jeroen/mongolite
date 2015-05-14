@@ -40,8 +40,23 @@ out <- m$find('{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
 nrow(out)
 nrow(subset(diamonds, cut == "Premium" & price < 1000))
 
+# Stream jsonlines into a connection
+tmp <- tempfile()
+m$export(file(tmp))
+
+# Stream it back in R
+library(jsonlite)
+mydata <- stream_in(file(tmp))
+
+# Or into mongo
+m2 <- mongo("diamonds2")
+m2$count()
+m2$import(file(tmp))
+m2$count()
+
 # Remove the collection
 m$drop()
+m2$drop()
 ```
 
 Flights

@@ -75,8 +75,20 @@ hist <- m$mapreduce(
   reduce = "function(id, counts){return Array.sum(counts)}"
 )
 
+# Stream jsonlines into a connection
+tmp <- tempfile()
+m$export(file(tmp))
+
 # Remove the collection
 m$drop()
+
+# Import from jsonlines stream from connection
+dmd <- mongo("diamonds")
+dmd$import(url("http://jeroenooms.github.io/data/diamonds.json))
+dmd$count()
+
+# Export
+dmd$drop()
 }
 }
 \references{
