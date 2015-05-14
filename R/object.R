@@ -80,6 +80,37 @@ mongo_object <- function(con, client){
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
+    export <- function(out = stdout()){
+      stopifnot(is(out, "connection"))
+      if(!isOpen(out)){
+        open(out, "w")
+        on.exit(close(out))
+      }
+      cur <- mongo_collection_find(con, query = '{}', fields = '{}', sort = '{"_id":1}')
+      count = 0;
+      while(length(bson <- mongo_cursor_next_bson(cur))){
+        writeLines(bson_to_json(bson), out)
+        count <- count + 1;
+      }
+      return(count)
+    }
+
+    import <- function(input){
+      if(!isOpen(input)){
+        open(input, "r")
+        on.exit(close(input))
+      }
+      count <- 0;
+      while(length(json <- readLines(input, n = 1000))) {
+        json <- Filter(function(x){!grepl("^\\s*$", x)}, json)
+        if(!all(vapply(json, jsonlite::validate, logical(1))))
+          stop("Invalid JSON. Data must be in newline delimited json format (http://ndjson.org/)")
+        mongo_collection_insert_page(con, json)
+        count <- count + length(json)
+      }
+      return(count)
+    }
+
     aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE){
       cur <- mongo_collection_aggregate(con, pipeline)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
