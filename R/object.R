@@ -6,6 +6,7 @@
 #' @param url address of the mongodb server
 #' @param db name of database
 #' @param collection name of collection
+#' @param verbose emit some more output
 #' @return Upon success returns a pointer to a collection on the server.
 #' The collection can be interfaced using the methods described below.
 #' @examples \dontrun{
@@ -66,7 +67,9 @@
 #'   \item{\code{count(query = '{}')}}{Count the number of records matching a given \code{query}. Default counts all records in collection.}
 #'   \item{\code{distinct(key, query = '{}')}}{List unique values of a field given a particular query.}
 #'   \item{\code{drop()}}{Delete entire collection with all data and metadata.}
+#'   \item{\code{export(con = stdout())}}{Streams collection to a \code{\link{connection}} in \href{http://ndjson.org}{jsonlines} format, similar to the \href{http://docs.mongodb.org/v2.6/reference/mongoexport/}{mongoexport} command line utility.}
 #'   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve \code{fields} from records matching \code{query}. Default \code{handler} will return all data as a single dataframe.}
+#'   \item{\code{import(con)}}{Stream import data in \href{http://ndjson.org}{jsonlines} format from a \code{\link{connection}}, similar to the \href{http://docs.mongodb.org/v2.6/reference/mongoimport/}{mongoimport} command line utility.}
 #'   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. The \code{add} and \code{remove} arguments can either be a field name or json object. Returns a dataframe with current indexes.}
 #'   \item{\code{info()}}{Returns collection statistics and server info (if available).}
 #'   \item{\code{insert(data, pagesize = 1000, verbose = TRUE)}}{Insert a dataframe into the collection.}
@@ -76,18 +79,18 @@
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
 #' }
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
-mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost"){
+mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost", verbose = TRUE){
   client <- mongo_client_new(url)
   col <- mongo_collection_new(client, collection, db)
-  mongo_object(col, client)
+  mongo_object(col, client, verbose = verbose)
 }
 
-mongo_object <- function(col, client){
+mongo_object <- function(col, client, verbose){
   self <- local({
-    insert <- function(data, pagesize = 1000, verbose = TRUE)
+    insert <- function(data, pagesize = 1000)
       mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose)
 
-    find <- function(query = '{}', fields = '{"_id":0}', sort = '{"_id":1}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE){
+    find <- function(query = '{}', fields = '{"_id":0}', sort = '{"_id":1}', skip = 0, limit = 0, handler = NULL, pagesize = 1000){
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
@@ -103,8 +106,10 @@ mongo_object <- function(col, client){
       while(length(bson <- mongo_cursor_next_bson(cur))){
         writeLines(bson_to_json(bson), con)
         count <- count + 1;
+        if(verbose)
+          cat("\rExported ", count, "lines.")
       }
-      return(count)
+      invisible(count)
     }
 
     import <- function(con){
@@ -119,11 +124,14 @@ mongo_object <- function(col, client){
           stop("Invalid JSON. Data must be in newline delimited json format (http://ndjson.org/)")
         mongo_collection_insert_page(col, json)
         count <- count + length(json)
+        if(verbose)
+          cat("\rImported", count, "lines...")
       }
-      return(count)
+      if(verbose) cat("\rDone! Imported a total of", count, "lines.\n")
+      invisible(count)
     }
 
-    aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000, verbose = TRUE){
+    aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000){
       cur <- mongo_collection_aggregate(col, pipeline)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }

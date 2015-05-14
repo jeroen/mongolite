@@ -4,7 +4,8 @@
 \alias{mongo}
 \title{MongoDB client}
 \usage{
-mongo(collection = "test", db = "test", url = "mongodb://localhost")
+mongo(collection = "test", db = "test", url = "mongodb://localhost",
+  verbose = TRUE)
 }
 \arguments{
 \item{collection}{name of collection}
@@ -12,6 +13,8 @@ mongo(collection = "test", db = "test", url = "mongodb://localhost")
 \item{db}{name of database}
 
 \item{url}{address of the mongodb server}
+
+\item{verbose}{emit some more output}
 }
 \value{
 Upon success returns a pointer to a collection on the server.
@@ -27,7 +30,9 @@ Connect to a MongoDB collection.
   \item{\code{count(query = '{}')}}{Count the number of records matching a given \code{query}. Default counts all records in collection.}
   \item{\code{distinct(key, query = '{}')}}{List unique values of a field given a particular query.}
   \item{\code{drop()}}{Delete entire collection with all data and metadata.}
+  \item{\code{export(con = stdout())}}{Streams collection to a \code{\link{connection}} in \href{http://ndjson.org}{jsonlines} format, similar to the \href{http://docs.mongodb.org/v2.6/reference/mongoexport/}{mongoexport} command line utility.}
   \item{\code{find(query = '{}', fields = '{"_id" : 0}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, verbose = TRUE)}}{Retrieve \code{fields} from records matching \code{query}. Default \code{handler} will return all data as a single dataframe.}
+  \item{\code{import(con)}}{Stream import data in \href{http://ndjson.org}{jsonlines} format from a \code{\link{connection}}, similar to the \href{http://docs.mongodb.org/v2.6/reference/mongoimport/}{mongoimport} command line utility.}
   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. The \code{add} and \code{remove} arguments can either be a field name or json object. Returns a dataframe with current indexes.}
   \item{\code{info()}}{Returns collection statistics and server info (if available).}
   \item{\code{insert(data, pagesize = 1000, verbose = TRUE)}}{Insert a dataframe into the collection.}
