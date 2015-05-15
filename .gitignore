@@ -6,3 +6,4 @@
 .Rhistory
 src/*.a
 src/*.o
+inst/doc
