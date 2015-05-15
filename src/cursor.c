@@ -33,9 +33,9 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
         //cursor exchausted: done
         break;
     } else {
-      total++;
       size_t jsonlength;
       SET_STRING_ELT(out, total, mkCharLen(bson_as_json ((bson_t*) b, &jsonlength), jsonlength));
+      total++;
     }
   }
   if(total < len){
