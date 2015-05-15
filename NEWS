@@ -1,4 +1,4 @@
 0.4:
  - Add support for export() and import()
- - Added hack in libbson for number formatting of doubles
- -
+ - Added hack in libbson for number formatting of doubles in export()
+
