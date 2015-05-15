@@ -89,7 +89,7 @@ mongo_import <- function(col, con, verbose = FALSE){
     on.exit(close(con))
   }
   count <- 0;
-  while(length(json <- readLines(con, n = 1000))) {
+  while(length(json <- readLines(con, n = 100))) {
     json <- Filter(function(x){!grepl("^\\s*$", x)}, json)
     if(!all(vapply(json, jsonlite::validate, logical(1))))
       stop("Invalid JSON. Data must be in newline delimited json format (http://ndjson.org/)")
@@ -98,6 +98,7 @@ mongo_import <- function(col, con, verbose = FALSE){
     if(verbose)
       cat("\rImported", count, "lines...")
   }
-  if(verbose) cat("\rDone! Imported a total of", count, "lines.\n")
+  if(verbose)
+    cat("\rDone! Imported a total of", count, "lines.\n")
   invisible(count)
 }

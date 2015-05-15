@@ -24,17 +24,18 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
   SEXP out = PROTECT(allocVector(STRSXP, len));
   const bson_t *b = NULL;
   int total = 0;
-  for(int i = 0; i < len; i++){
+  bson_error_t err;
+  while(total < len){
     if(!mongoc_cursor_next(c, &b)){
-      bson_error_t err;
       if(mongoc_cursor_error (c, &err))
         stop(err.message);
       else
+        //cursor exchausted: done
         break;
     } else {
       total++;
       size_t jsonlength;
-      SET_STRING_ELT(out, i, mkCharLen(bson_as_json ((bson_t*) b, &jsonlength), jsonlength));
+      SET_STRING_ELT(out, total, mkCharLen(bson_as_json ((bson_t*) b, &jsonlength), jsonlength));
     }
   }
   if(total < len){
