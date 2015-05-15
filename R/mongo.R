@@ -143,8 +143,8 @@ mongo_cursor_next_bson <- function(cursor){
 }
 
 #' @useDynLib mongolite R_mongo_cursor_next_json
-mongo_cursor_next_json <- function(cursor){
-  .Call(R_mongo_cursor_next_json, cursor)
+mongo_cursor_next_json <- function(cursor, n = 1){
+  .Call(R_mongo_cursor_next_json, cursor, n = n)
 }
 
 #' @useDynLib mongolite R_mongo_cursor_next_page

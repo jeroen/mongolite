@@ -18,17 +18,35 @@ SEXP R_mongo_cursor_next_bson (SEXP ptr){
   return bson2r((bson_t*) b);
 }
 
-SEXP R_mongo_cursor_next_json (SEXP ptr){
+SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
   mongoc_cursor_t *c = r2cursor(ptr);
+  int len = asInteger(n);
+  SEXP out = PROTECT(allocVector(STRSXP, len));
   const bson_t *b = NULL;
-  if(!mongoc_cursor_next(c, &b)){
-    bson_error_t err;
-    if(mongoc_cursor_error (c, &err))
-      stop(err.message);
-    else
-      return R_NilValue;
+  int total = 0;
+  for(int i = 0; i < len; i++){
+    if(!mongoc_cursor_next(c, &b)){
+      bson_error_t err;
+      if(mongoc_cursor_error (c, &err))
+        stop(err.message);
+      else
+        break;
+    } else {
+      total++;
+      size_t jsonlength;
+      SET_STRING_ELT(out, i, mkCharLen(bson_as_json ((bson_t*) b, &jsonlength), jsonlength));
+    }
   }
-  return mkStringUTF8(bson_as_json ((bson_t*) b, NULL));
+  if(total < len){
+    SEXP out2 = PROTECT(allocVector(STRSXP, total));
+    for(int i = 0; i < total; i++){
+      SET_STRING_ELT(out2, i, STRING_ELT(out, i));
+    }
+    UNPROTECT(2);
+    return out2;
+  }
+  UNPROTECT(1);
+  return out;
 }
 
 SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){

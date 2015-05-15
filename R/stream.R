@@ -72,9 +72,9 @@ mongo_export <- function(col, con = stdout(), verbose = FALSE){
   }
   cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
   count = 0;
-  while(length(json <- mongo_cursor_next_json(cur))){
+  while(length(json <- mongo_cursor_next_json(cur, n = 1000))){
     writeLines(json, con)
-    count <- count + 1;
+    count <- count + length(json);
     if(verbose)
       cat("\rExported", count, "lines...")
   }
