@@ -40,6 +40,14 @@ out <- m$find('{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
 nrow(out)
 nrow(subset(diamonds, cut == "Premium" & price < 1000))
 
+# Cross-table
+tbl <- m$mapreduce(
+  map = "function(){emit({cut:this.cut, color:this.color}, 1)}",
+  reduce = "function(id, counts){return Array.sum(counts)}"
+)
+# Same as:
+data.frame(with(diamonds, table(cut, color)))
+
 # Stream jsonlines into a connection
 tmp <- tempfile()
 m$export(file(tmp))
