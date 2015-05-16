@@ -57,10 +57,10 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
 
 post_process <- function(x){
   df <- as.data.frame(jsonlite:::simplify(x))
-  idcol <- match("_id", names(df))
-  if(!is.na(idcol)){
-    df[[idcol]] <- vapply(df[[idcol]], function(x){paste(format(x), collapse="")}, character(1))
-  }
+  #idcol <- match("_id", names(df))
+  #if(!is.na(idcol) && is.list(df[[idcol]]) && all(vapply(df[[idcol]], is.raw, logical(1)))){
+  #  df[[idcol]] <- vapply(df[[idcol]], function(x){paste(format(x), collapse="")}, character(1))
+  #}
   df
 }
 
