@@ -73,7 +73,7 @@
 #'   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. The \code{add} and \code{remove} arguments can either be a field name or json object. Returns a dataframe with current indexes.}
 #'   \item{\code{info()}}{Returns collection statistics and server info (if available).}
 #'   \item{\code{insert(data, pagesize = 1000)}}{Insert a dataframe into the collection.}
-#'   \item{\code{mapreduce(map, reduce, out)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function. Set \code{out} to a string to store results in a collection instead of returning.}
+#'   \item{\code{mapreduce(map, reduce, out, scope)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function. Set \code{out} to a string to store results in a collection instead of returning.}
 #'   \item{\code{remove(query = "{}", multiple = FALSE)}}{Remove record(s) matching \code{query} from the collection.}
 #'   \item{\code{rename(name, db = "test")}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
@@ -118,8 +118,8 @@ mongo_object <- function(col, client, verbose){
     update <- function(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)
       mongo_collection_update(col, query, update, upsert, multiple)
 
-    mapreduce <- function(map, reduce, out = NULL){
-      cur <- mongo_collection_mapreduce(col, map, reduce, out)
+    mapreduce <- function(map, reduce, out = NULL, scope = NULL){
+      cur <- mongo_collection_mapreduce(col, map, reduce, out = out, scope = scope)
       results <- mongo_stream_in(cur, verbose = FALSE)
       if(is.null(out))
         results[[1, "results"]]

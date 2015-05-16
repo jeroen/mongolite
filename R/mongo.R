@@ -58,13 +58,14 @@ mongo_collection_command <- function(col, command = "{}"){
 }
 
 # Wrapper for mapReduce command
-mongo_collection_mapreduce <- function(col, map, reduce, out = NULL){
+mongo_collection_mapreduce <- function(col, map, reduce, out, scope){
   if(is.null(out))
     out <- list(inline = 1)
   cmd <- list(
     mapreduce = mongo_collection_name(col),
     map = map,
     reduce = reduce,
+    scope = scope,
     out = out
   )
   mongo_collection_command(col, jsonlite::toJSON(cmd, auto_unbox = TRUE))
