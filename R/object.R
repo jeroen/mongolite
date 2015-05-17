@@ -90,7 +90,7 @@ mongo_object <- function(col, client, verbose){
     insert <- function(data, pagesize = 1000)
       mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose)
 
-    find <- function(query = '{}', fields = '{"_id":0}', sort = '{"_id":1}', skip = 0, limit = 0, handler = NULL, pagesize = 1000){
+    find <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0, handler = NULL, pagesize = 1000){
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
