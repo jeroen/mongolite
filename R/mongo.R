@@ -104,10 +104,10 @@ mongo_collection_remove <- function(col, doc, multiple = TRUE){
 }
 
 #' @useDynLib mongolite R_mongo_collection_find
-mongo_collection_find <- function(col, query = '{}', sort = NULL, fields = '{"_id":0}', skip = 0, limit = 0){
+mongo_collection_find <- function(col, query = '{}', sort = '{}', fields = '{"_id":0}', skip = 0, limit = 0){
   stopifnot(is.numeric(skip))
   stopifnot(is.numeric(limit))
-  if(length(sort) && !identical(sort, '{}') && !("$query" %in% names(fromJSON(query)))){
+  if(!identical(sort, '{}') && !("$query" %in% names(fromJSON(query)))){
     query <- paste('{"$query":', query, ', "$orderby":', sort, '}')
   }
   .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(fields), skip, limit)
