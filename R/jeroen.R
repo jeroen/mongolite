@@ -18,6 +18,11 @@ print.jeroen <- function(x, title = paste0("<", is(x), ">"), ...){
 }
 
 #' @export
+names.jeroen <- function(x, ...){
+  ls(x, ...)
+}
+
+#' @export
 `[[.jeroen` <- `$.jeroen`
 
 #' @export
