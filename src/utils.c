@@ -1,4 +1,5 @@
 #include <mongolite.h>
+#include <stdio.h>
 
 SEXP mkStringUTF8(const char* str){
   SEXP out = PROTECT(allocVector(STRSXP, 1));
@@ -10,9 +11,8 @@ SEXP mkStringUTF8(const char* str){
 SEXP mkRaw(const unsigned char *buf, int len){
   //create raw vector
   SEXP out = PROTECT(allocVector(RAWSXP, len));
-  for (int i = 0; i < len; i++) {
-    RAW(out)[i] = buf[i];
-  }
+  if(len)
+    memcpy(RAW(out), buf, len);
   UNPROTECT(1);
   return out;
 }
