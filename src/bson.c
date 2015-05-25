@@ -18,19 +18,10 @@ SEXP R_json_to_bson(SEXP json){
 }
 
 SEXP R_raw_to_bson(SEXP buf){
-  bson_t *b;
   bson_error_t err;
-  int len = length(buf);
-  uint8_t data[len];
-
-  for (int i = 0; i < len; i++) {
-    data[i] = RAW(buf)[i];
-  }
-
-  b = bson_new_from_data(data, len);
+  bson_t *b = bson_new_from_data(RAW(buf), length(buf));
   if(!b)
     stop(err.message);
-
   return bson2r(b);
 }
 
