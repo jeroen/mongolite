@@ -101,6 +101,9 @@ mongo_object <- function(col, client, verbose){
     import <- function(con)
       mongo_import(col, con, verbose = verbose)
 
+    dump <- function(con)
+      mongo_dump(col, con, verbose = verbose)
+
     aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000){
       cur <- mongo_collection_aggregate(col, pipeline)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)

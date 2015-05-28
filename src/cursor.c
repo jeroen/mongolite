@@ -18,6 +18,40 @@ SEXP R_mongo_cursor_next_bson (SEXP ptr){
   return bson2r((bson_t*) b);
 }
 
+SEXP R_mongo_cursor_next_bsonlist (SEXP ptr, SEXP n){
+  mongoc_cursor_t *c = r2cursor(ptr);
+  int len = asInteger(n);
+  SEXP out = PROTECT(allocVector(VECSXP, len));
+  const bson_t *b = NULL;
+  int total = 0;
+  bson_error_t err;
+  while(total < len){
+    if(!mongoc_cursor_next(c, &b)){
+      if(mongoc_cursor_error (c, &err))
+        stop(err.message);
+      else
+        //cursor exchausted: done
+        break;
+    } else {
+      SEXP bin = PROTECT(allocVector(RAWSXP, b->len));
+      memcpy(RAW(bin), bson_get_data(b), len);
+      SET_VECTOR_ELT(out, total, bin);
+      UNPROTECT(1);
+      total++;
+    }
+  }
+  if(total < len){
+    SEXP out2 = PROTECT(allocVector(VECSXP, total));
+    for(int i = 0; i < total; i++){
+      SET_VECTOR_ELT(out2, i, VECTOR_ELT(out, i));
+    }
+    UNPROTECT(2);
+    return out2;
+  }
+  UNPROTECT(1);
+  return out;
+}
+
 SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
   mongoc_cursor_t *c = r2cursor(ptr);
   int len = asInteger(n);
@@ -49,6 +83,7 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
   UNPROTECT(1);
   return out;
 }
+
 
 SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){
   mongoc_cursor_t *c = r2cursor(ptr);

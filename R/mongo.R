@@ -150,6 +150,11 @@ mongo_cursor_next_json <- function(cursor, n = 1){
   .Call(R_mongo_cursor_next_json, cursor, n = n)
 }
 
+#' @useDynLib mongolite R_mongo_cursor_next_bsonlist
+mongo_cursor_next_bsonlist <- function(cursor, n = 1){
+  .Call(R_mongo_cursor_next_bsonlist, cursor, n = n)
+}
+
 #' @useDynLib mongolite R_mongo_cursor_next_page
 mongo_cursor_next_page <- function(cursor, size = 100){
   .Call(R_mongo_cursor_next_page, cursor, size = size)

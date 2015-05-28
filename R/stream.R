@@ -82,6 +82,25 @@ mongo_export <- function(col, con = stdout(), verbose = FALSE){
   invisible(count)
 }
 
+# Same as mongo_export but with (binary) bson output
+mongo_dump <- function(col, con = stdout(), verbose = FALSE){
+  stopifnot(is(con, "connection"))
+  if(!isOpen(con)){
+    open(con, "wb")
+    on.exit(close(con))
+  }
+  cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
+  count <- 0;
+  while(length(bson <- mongo_cursor_next_bsonlist(cur, n = 100))){
+    lapply(bson, writeBin, con = con)
+    count <- count + length(bson);
+    if(verbose)
+      cat("\rExported", count, "lines...")
+  }
+  if(verbose) cat("\rDone! Exported a total of", count, "lines.\n")
+  invisible(count)
+}
+
 mongo_import <- function(col, con, verbose = FALSE){
   stopifnot(is(con, "connection"))
   if(!isOpen(con)){
