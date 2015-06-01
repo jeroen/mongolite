@@ -167,3 +167,12 @@ mongo_collection_find_indexes <- function(col){
   out <- Filter(length, out)
   as.data.frame(jsonlite:::simplify(out))
 }
+
+#' @useDynLib mongolite R_mongo_restore
+mongo_restore <- function(col, con, verbose = FALSE){
+  if(!isOpen(con)){
+    open(con, "rb")
+    on.exit(close(con))
+  }
+  .Call(R_mongo_restore, con, col, verbose)
+}

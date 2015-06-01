@@ -89,7 +89,7 @@ mongo_dump <- function(col, con = stdout(), verbose = FALSE){
     open(con, "wb")
     on.exit(close(con))
   }
-  cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
+  cur <- mongo_collection_find(col, query = '{}', fields = '{}')
   count <- 0;
   while(length(bson <- mongo_cursor_next_bsonlist(cur, n = 100))){
     lapply(bson, writeBin, con = con)
