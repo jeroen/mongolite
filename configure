@@ -1,5 +1,5 @@
 # OSX ships with both OpenSSL and SASL
-if [ $(echo "$OSTYPE" | grep "darwin") ]; then
+if [ $(uname) = "Darwin" ]; then
   exit 0
 fi
 
