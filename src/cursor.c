@@ -30,11 +30,10 @@ SEXP R_mongo_cursor_next_bsonlist (SEXP ptr, SEXP n){
       if(mongoc_cursor_error (c, &err))
         stop(err.message);
       else
-        //cursor exchausted: done
-        break;
+        break; //cursor exchausted: done
     } else {
       SEXP bin = PROTECT(allocVector(RAWSXP, b->len));
-      memcpy(RAW(bin), bson_get_data(b), len);
+      memcpy(RAW(bin), bson_get_data(b), b->len);
       SET_VECTOR_ELT(out, total, bin);
       UNPROTECT(1);
       total++;
