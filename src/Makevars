@@ -3,30 +3,30 @@ PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h \
  -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
 
 LIBYAJL = yajl/yajl_alloc.o yajl/yajl_buf.o yajl/yajl_encode.o yajl/yajl_gen.o \
-          yajl/yajl_lex.o yajl/yajl_parser.o yajl/yajl_tree.o yajl/yajl_version.o \
-          yajl/yajl.o
+	yajl/yajl_lex.o yajl/yajl_parser.o yajl/yajl_tree.o yajl/yajl_version.o \
+	yajl/yajl.o
 
 LIBBSON = bson/bcon.o bson/bson-atomic.o bson/bson-clock.o bson/bson-context.o \
-          bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
-          bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
-          bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
-          bson/bson-value.o bson/bson-version.o bson/bson-writer.o bson/bson.o
+	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
+	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
+	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
+	bson/bson-value.o bson/bson-version.o bson/bson-writer.o bson/bson.o
 
 LIBMONGOC = mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
-            mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
-            mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
-            mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor-cursorid.o \
-            mongoc/mongoc-cursor-transform.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
-            mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
-            mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
-            mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
-            mongoc/mongoc-matcher-op.o mongoc/mongoc-matcher.o mongoc/mongoc-queue.o \
-            mongoc/mongoc-rand.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
-            mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
-            mongoc/mongoc-stream-buffered.o mongoc/mongoc-stream-file.o \
-            mongoc/mongoc-stream-gridfs.o mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
-            mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
-            mongoc/mongoc-write-command.o mongoc/mongoc-write-concern.o
+	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
+	mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
+	mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor-cursorid.o \
+	mongoc/mongoc-cursor-transform.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
+	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
+	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
+	mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
+	mongoc/mongoc-matcher-op.o mongoc/mongoc-matcher.o mongoc/mongoc-queue.o \
+	mongoc/mongoc-rand.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
+	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
+	mongoc/mongoc-stream-buffered.o mongoc/mongoc-stream-file.o \
+	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
+	mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
+	mongoc/mongoc-write-command.o mongoc/mongoc-write-concern.o
 
 PKG_LIBS = -L. -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2
 
