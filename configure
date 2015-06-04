@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # OSX ships with both OpenSSL and SASL
 if [ $(uname) = "Darwin" ]; then
   exit 0
