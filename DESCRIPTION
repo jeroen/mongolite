@@ -4,7 +4,7 @@ Title: Fast and Simple 'MongoDB' Client for R
 Description: High-level 'MongoDB' client based on 'jsonlite' and mongo-c-driver.
     Includes support for aggregation, indexing, map-reduce, streaming, TLS and
     LDAP (SASL) authentication.
-Version: 0.3.9002
+Version: 0.3.9003
 Date: 2015-05-13
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen.ooms@stat.ucla.edu", role = c("aut", "cre")),
