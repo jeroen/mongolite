@@ -6,14 +6,11 @@ LIBMONGOC = $(wildcard mongoc/*.c win32/*.c)
 LIBBSON = $(wildcard bson/*.c)
 LIBYAJL = $(wildcard yajl/*.c)
 
-all: clean winpatches winlibs libyajl.a libbson.a libmongoc.a
+all: clean winlibs libyajl.a libbson.a libmongoc.a
 
 clean:
 	rm -f *.o mongoc/*.o bson/*.o yajl/*.o win32/*.o
 	rm -f *.a
-
-winpatches:
-	sed -i "s/define BSON_OS 1/define BSON_OS 2/g" bson/bson-config.h
 
 winlibs:
 	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
