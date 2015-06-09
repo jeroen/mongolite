@@ -46,7 +46,12 @@
  * have SASL and its version is new enough to use sasl_client_done (),
  * which supersedes sasl_done ().
  */
+
+#if (defined(__sun) && defined(__SVR4))
+#define MONGOC_HAVE_SASL_CLIENT_DONE 0
+#else
 #define MONGOC_HAVE_SASL_CLIENT_DONE 1
+#endif
 
 #if MONGOC_HAVE_SASL_CLIENT_DONE != 1
 #  undef MONGOC_HAVE_SASL_CLIENT_DONE
