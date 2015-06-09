@@ -242,6 +242,10 @@ mongoc_uri_parse_host6 (mongoc_uri_t  *uri,
    hostname = scan_to_unichar (str + 1, ']', "", &end_host);
 
    mongoc_uri_do_unescape (&hostname);
+   if (!hostname) {
+      return false;
+   }
+
    mongoc_uri_append_host (uri, hostname, port);
    bson_free (hostname);
 
@@ -273,6 +277,12 @@ mongoc_uri_parse_host (mongoc_uri_t  *uri,
    }
 
    mongoc_uri_do_unescape(&hostname);
+   if (!hostname) {
+      /* invalid */
+      bson_free (hostname);
+      return false;
+   }
+
    mongoc_uri_append_host(uri, hostname, port);
    bson_free(hostname);
 
@@ -400,6 +410,10 @@ mongoc_uri_parse_database (mongoc_uri_t  *uri,
    }
 
    mongoc_uri_do_unescape(&uri->database);
+   if (!uri->database) {
+      /* invalid */
+      return false;
+   }
 
    return true;
 }
@@ -489,6 +503,10 @@ mongoc_uri_parse_option (mongoc_uri_t *uri,
 
    value = bson_strdup(end_key + 1);
    mongoc_uri_do_unescape(&value);
+   if (!value) {
+      /* do_unescape detected invalid UTF-8 and freed value */
+      return false;
+   }
 
    if (!strcasecmp(key, "connecttimeoutms") ||
        !strcasecmp(key, "sockettimeoutms") ||

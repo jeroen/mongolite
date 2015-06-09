@@ -250,6 +250,7 @@ _mongoc_cluster_node_init (mongoc_cluster_node_t *node)
    bson_init(&node->tags);
    node->primary = 0;
    node->needs_auth = 0;
+   node->valid = true;
 
    EXIT;
 }
@@ -318,7 +319,8 @@ _mongoc_cluster_node_destroy (mongoc_cluster_node_t *node)
 {
    ENTRY;
 
-   BSON_ASSERT(node);
+   ALWAYS_ASSERT(node);
+   ALWAYS_ASSERT(node->valid);
 
    if (node->stream) {
       mongoc_stream_close(node->stream);
@@ -566,7 +568,7 @@ _mongoc_cluster_destroy (mongoc_cluster_t *cluster) /* INOUT */
 
    ENTRY;
 
-   bson_return_if_fail (cluster);
+   ALWAYS_ASSERT (cluster);
 
    mongoc_uri_destroy (cluster->uri);
 
@@ -637,7 +639,7 @@ _mongoc_cluster_select (mongoc_cluster_t             *cluster,
    bson_return_val_if_fail(rpcs_len, NULL);
    bson_return_val_if_fail(hint <= cluster->nodes_len, NULL);
 
-   nodes = bson_malloc(sizeof(*nodes) * cluster->nodes_len);
+   nodes = bson_malloc0(sizeof(*nodes) * cluster->nodes_len);
    scores = bson_malloc(sizeof(*scores) * cluster->nodes_len);
 
    /*
@@ -723,16 +725,25 @@ dispatch:
    /*
     * Apply the hint if the client knows who they would like to continue
     * communicating with.
+    *
+    * TODO: after an initial query a cursor sets its hint to an index in the
+    *   nodes array, but _mongoc_cluster_reconnect may resize the array or
+    *   rearrange servers and the cursor sends its getmore to the wrong server,
+    *   causing a server error "cursor not found". Fixed by the topology
+    *   rewrite in 1.2.x.
     */
    if (hint) {
-      if (!nodes[hint - 1]) {
+      if ((hint - 1) >= cluster->nodes_len || !nodes[hint - 1]) {
          bson_set_error(error,
                         MONGOC_ERROR_CLIENT,
                         MONGOC_ERROR_CLIENT_NO_ACCEPTABLE_PEER,
                         "Requested node (%u) is not available.",
                         hint);
+         node = NULL;
+      } else {
+         node = nodes[hint - 1];
       }
-      node = nodes[hint - 1];
+
       goto CLEANUP;
    }
 
@@ -1043,9 +1054,9 @@ _mongoc_cluster_ismaster (mongoc_cluster_t      *cluster,
 
    ENTRY;
 
-   BSON_ASSERT(cluster);
-   BSON_ASSERT(node);
-   BSON_ASSERT(node->stream);
+   ALWAYS_ASSERT(cluster);
+   ALWAYS_ASSERT(node);
+   ALWAYS_ASSERT(node->stream);
 
    bson_init(&command);
    bson_append_int32(&command, "isMaster", 8, 1);
@@ -2001,6 +2012,48 @@ _mongoc_cluster_reconnect_direct (mongoc_cluster_t *cluster,
    RETURN (true);
 }
 
+mongoc_host_list_t *
+prepend_host (const mongoc_host_list_t *host, mongoc_host_list_t *list)
+{
+   mongoc_host_list_t *cpy = bson_malloc (sizeof *host);
+
+   memcpy (cpy, host, sizeof *host);
+   cpy->next = list;
+
+   return cpy;
+}
+
+/*
+ * Case-sensitive search for host-and-port.
+ */
+bool
+has_host (const mongoc_host_list_t *hl,
+          const char               *host_and_port)
+{
+   while (hl) {
+      if (!strcmp(hl->host_and_port, host_and_port)) {
+         return true;
+      }
+
+      hl = hl->next;
+   }
+
+   return false;
+}
+
+
+void
+host_list_destroy (mongoc_host_list_t *hl)
+{
+   mongoc_host_list_t *tmp;
+
+   while (hl) {
+      tmp = hl->next;
+      bson_free (hl);
+      hl = tmp;
+   }
+}
+
 
 /*
  *--------------------------------------------------------------------------
@@ -2031,6 +2084,7 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
 {
    const mongoc_host_list_t *hosts;
    const mongoc_host_list_t *iter;
+   mongoc_host_list_t *failed_hosts = NULL;
    mongoc_cluster_node_t node;
    mongoc_cluster_node_t *saved_nodes;
    size_t saved_nodes_len;
@@ -2102,6 +2156,7 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
       stream = _mongoc_client_create_stream(cluster->client, iter, error);
       if (!stream) {
          MONGOC_WARNING("Failed connection to %s", iter->host_and_port);
+         failed_hosts = prepend_host (iter, failed_hosts);
          continue;
       }
 
@@ -2110,6 +2165,7 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
       node.stream = stream;
 
       if (!_mongoc_cluster_ismaster (cluster, &node, error)) {
+         failed_hosts = prepend_host (iter, failed_hosts);
          _mongoc_cluster_node_destroy (&node);
          continue;
       }
@@ -2150,10 +2206,20 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
    cluster->nodes = bson_realloc (cluster->nodes, sizeof (*cluster->nodes) * i);
    cluster->nodes_len = i;
 
+   /* guard against counter errors, see CDRIVER-695 */
+   for (i = 0; i < cluster->nodes_len; i++) {
+      cluster->nodes[i].valid = false;
+   }
+
    for (liter = list, i = 0; liter; liter = liter->next) {
       if (!_mongoc_host_list_from_string(&host, liter->data)) {
          MONGOC_WARNING("Failed to parse host and port: \"%s\"",
                         (char *)liter->data);
+         continue;
+      }
+
+      if (has_host (failed_hosts, host.host_and_port)) {
+         MONGOC_INFO ("Skipping reconnection to %s", host.host_and_port);
          continue;
       }
 
@@ -2217,6 +2283,7 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
 
       _mongoc_cluster_node_track_ping(&cluster->nodes[i], ping);
 
+      cluster->nodes[i].valid = true;
       i++;
    }
 
@@ -2251,6 +2318,8 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
 CLEANUP:
 
    bson_free(saved_nodes);
+
+   host_list_destroy (failed_hosts);
 
    RETURN(rval);
 }
