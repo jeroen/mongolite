@@ -1,6 +1,6 @@
 0.4:
  - Add support for export() and import()
- - Update mongo-c-driver and libbson to 1.1.6
+ - Update mongo-c-driver and libbson to 1.1.7
 
 0.3
  - Update mongo-c-driver and libbson to 1.1.5
