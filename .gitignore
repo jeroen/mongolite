@@ -6,4 +6,6 @@
 .Rhistory
 src/*.a
 src/*.o
+src/features.h
+src/features
 inst/doc

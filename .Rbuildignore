@@ -6,3 +6,5 @@
 ^.travis.yml$
 ^readme.md$
 ^test$
+^src/features.h$
+^src/features$
