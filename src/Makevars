@@ -35,7 +35,7 @@ $(SHLIB): libyajl.a libbson.a libmongoc.a
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
 
-$(OBJECTS): features
+$(OBJECTS): features.h
 
 clean:
 	rm -f $(LIBYAJL) $(LIBBSON) $(LIBMONGOC)
@@ -50,6 +50,6 @@ libbson.a: $(LIBBSON)
 libmongoc.a: $(LIBMONGOC)
 	$(AR) rcs libmongoc.a $(LIBMONGOC)
 
-features:
+features.h:
 	echo "/* Feature tested includes */" > features.h
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> features.h || true
