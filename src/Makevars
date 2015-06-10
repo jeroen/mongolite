@@ -34,8 +34,7 @@ $(SHLIB): libyajl.a libbson.a libmongoc.a
 
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
-
-$(OBJECTS): features.h
+# $(OBJECTS): clean
 
 clean:
 	rm -f $(LIBYAJL) $(LIBBSON) $(LIBMONGOC)
