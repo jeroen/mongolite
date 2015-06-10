@@ -1,5 +1,5 @@
 PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h -include mlfeatures.h \
- -I/opt/csw/include \
+ -isystem/opt/csw/include \
  -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
 
 LIBYAJL = yajl/yajl_alloc.o yajl/yajl_buf.o yajl/yajl_encode.o yajl/yajl_gen.o \
@@ -50,8 +50,8 @@ libmongoc.a: $(LIBMONGOC)
 	$(AR) rcs libmongoc.a $(LIBMONGOC)
 
 features.mk:
-	echo "# Nothing here" > features.mk
-	echo "/* Feature tested includes */" > mlfeatures.h
+	touch features.mk
+	rm -f mlfeatures.h
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> mlfeatures.h || true
 
 include features.mk
