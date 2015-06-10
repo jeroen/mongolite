@@ -47,9 +47,6 @@
  * which supersedes sasl_done ().
  */
 
-/* only available on recent verions of sasl */
-#define MONGOC_HAVE_SASL_CLIENT_DONE 0
-
 #if MONGOC_HAVE_SASL_CLIENT_DONE != 1
 #  undef MONGOC_HAVE_SASL_CLIENT_DONE
 #endif
