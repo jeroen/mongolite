@@ -1,6 +1,4 @@
-include features
-
-PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h -include features.h \
+PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h -include mlfeatures.h \
  -I/opt/csw/include \
  -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
 
@@ -51,7 +49,9 @@ libbson.a: $(LIBBSON)
 libmongoc.a: $(LIBMONGOC)
 	$(AR) rcs libmongoc.a $(LIBMONGOC)
 
-features:
-	echo "# Nothing here" > features
-	echo "/* Feature tested includes */" > features.h
-	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> features.h || true
+features.mk:
+	echo "# Nothing here" > features.mk
+	echo "/* Feature tested includes */" > mlfeatures.h
+	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> mlfeatures.h || true
+
+include features
