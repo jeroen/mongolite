@@ -54,4 +54,4 @@ features.mk:
 	echo "/* Feature tested includes */" > mlfeatures.h
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> mlfeatures.h || true
 
-include features
+include features.mk
