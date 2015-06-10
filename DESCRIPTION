@@ -1,9 +1,9 @@
 Package: mongolite
 Type: Package
 Title: Fast and Simple 'MongoDB' Client for R
-Description: High-level 'MongoDB' client based on 'jsonlite' and mongo-c-driver.
-    Includes support for aggregation, indexing, map-reduce, streaming, TLS and
-    LDAP (SASL) authentication.
+Description: High-level 'MongoDB' client based on 'jsonlite' and 'mongoc' driver.
+    Includes support for aggregation, indexing, map-reduce, streaming, 'TLS'
+    encryption and 'SASL' authentication.
 Version: 0.3.9004
 Date: 2015-05-13
 Authors@R: c(
