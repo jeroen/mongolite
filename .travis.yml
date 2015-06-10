@@ -10,6 +10,9 @@ apt_packages:
 r_github_packages:
   - jeroenooms/jsonlite
 
+before_install:
+  - echo "MAKE=${MAKE} -j8" >> /etc/R/Renviron.site
+
 notifications:
   email:
     on_success: change
