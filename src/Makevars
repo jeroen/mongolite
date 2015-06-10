@@ -37,6 +37,7 @@ $(SHLIB): libyajl.a libbson.a libmongoc.a
 # $(OBJECTS): clean
 
 clean:
+	rm -f features.mk mlfeatures.h
 	rm -f $(LIBYAJL) $(LIBBSON) $(LIBMONGOC)
 	rm -f *.o *.a
 
@@ -51,7 +52,7 @@ libmongoc.a: $(LIBMONGOC)
 
 features.mk:
 	touch features.mk
-	rm -f mlfeatures.h
+	touch mlfeatures.h
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> mlfeatures.h || true
 
 include features.mk
