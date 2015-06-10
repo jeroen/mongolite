@@ -46,8 +46,10 @@ libyajl.a: $(LIBYAJL)
 libbson.a: $(LIBBSON)
 	$(AR) rcs libbson.a $(LIBBSON)
 
-libmongoc.a: features $(LIBMONGOC)
+libmongoc.a: $(LIBMONGOC)
 	$(AR) rcs libmongoc.a $(LIBMONGOC)
 
 features:
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" > config.h || true
+
+-include features
