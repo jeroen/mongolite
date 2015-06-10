@@ -55,5 +55,3 @@ features:
 	echo "# Nothing here" > features
 	echo "/* Feature tested includes */" > features.h
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> features.h || true
-
-.PHONY: features
