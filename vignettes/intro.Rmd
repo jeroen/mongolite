@@ -106,8 +106,17 @@ hist <- m$mapreduce(
   reduce = "function(id, counts){return Array.sum(counts)}"
 )
 
+# Dump to bson
+dump <- tempfile()
+m$export(file(dump), bson = TRUE)
+
 # Remove the collection
 m$drop()
+
+# Restore
+m$count()
+m$import(file(dump), bson = TRUE)
+m$count()
 ```
 
 Combine with jsonlite
