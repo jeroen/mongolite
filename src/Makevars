@@ -1,3 +1,5 @@
+include features
+
 PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h -include features.h \
  -I/opt/csw/include \
  -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
@@ -55,5 +57,3 @@ features:
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> features.h || true
 
 .PHONY: features
-include features
-
