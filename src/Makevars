@@ -30,11 +30,12 @@ LIBMONGOC = mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 
 PKG_LIBS = -L. -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2
 
-$(SHLIB): libyajl.a libbson.a libmongoc.a features.h
+$(SHLIB): libyajl.a libbson.a libmongoc.a
 
 # For development only
-# $(OBJECTS): clean
 # PKG_CFLAGS= -Wall -pedantic
+
+$(OBJECTS): features
 
 clean:
 	rm -f $(LIBYAJL) $(LIBBSON) $(LIBMONGOC)
@@ -52,5 +53,3 @@ libmongoc.a: $(LIBMONGOC)
 features:
 	echo "/* Feature tested includes */" > features.h
 	$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> features.h || true
-
-sinclude features
