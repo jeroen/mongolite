@@ -6,6 +6,7 @@ warnings_are_errors: true
 apt_packages:
   - libssl-dev
   - libsasl2-dev
+  - libicu-dev
 
 r_github_packages:
   - jeroenooms/stringi
