@@ -8,6 +8,7 @@ apt_packages:
   - libsasl2-dev
 
 r_github_packages:
+  - jeroenooms/stringi
   - jeroenooms/jsonlite
 
 notifications:
