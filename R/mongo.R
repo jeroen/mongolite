@@ -58,17 +58,20 @@ mongo_collection_command <- function(col, command = "{}"){
 }
 
 # Wrapper for mapReduce command
-mongo_collection_mapreduce <- function(col, map, reduce, out, scope){
+mongo_collection_mapreduce <- function(col, map, reduce, query, sort, limit, out, scope){
   if(is.null(out))
     out <- list(inline = 1)
   cmd <- list(
     mapreduce = mongo_collection_name(col),
     map = map,
     reduce = reduce,
-    scope = scope,
-    out = out
+    query = structure(query, class = "json"),
+    sort = structure(sort, class = "json"),
+    limit = limit,
+    out = out,
+    scope = scope
   )
-  mongo_collection_command(col, jsonlite::toJSON(cmd, auto_unbox = TRUE))
+  mongo_collection_command(col, jsonlite::toJSON(cmd, auto_unbox = TRUE, json_verbatim = TRUE))
 }
 
 mongo_collection_distinct <- function(col, key, query){

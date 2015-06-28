@@ -95,6 +95,15 @@ mongo_object <- function(col, client, verbose){
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
+    iterate <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
+      cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
+      iter <- function() {
+        res <- mongo_cursor_next_page(cur, size = 1)
+        if(length(res)) jsonlite:::simplify(res[[1]]) else NULL;
+      }
+      structure(iter, class = "iterator")
+    }
+
     export <- function(con = stdout(), bson = FALSE){
       if(isTRUE(bson)){
         mongo_dump(col, con, verbose = verbose)
@@ -128,8 +137,9 @@ mongo_object <- function(col, client, verbose){
     update <- function(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)
       mongo_collection_update(col, query, update, upsert, multiple)
 
-    mapreduce <- function(map, reduce, out = NULL, scope = NULL){
-      cur <- mongo_collection_mapreduce(col, map, reduce, out = out, scope = scope)
+    mapreduce <- function(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL){
+      cur <- mongo_collection_mapreduce(col, map = map, reduce = reduce, query = query,
+        sort = sort, limit = limit, out = out, scope = scope)
       results <- mongo_stream_in(cur, verbose = FALSE)
       if(is.null(out))
         results[[1, "results"]]
