@@ -7,6 +7,7 @@ print.jeroen <- function(x, title = paste0("<", is(x), ">"), ...){
   lapply(ns, function(fn){
     cat(format_function(x[[fn]], fn), sep = "\n")
   })
+  invisible()
 }
 
 #' @export
