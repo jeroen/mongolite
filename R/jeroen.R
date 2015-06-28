@@ -32,7 +32,7 @@ names.jeroen <- function(x, ...){
 # Pretty format function headers
 format_function <- function(fun, name = deparse(substitute(fun))){
   #header <- sub("\\{$", "", capture.output(fun)[1])
-  header <- head(deparse(args(fun)), -1)
+  header <- head(deparse(args(fun), 100L), -1)
   header <- sub("^[ ]*", "   ", header)
   header[1] <- sub("^[ ]*function ?", paste0(" $", name), header[1])
   header
