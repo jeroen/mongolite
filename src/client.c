@@ -18,11 +18,14 @@ SEXP R_mongo_client_new(SEXP uri_string) {
   mongoc_client_set_ssl_opts(client, mongoc_ssl_opt_get_default());
 
   //verify that server is online
+  //can fail if user has limited priv
+  /*
   bson_error_t err;
   if(!mongoc_client_get_server_status(client, NULL, NULL, &err)){
     mongoc_client_destroy(client);
     stop(err.message);
   }
+  */
 
   return client2r(client);
 }

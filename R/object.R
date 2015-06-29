@@ -82,6 +82,7 @@
 mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost", verbose = TRUE){
   client <- mongo_client_new(url)
   col <- mongo_collection_new(client, collection, db)
+  mongo_collection_command_simple(col, '{"ping":1}')
   mongo_object(col, client, verbose = verbose)
 }
 
