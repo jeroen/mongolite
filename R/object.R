@@ -81,6 +81,14 @@
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 mongo <- function(collection = "test",  db = "test", url = "mongodb://localhost", verbose = TRUE){
   client <- mongo_client_new(url)
+
+  # workaround for missing 'mongoc_client_get_default_database'
+  if(is.null(db) || db == "test"){
+    path <- get_path_from_url(url)
+    if(!is.null(path))
+      db <- path
+  }
+
   col <- mongo_collection_new(client, collection, db)
   mongo_collection_command_simple(col, '{"ping":1}')
   mongo_object(col, client, verbose = verbose)
