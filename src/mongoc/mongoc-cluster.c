@@ -320,7 +320,6 @@ _mongoc_cluster_node_destroy (mongoc_cluster_node_t *node)
    ENTRY;
 
    ALWAYS_ASSERT(node);
-   ALWAYS_ASSERT(node->valid);
 
    if (node->stream) {
       mongoc_stream_close(node->stream);
@@ -572,9 +571,12 @@ _mongoc_cluster_destroy (mongoc_cluster_t *cluster) /* INOUT */
 
    mongoc_uri_destroy (cluster->uri);
 
-   for (i = 0; i < cluster->nodes_len; i++) {
-      if (cluster->nodes[i].stream) {
-         _mongoc_cluster_node_destroy (&cluster->nodes [i]);
+   /* nodes should never be NULL if nodes_len > 0, but check anyway */
+   if (cluster->nodes) {
+      for (i = 0; i < cluster->nodes_len; i++) {
+         if (cluster->nodes[i].stream) {
+            _mongoc_cluster_node_destroy (&cluster->nodes[i]);
+         }
       }
    }
 
@@ -2094,8 +2096,8 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
    mongoc_list_t *liter;
    int32_t ping;
    const char *replSet;
-   int i;
-   int j;
+   uint32_t i;
+   uint32_t j;
    bool rval = false;
 
    ENTRY;
@@ -2202,13 +2204,15 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
       }
    }
 
+   /* reinitialize nodes with same length as peer list. */
    for (liter = list, i = 0; liter; liter = liter->next, i++) {}
    cluster->nodes = bson_realloc (cluster->nodes, sizeof (*cluster->nodes) * i);
    cluster->nodes_len = i;
 
-   /* guard against counter errors, see CDRIVER-695 */
-   for (i = 0; i < cluster->nodes_len; i++) {
-      cluster->nodes[i].valid = false;
+   for (j = 0; j < i; j++) {
+      _mongoc_cluster_node_init (&cluster->nodes[j]);
+      /* guard against counter errors, see CDRIVER-695 */
+      cluster->nodes[j].valid = false;
    }
 
    for (liter = list, i = 0; liter; liter = liter->next) {
@@ -2241,8 +2245,6 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
             continue;
          }
       }
-
-      _mongoc_cluster_node_init(&cluster->nodes[i]);
 
       cluster->nodes[i].host = host;
       cluster->nodes[i].index = i;
@@ -2285,9 +2287,8 @@ _mongoc_cluster_reconnect_replica_set (mongoc_cluster_t *cluster,
 
       cluster->nodes[i].valid = true;
       i++;
+      cluster->nodes_len = i;
    }
-
-   cluster->nodes_len = i;
 
    _mongoc_list_foreach(list, (void(*)(void*,void*))bson_free, NULL);
    _mongoc_list_destroy(list);
