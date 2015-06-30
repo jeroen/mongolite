@@ -1,6 +1,6 @@
 #' @useDynLib mongolite R_mongo_collection_new
 mongo_collection_new <- function(client, db = "test", collection = "test"){
-  stopifnot(is(client, "mongo_client"))
+  stopifnot(inherits(client, "mongo_client"))
   stopifnot(is.character(db))
   stopifnot(is.character(collection))
   .Call(R_mongo_collection_new, client, db, collection)

@@ -1,7 +1,7 @@
 # High level wrapper
 #' @importFrom jsonlite validate
 bson_or_json <- function(x){
-  if(is(x, "bson")){
+  if(inherits(x, "bson")){
     return(x)
   } else if(is.character(x)) {
     if(!validate(x))
