@@ -95,6 +95,12 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){
     total++;
   }
 
+  //iterator exhausted
+  if(total == 0){
+    UNPROTECT(1);
+    return R_NilValue;
+  }
+
   //found a full page
   if(total == n){
     UNPROTECT(1);
