@@ -104,7 +104,7 @@ mongo_object <- function(col, client, verbose){
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
-    finditer <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
+    iterate <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       structure(function() {
         mongo_cursor_next_page(cur, size = 1)
