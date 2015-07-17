@@ -1,7 +1,7 @@
 0.5
- - BREAKING: 'db' argument is deprecated. Database must be specified in the 'url'
  - New method 'iterate' to retrieve records without simplification
  - POSIXt timestamps and raw vectors are inserted as native types
+ - Fix for authentication to database specified in the 'url'
 
 0.4:
  - Add support for export() and import()
