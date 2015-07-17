@@ -1,3 +1,8 @@
+0.5
+ - BREAKING: 'db' argument is deprecated. Database must be specified in the 'url'
+ - New method 'iterate' to retrieve records without simplification
+ - POSIXt timestamps and raw vectors are inserted as native types
+
 0.4:
  - Add support for export() and import()
  - Update mongo-c-driver and libbson to 1.1.7
