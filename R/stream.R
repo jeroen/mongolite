@@ -4,7 +4,8 @@ mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE){
   stopifnot(is.numeric(pagesize))
   stopifnot(is.logical(verbose))
   FUN <- function(x){
-    mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, digits = 9, collapse = FALSE))
+    mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, digits = 9,
+      POSIXt = "mongo", raw = "mongo", collapse = FALSE))
   }
   jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
   TRUE
