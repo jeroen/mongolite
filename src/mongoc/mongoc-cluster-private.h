@@ -74,6 +74,7 @@ typedef struct
    unsigned            primary    : 1;
    unsigned            needs_auth : 1;
    unsigned            isdbgrid   : 1;
+   unsigned            secondary  : 1;
    int32_t             min_wire_version;
    int32_t             max_wire_version;
    int32_t             max_write_batch_size;
@@ -142,6 +143,7 @@ bool                   _mongoc_cluster_command_early   (mongoc_cluster_t        
                                                         const bson_t                 *command,
                                                         bson_t                       *reply,
                                                         bson_error_t                 *error);
+void                   _mongoc_cluster_node_destroy    (mongoc_cluster_node_t        *node);
 void                   _mongoc_cluster_disconnect_node (mongoc_cluster_t             *cluster,
                                                         mongoc_cluster_node_t        *node);
 bool                   _mongoc_cluster_reconnect       (mongoc_cluster_t             *cluster,
