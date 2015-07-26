@@ -1,5 +1,5 @@
 0.5
- - Update mongo-c-driver and libbson to 1.1.9
+ - Update mongo-c-driver and libbson to 1.1.10
  - New method 'iterate' to retrieve records without simplification
  - POSIXt timestamps and raw vectors are inserted as native types
  - Fix for authentication to database specified in the 'url'
