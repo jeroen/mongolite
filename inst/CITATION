@@ -1,4 +1,4 @@
-citHeader("To cite jsonlite in publications use:")
+citHeader("To cite mongolite in publications use:")
 
 citEntry(entry = "Article",
   title        = "The jsonlite Package: A Practical and Consistent Mapping Between JSON Data and R Objects",
