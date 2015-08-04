@@ -108,7 +108,8 @@ mongo_object <- function(col, client, verbose){
 
     iterate <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
-      mongo_iterator(cur)
+      # make sure 'col' does not go out of scope to prevent gc
+      mongo_iterator(cur, col)
     }
 
     export <- function(con = stdout(), bson = FALSE){
