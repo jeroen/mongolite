@@ -1,5 +1,5 @@
 # We need https
-setInternet2()
+if(getRversion() < "3.3.0") setInternet2()
 
 # Download OpenSSL
 if(!file.exists("../windows/openssl-1.0.1j/include/openssl/ssl.h")){
