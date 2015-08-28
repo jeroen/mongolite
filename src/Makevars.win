@@ -6,7 +6,7 @@ LIBMONGOC = $(wildcard mongoc/*.c win32/*.c)
 LIBBSON = $(wildcard bson/*.c)
 LIBYAJL = $(wildcard yajl/*.c)
 
-all: clean winlibs libyajl.a libbson.a libmongoc.a
+all: winlibs libyajl.a libbson.a libmongoc.a
 
 clean:
 	rm -f *.o mongoc/*.o bson/*.o yajl/*.o win32/*.o

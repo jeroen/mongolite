@@ -1,3 +1,6 @@
+0.6
+ - Fix for m$export() on windows (UTF8 related)
+
 0.5
  - Update mongo-c-driver and libbson to 1.1.10
  - New method 'iterate' to retrieve records without simplification

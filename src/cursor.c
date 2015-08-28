@@ -67,7 +67,9 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
         break;
     } else {
       size_t jsonlength;
-      SET_STRING_ELT(out, total, mkCharLen(bson_as_json ((bson_t*) b, &jsonlength), jsonlength));
+      const char *str = bson_as_json ((bson_t*) b, &jsonlength);
+      SET_STRING_ELT(out, total, mkCharLenCE(str, jsonlength, CE_UTF8));
+      if(str) bson_free(str);
       total++;
     }
   }
