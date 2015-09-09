@@ -749,7 +749,7 @@ bson_append_array (bson_t       *bson,       /* IN */
             fprintf (stderr,
                      "%s(): invalid array detected. first element of array "
                      "parameter is not \"0\".\n",
-                     __FUNCTION__);
+                     __func__);
          }
       }
    }

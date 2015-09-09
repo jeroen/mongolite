@@ -191,7 +191,7 @@
    do { \
       if (!(test)) { \
          fprintf (stderr, "%s(): precondition failed: %s\n", \
-                  __FUNCTION__, #test); \
+                  __func__, #test); \
          return; \
       } \
    } while (0)
@@ -205,7 +205,7 @@
    do { \
       if (!(test)) { \
          fprintf (stderr, "%s(): precondition failed: %s\n", \
-                  __FUNCTION__, #test); \
+                  __func__, #test); \
          return (val); \
       } \
    } while (0)

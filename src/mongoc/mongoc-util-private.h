@@ -28,7 +28,7 @@
    do { \
       if (!(s)) { \
          fprintf (stderr, "precondition \"%s\" failed %s:%d: %s()\n", \
-                  #s, __FILE__, __LINE__, __FUNCTION__); \
+                  #s, __FILE__, __LINE__, __func__); \
          abort (); \
       } \
    } while (0)
