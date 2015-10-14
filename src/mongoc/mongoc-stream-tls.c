@@ -165,7 +165,9 @@ _mongoc_stream_tls_bio_destroy (BIO *b)
 
    BSON_ASSERT (b);
 
-   if (!(tls = b->ptr)) {
+   tls = (mongoc_stream_tls_t *)b->ptr;
+
+   if (!tls) {
       return -1;
    }
 
@@ -205,9 +207,12 @@ _mongoc_stream_tls_bio_read (BIO  *b,
 
    BSON_ASSERT (b);
    BSON_ASSERT (buf);
+   ENTRY;
 
-   if (!(tls = b->ptr)) {
-      return -1;
+   tls = (mongoc_stream_tls_t *)b->ptr;
+
+   if (!tls) {
+      RETURN (-1);
    }
 
    errno = 0;
@@ -215,11 +220,11 @@ _mongoc_stream_tls_bio_read (BIO  *b,
                                   tls->timeout_msec);
    BIO_clear_retry_flags (b);
 
-   if ((ret < 0) && MONGOC_ERRNO_IS_AGAIN (errno)) {
+   if ((ret <= 0) && MONGOC_ERRNO_IS_AGAIN (errno)) {
       BIO_set_retry_read (b);
    }
 
-   return ret;
+   RETURN (ret);
 }
 
 
@@ -247,27 +252,38 @@ _mongoc_stream_tls_bio_write (BIO        *b,
    mongoc_stream_tls_t *tls;
    mongoc_iovec_t iov;
    int ret;
+   ENTRY;
 
    BSON_ASSERT (b);
    BSON_ASSERT (buf);
 
-   if (!(tls = b->ptr)) {
-      return -1;
+   tls = (mongoc_stream_tls_t *)b->ptr;
+
+   if (!tls) {
+      RETURN (-1);
    }
 
    iov.iov_base = (void *)buf;
    iov.iov_len = len;
 
    errno = 0;
+   TRACE("mongoc_stream_writev is expected to write: %d", len);
    ret = (int)mongoc_stream_writev (tls->base_stream, &iov, 1,
                                     tls->timeout_msec);
    BIO_clear_retry_flags (b);
 
-   if ((ret < 0) && MONGOC_ERRNO_IS_AGAIN (errno)) {
+   if (len > ret) {
+      TRACE("Returned short write: %d of %d", ret, len);
+   } else {
+      TRACE("Completed the %d", ret);
+   }
+   if (ret <= 0 && MONGOC_ERRNO_IS_AGAIN (errno)) {
+      TRACE("%s", "Requesting a retry");
       BIO_set_retry_write (b);
    }
 
-   return ret;
+
+   RETURN (ret);
 }
 
 
@@ -395,6 +411,29 @@ _mongoc_stream_tls_destroy (mongoc_stream_t *stream)
 /*
  *--------------------------------------------------------------------------
  *
+ * _mongoc_stream_tls_failed --
+ *
+ *       Called on stream failure. Same as _mongoc_stream_tls_destroy()
+ *
+ * Returns:
+ *       None.
+ *
+ * Side effects:
+ *       None.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+static void
+_mongoc_stream_tls_failed (mongoc_stream_t *stream)
+{
+   _mongoc_stream_tls_destroy (stream);
+}
+
+
+/*
+ *--------------------------------------------------------------------------
+ *
  * _mongoc_stream_tls_close --
  *
  *       Close the underlying socket.
@@ -416,10 +455,13 @@ static int
 _mongoc_stream_tls_close (mongoc_stream_t *stream)
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *)stream;
+   int ret = 0;
+   ENTRY;
 
    BSON_ASSERT (tls);
 
-   return mongoc_stream_close (tls->base_stream);
+   ret = mongoc_stream_close (tls->base_stream);
+   RETURN (ret);
 }
 
 
@@ -459,6 +501,7 @@ _mongoc_stream_tls_write (mongoc_stream_tls_t *tls,
 
    int64_t now;
    int64_t expire = 0;
+   ENTRY;
 
    BSON_ASSERT (tls);
    BSON_ASSERT (buf);
@@ -469,8 +512,10 @@ _mongoc_stream_tls_write (mongoc_stream_tls_t *tls,
    }
 
    ret = BIO_write (tls->bio, buf, buf_len);
+   TRACE("BIO_write returned %ld", ret);
 
-   if (ret < 0) {
+   TRACE("I got ret: %ld and retry: %d", ret, BIO_should_retry (tls->bio));
+   if (ret <= 0) {
       return ret;
    }
 
@@ -480,11 +525,6 @@ _mongoc_stream_tls_write (mongoc_stream_tls_t *tls,
       if ((expire - now) < 0) {
          if (ret < buf_len) {
             mongoc_counter_streams_timeout_inc();
-#ifdef _WIN32
-            errno = WSAETIMEDOUT;
-#else
-            errno = ETIMEDOUT;
-#endif
          }
 
          tls->timeout_msec = 0;
@@ -493,7 +533,7 @@ _mongoc_stream_tls_write (mongoc_stream_tls_t *tls,
       }
    }
 
-   return ret;
+   RETURN (ret);
 }
 
 
@@ -550,6 +590,7 @@ _mongoc_stream_tls_writev (mongoc_stream_t *stream,
    BSON_ASSERT (tls);
    BSON_ASSERT (iov);
    BSON_ASSERT (iovcnt);
+   ENTRY;
 
    tls->timeout_msec = timeout_msec;
 
@@ -595,10 +636,14 @@ _mongoc_stream_tls_writev (mongoc_stream_t *stream,
              * if we didn't buffer and have to send out of the iovec */
 
             child_ret = _mongoc_stream_tls_write (tls, to_write, to_write_len);
+            if (child_ret != to_write_len) {
+               TRACE("Got child_ret: %ld while to_write_len is: %ld",
+                     child_ret, to_write_len);
+            }
 
             if (child_ret < 0) {
-               /* Buffer write failed, just return the error */
-               return child_ret;
+               TRACE("Returning what I had (%ld) as apposed to the error (%ld, errno:%d)", ret, child_ret, errno);
+               RETURN (ret);
             }
 
             ret += child_ret;
@@ -606,7 +651,7 @@ _mongoc_stream_tls_writev (mongoc_stream_t *stream,
             if (child_ret < to_write_len) {
                /* we timed out, so send back what we could send */
 
-               return ret;
+               RETURN (ret);
             }
 
             to_write = NULL;
@@ -620,7 +665,7 @@ _mongoc_stream_tls_writev (mongoc_stream_t *stream,
       child_ret = _mongoc_stream_tls_write (tls, buf_head, buf_tail - buf_head);
 
       if (child_ret < 0) {
-         return child_ret;
+         RETURN (child_ret);
       }
 
       ret += child_ret;
@@ -630,7 +675,7 @@ _mongoc_stream_tls_writev (mongoc_stream_t *stream,
       mongoc_counter_streams_egress_add (ret);
    }
 
-   return ret;
+   RETURN (ret);
 }
 
 
@@ -666,6 +711,7 @@ _mongoc_stream_tls_readv (mongoc_stream_t *stream,
    size_t iov_pos = 0;
    int64_t now;
    int64_t expire = 0;
+   ENTRY;
 
    BSON_ASSERT (tls);
    BSON_ASSERT (iov);
@@ -707,7 +753,7 @@ _mongoc_stream_tls_readv (mongoc_stream_t *stream,
 #else
                   errno = ETIMEDOUT;
 #endif
-                  return -1;
+                  RETURN (-1);
                }
 
                tls->timeout_msec = 0;
@@ -720,7 +766,7 @@ _mongoc_stream_tls_readv (mongoc_stream_t *stream,
 
          if ((size_t)ret >= min_bytes) {
             mongoc_counter_streams_ingress_add(ret);
-            return ret;
+            RETURN (ret);
          }
 
          iov_pos += read_ret;
@@ -731,7 +777,7 @@ _mongoc_stream_tls_readv (mongoc_stream_t *stream,
       mongoc_counter_streams_ingress_add(ret);
    }
 
-   return ret;
+   RETURN (ret);
 }
 
 
@@ -791,6 +837,10 @@ mongoc_stream_tls_do_handshake (mongoc_stream_t *stream,
       return true;
    }
 
+   if (!timeout_msec) {
+      return false;
+   }
+
    if (!errno) {
 #ifdef _WIN32
       errno = WSAETIMEDOUT;
@@ -800,6 +850,54 @@ mongoc_stream_tls_do_handshake (mongoc_stream_t *stream,
    }
 
    return false;
+}
+
+
+/**
+ * mongoc_stream_tls_should_retry:
+ *
+ * If the stream should be retried
+ */
+bool
+mongoc_stream_tls_should_retry (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *)stream;
+
+   BSON_ASSERT (tls);
+
+   return BIO_should_retry (tls->bio);
+}
+
+
+/**
+ * mongoc_stream_tls_should_read:
+ *
+ * If the stream should read
+ */
+bool
+mongoc_stream_tls_should_read (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *)stream;
+
+   BSON_ASSERT (tls);
+
+   return BIO_should_read (tls->bio);
+}
+
+
+/**
+ * mongoc_stream_tls_should_write:
+ *
+ * If the stream should write
+ */
+bool
+mongoc_stream_tls_should_write (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *)stream;
+
+   BSON_ASSERT (tls);
+
+   return BIO_should_write (tls->bio);
 }
 
 
@@ -835,7 +933,7 @@ static bool
 _mongoc_stream_tls_check_closed (mongoc_stream_t *stream) /* IN */
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *)stream;
-   bson_return_val_if_fail(stream, -1);
+   BSON_ASSERT (stream);
    return mongoc_stream_check_closed (tls->base_stream);
 }
 
@@ -888,10 +986,11 @@ mongoc_stream_tls_new (mongoc_stream_t  *base_stream,
 
    BIO_push (bio_ssl, bio_mongoc_shim);
 
-   tls = bson_malloc0 (sizeof *tls);
+   tls = (mongoc_stream_tls_t *)bson_malloc0 (sizeof *tls);
    tls->base_stream = base_stream;
    tls->parent.type = MONGOC_STREAM_TLS;
    tls->parent.destroy = _mongoc_stream_tls_destroy;
+   tls->parent.failed = _mongoc_stream_tls_failed;
    tls->parent.close = _mongoc_stream_tls_close;
    tls->parent.flush = _mongoc_stream_tls_flush;
    tls->parent.writev = _mongoc_stream_tls_writev;
