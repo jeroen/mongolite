@@ -15,7 +15,9 @@ SEXP R_mongo_client_new(SEXP uri_string) {
     stop("Invalid uri_string. Try mongodb://localhost");
 
   //set ssl certificates here
-  mongoc_client_set_ssl_opts(client, mongoc_ssl_opt_get_default());
+  if (mongoc_uri_get_ssl (mongoc_client_get_uri(client))) {
+    mongoc_client_set_ssl_opts(client, mongoc_ssl_opt_get_default());
+  }
 
   //verify that server is online
   //can fail if user has limited priv
