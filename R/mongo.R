@@ -1,9 +1,15 @@
 #' @useDynLib mongolite R_mongo_collection_new
-mongo_collection_new <- function(client, db = "test", collection = "test"){
+mongo_collection_new <- function(client, collection = "test", db = "test"){
   stopifnot(inherits(client, "mongo_client"))
   stopifnot(is.character(db))
   stopifnot(is.character(collection))
-  .Call(R_mongo_collection_new, client, db, collection)
+  .Call(R_mongo_collection_new, client, collection, db)
+}
+
+#' @useDynLib mongolite R_mongo_get_default_database
+mongo_get_default_database <- function(client){
+  stopifnot(inherits(client, "mongo_client"))
+  .Call(R_mongo_get_default_database, client)
 }
 
 #' @useDynLib mongolite R_mongo_client_new
@@ -36,7 +42,7 @@ mongo_collection_name <- function(col){
 #' @useDynLib mongolite R_mongo_collection_rename
 mongo_collection_rename <- function(col, db = NULL, name){
   stopifnot(is.character(name))
-  stopifnot(is.null(db) || is.character(name))
+  stopifnot(is.null(db) || is.character(db))
   .Call(R_mongo_collection_rename, col, db, name)
 }
 

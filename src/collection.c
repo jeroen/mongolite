@@ -9,6 +9,16 @@ SEXP R_mongo_collection_new(SEXP ptr_client, SEXP collection, SEXP db) {
   return out;
 }
 
+SEXP R_mongo_get_default_database(SEXP ptr_client) {
+  mongoc_client_t *client = r2client(ptr_client);
+  mongoc_database_t *db = mongoc_client_get_default_database(client);
+  if(db){
+    return mkString(mongoc_database_get_name(db));
+  } else {
+    return R_NilValue;
+  }
+}
+
 SEXP R_mongo_collection_drop (SEXP ptr){
   mongoc_collection_t *col = r2col(ptr);
   bson_error_t err;
