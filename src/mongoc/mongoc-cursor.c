@@ -1056,14 +1056,14 @@ _mongoc_cursor_get_host (mongoc_cursor_t    *cursor,
 
    if (!cursor->hint) {
       MONGOC_WARNING("%s(): Must send query before fetching peer.",
-                     __FUNCTION__);
+                     __func__);
       return;
    }
 
    description = mongoc_topology_server_by_id(cursor->client->topology, cursor->hint);
    if (!description) {
       MONGOC_WARNING("%s(): Invalid cursor hint, no matching host.",
-                     __FUNCTION__);
+                     __func__);
       return;
    }
 

@@ -1,4 +1,5 @@
 0.6
+ - Update mongo-c-driver to 1.2.0
  - Fix for m$export() on windows (UTF8 related)
  - Fix for setInternet2 in R 3.3.0 on Windows
  - Temporary fix for __FUNCTION__ to please gcc 5

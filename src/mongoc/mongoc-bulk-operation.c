@@ -249,7 +249,7 @@ mongoc_bulk_operation_replace_one (mongoc_bulk_operation_t *bulk,
    if (!bson_validate (document, (bson_validate_flags_t)flags, &err_off)) {
       MONGOC_WARNING ("%s(): replacement document may not contain "
                       "$ or . in keys. Ignoring document.",
-                      __FUNCTION__);
+                      __func__);
       EXIT;
    }
 
@@ -292,7 +292,7 @@ mongoc_bulk_operation_update (mongoc_bulk_operation_t *bulk,
       while (bson_iter_next (&iter)) {
          if (!strchr (bson_iter_key (&iter), '$')) {
             MONGOC_WARNING ("%s(): update only works with $ operators.",
-                            __FUNCTION__);
+                            __func__);
             EXIT;
          }
       }
@@ -335,7 +335,7 @@ mongoc_bulk_operation_update_one (mongoc_bulk_operation_t *bulk,
       while (bson_iter_next (&iter)) {
          if (!strchr (bson_iter_key (&iter), '$')) {
             MONGOC_WARNING ("%s(): update_one only works with $ operators.",
-                            __FUNCTION__);
+                            __func__);
             EXIT;
          }
       }

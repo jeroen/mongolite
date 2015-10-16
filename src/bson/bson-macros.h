@@ -141,7 +141,7 @@
    do { \
       if (!(BSON_LIKELY(test))) { \
          fprintf (stderr, "%s:%d %s(): precondition failed: %s\n", \
-                  __FILE__, __LINE__, __FUNCTION__, #test); \
+                  __FILE__, __LINE__, __func__, #test); \
          abort (); \
       } \
    } while (0)
