@@ -1,4 +1,5 @@
 #include <sasl/sasl.h>
-void test () {
+int main () {
   sasl_client_done();
+  return 0;
 }
