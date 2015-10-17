@@ -1,5 +1,4 @@
-PKG_CPPFLAGS=-I. -Iyajl -Ibson -Imongoc -include apple.h -include mlfeatures.h \
- @cflags@ -DBSON_COMPILATION -DMONGOC_COMPILATION
+PKG_CPPFLAGS=-I. -Iyajl -Ibson -Imongoc @cflags@ -DBSON_COMPILATION -DMONGOC_COMPILATION
 
 LIBYAJL=yajl/yajl_alloc.o yajl/yajl_buf.o yajl/yajl_encode.o yajl/yajl_gen.o \
 	yajl/yajl_lex.o yajl/yajl_parser.o yajl/yajl_tree.o yajl/yajl_version.o \
