@@ -91,7 +91,7 @@ fi
 ${CC} ./src/tests/has_sasl_client_done.c ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} -E >/dev/null 2>&1 && HAS_SASL_CLIENT_DONE=1;
 if [ $HAS_SASL_CLIENT_DONE ]; then
   echo "SASL has sasl_client_done"
-  PKG_CFLAGS="$PKG_CFLAGS -DMONGOC_HAVE_SASL_CLIENT_DONE=1"
+  PKG_CFLAGS="$PKG_CFLAGS -DMONGOC_HAVE_SASL_CLIENT_DONE"
 else
   echo "SASL does not have sasl_client_done"
 fi
