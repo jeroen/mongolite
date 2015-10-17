@@ -58,6 +58,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   PKG_LIBS="$PKG_CFLAGS -L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
 fi
 
+# Apple has deprecated SASL but there is no alternative yet
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  PKG_CFLAGS="$PKG_CFLAGS -Wno-deprecated-declarations"
+fi
+
 # For debugging
 echo "Using PKG_CFLAGS=$PKG_CFLAGS"
 echo "Using PKG_LIBS=$PKG_LIBS"
