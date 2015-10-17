@@ -8,3 +8,4 @@
 ^test$
 ^src/mlfeatures\.h$
 ^src/features\.mk$
+^src/Makevars$

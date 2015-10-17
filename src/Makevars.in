@@ -1,18 +1,17 @@
-PKG_CPPFLAGS = -I. -Iyajl -Ibson -Imongoc -include apple.h -include mlfeatures.h \
- -I/opt/csw/include \
- -DBSON_COMPILATION -DMONGOC_COMPILATION #-DBSON_DISABLE_CHECKS -DMONGOLITE_DEBUG
+PKG_CPPFLAGS=-I. -Iyajl -Ibson -Imongoc -include apple.h -include mlfeatures.h \
+ @cflags@ -DBSON_COMPILATION -DMONGOC_COMPILATION
 
-LIBYAJL = yajl/yajl_alloc.o yajl/yajl_buf.o yajl/yajl_encode.o yajl/yajl_gen.o \
+LIBYAJL=yajl/yajl_alloc.o yajl/yajl_buf.o yajl/yajl_encode.o yajl/yajl_gen.o \
 	yajl/yajl_lex.o yajl/yajl_parser.o yajl/yajl_tree.o yajl/yajl_version.o \
 	yajl/yajl.o
 
-LIBBSON = bson/bcon.o bson/bson-atomic.o bson/bson-clock.o bson/bson-context.o \
+LIBBSON=bson/bcon.o bson/bson-atomic.o bson/bson-clock.o bson/bson-context.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
 	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
 	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
 	bson/bson-value.o bson/bson-version-functions.o bson/bson-writer.o bson/bson.o
 
-LIBMONGOC = mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
+LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
 	mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
 	mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor-cursorid.o \
@@ -32,9 +31,9 @@ LIBMONGOC = mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
 	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o
 
-PKG_LIBS = -L. -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2
+PKG_LIBS=-L. -lmongoc -lbson -lyajl @libs@
 
-PKG_CFLAGS= -Wall -pedantic -Wno-deprecated-declarations
+PKG_CFLAGS=-Wno-deprecated-declarations
 
 $(SHLIB): libyajl.a libbson.a libmongoc.a
 
@@ -43,9 +42,8 @@ $(SHLIB): libyajl.a libbson.a libmongoc.a
 $(OBJECTS): clean
 
 clean:
-	#rm -f features.mk mlfeatures.h
 	rm -f $(LIBYAJL) $(LIBBSON) $(LIBMONGOC)
-	rm -f *.o *.a
+	rm -f *.so *.o *.a
 
 libyajl.a: $(LIBYAJL)
 	$(AR) rcs libyajl.a $(LIBYAJL)
@@ -55,10 +53,3 @@ libbson.a: $(LIBBSON)
 
 libmongoc.a: $(LIBMONGOC)
 	$(AR) rcs libmongoc.a $(LIBMONGOC)
-
-features.mk:
-	@touch features.mk
-	@touch mlfeatures.h
-	@$(CC) -c tests/has_sasl_client_done.c -Werror 2>/dev/null && echo "#define MONGOC_HAVE_SASL_CLIENT_DONE 1" >> mlfeatures.h || true
-
-include features.mk

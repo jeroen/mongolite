@@ -6,6 +6,5 @@
 .Rhistory
 src/*.a
 src/*.o
-src/mlfeatures.h
-src/features.mk
+src/Makevars
 inst/doc
