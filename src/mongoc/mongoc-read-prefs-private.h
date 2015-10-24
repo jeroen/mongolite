@@ -29,12 +29,25 @@
 
 BSON_BEGIN_DECLS
 
+/* forward decl */
+typedef struct _mongoc_topology_t mongoc_topology_t;
 
 struct _mongoc_read_prefs_t
 {
    mongoc_read_mode_t mode;
    bson_t             tags;
 };
+
+bool mongoc_read_prefs_is_primary_or_null (
+   const mongoc_read_prefs_t *read_prefs);
+
+bool apply_read_preferences (const mongoc_read_prefs_t *read_prefs,
+                             bool is_write_command,
+                             mongoc_topology_t *topology,
+                             uint32_t server_id,
+                             bson_t *query_bson,
+                             mongoc_rpc_query_t *query_rpc,
+                             bson_error_t *error);
 
 BSON_END_DECLS
 

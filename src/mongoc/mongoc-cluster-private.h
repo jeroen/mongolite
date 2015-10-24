@@ -147,6 +147,25 @@ mongoc_cluster_fetch_stream (mongoc_cluster_t *cluster,
                              bool reconnect_ok,
                              bson_error_t *error);
 
+bool
+mongoc_cluster_run_command (mongoc_cluster_t *cluster,
+                            mongoc_stream_t *stream,
+                            const char *db_name,
+                            const bson_t *command,
+                            bson_t *reply,
+                            bson_error_t *error);
+
+bool
+mongoc_cluster_run_command_with_read_preference (mongoc_cluster_t *cluster,
+                                                 mongoc_stream_t *stream,
+                                                 const char *db_name,
+                                                 const bson_t *command,
+                                                 uint32_t server_id,
+                                                 const mongoc_read_prefs_t *read_prefs,
+                                                 bool is_write_command,
+                                                 bson_t *reply,
+                                                 bson_error_t *error);
+
 BSON_END_DECLS
 
 

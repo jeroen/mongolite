@@ -740,7 +740,7 @@ mongoc_socket_new (int domain,   /* IN */
       GOTO (fail);
    }
 
-   if (!_mongoc_socket_setnodelay (sd)) {
+   if (domain != AF_UNIX && !_mongoc_socket_setnodelay (sd)) {
       MONGOC_WARNING ("Failed to enable TCP_NODELAY.");
    }
 
@@ -992,7 +992,7 @@ _mongoc_socket_try_sendv (mongoc_socket_t *sock,   /* IN */
    int ret;
 #else
    struct msghdr msg;
-   ssize_t ret = -1;
+   ssize_t ret;
 #endif
 
    ENTRY;

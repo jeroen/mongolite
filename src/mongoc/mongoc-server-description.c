@@ -490,13 +490,18 @@ mongoc_server_description_filter_eligible (
    size_t i;
    size_t rval = 0;
 
+   if (!read_prefs) {
+      /* NULL read_prefs is PRIMARY, no tags to filter by */
+      return description_len;
+   }
+
    rp_tags = mongoc_read_prefs_get_tags (read_prefs);
 
    if (bson_count_keys (rp_tags) == 0) {
       return description_len;
    }
 
-   sd_matched = (bool *)bson_malloc(sizeof(bool) * description_len);
+   sd_matched = (bool *) bson_malloc0 (sizeof(bool) * description_len);
 
    bson_iter_init (&rp_tagset_iter, rp_tags);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2015 MongoDB Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef MONGOC_UTIL_PRIVATE_H
-#define MONGOC_UTIL_PRIVATE_H
+#ifndef MONGOC_MEMCMP_PRIVATE_H
+#define MONGOC_MEMCMP_PRIVATE_H
 
 #if !defined (MONGOC_I_AM_A_DRIVER) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
@@ -23,29 +23,14 @@
 
 #include <bson.h>
 
-/* string comparison functions for Windows */
-#ifdef _WIN32
-# define strcasecmp  _stricmp
-# define strncasecmp _strnicmp
-#endif
+#include "mongoc-config.h"
 
-/* Suppress CWE-252 ("Unchecked return value") warnings for things we can't deal with */
-#if defined(__GNUC__) && __GNUC__ >= 4
-# define _ignore_value(x) (({ __typeof__ (x) __x = (x); (void) __x; }))
-#else
-# define _ignore_value(x) ((void) (x))
-#endif
+/* WARNING: mongoc_memcmp() must be used to verify if two secret keys
+ * are equal, in constant time.
+ * It returns 0 if the keys are equal, and -1 if they differ.
+ * This function is not designed for lexicographical comparisons.
+ */
+int mongoc_memcmp(const void * const b1_, const void * const b2_, size_t len);
 
+#endif /* MONGOC_MEMCMP_PRIVATE_H */
 
-BSON_BEGIN_DECLS
-
-
-char *_mongoc_hex_md5 (const char *input);
-
-void _mongoc_usleep (int64_t usec);
-
-
-BSON_END_DECLS
-
-
-#endif /* MONGOC_UTIL_PRIVATE_H */

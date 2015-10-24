@@ -21,55 +21,12 @@
 #include "mongoc-counters-private.h"
 #include "mongoc-error.h"
 #include "mongoc-log.h"
-#include "mongoc-opcode.h"
 #include "mongoc-trace.h"
-#include "mongoc-util-private.h"
 
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "cursor"
 
-
-static const char *gSecondaryOkCommands [] = {
-   "aggregate",
-   "authenticate",
-   "collstats",
-   "count",
-   "dbstats",
-   "distinct",
-   "geonear",
-   "geosearch",
-   "geowalk",
-   "getnonce",
-   "group",
-   "ismaster",
-   "mapreduce",
-   "parallelcollectionscan",
-   "ping",
-   "replsetgetstatus",
-   "text",
-   NULL
-};
-
-
-static const char *
-_mongoc_cursor_get_read_mode_string (mongoc_read_mode_t mode)
-{
-   switch (mode) {
-   case MONGOC_READ_PRIMARY:
-      return "primary";
-   case MONGOC_READ_PRIMARY_PREFERRED:
-      return "primaryPreferred";
-   case MONGOC_READ_SECONDARY:
-      return "secondary";
-   case MONGOC_READ_SECONDARY_PREFERRED:
-      return "secondaryPreferred";
-   case MONGOC_READ_NEAREST:
-      return "nearest";
-   default:
-      return "";
-   }
-}
 
 static int32_t
 _mongoc_n_return (mongoc_cursor_t * cursor)
@@ -103,12 +60,8 @@ _mongoc_cursor_new (mongoc_client_t           *client,
                     const bson_t              *fields,
                     const mongoc_read_prefs_t *read_prefs)
 {
-   mongoc_read_prefs_t *local_read_prefs = NULL;
    mongoc_cursor_t *cursor;
    bson_iter_t iter;
-   const char *key;
-   bool found = false;
-   int i;
    int flags = qflags;
 
    ENTRY;
@@ -122,33 +75,6 @@ _mongoc_cursor_new (mongoc_client_t           *client,
    }
 
    cursor = (mongoc_cursor_t *)bson_malloc0 (sizeof *cursor);
-
-   /*
-    * CDRIVER-244:
-    *
-    * If this is a command, we need to verify we can send it to the location
-    * specified by the read preferences. Otherwise, log a warning that we
-    * are rerouting to the primary instance.
-    */
-   if (is_command &&
-       read_prefs &&
-       (mongoc_read_prefs_get_mode (read_prefs) != MONGOC_READ_PRIMARY) &&
-       bson_iter_init (&iter, query) &&
-       bson_iter_next (&iter) &&
-       (key = bson_iter_key (&iter))) {
-      for (i = 0; gSecondaryOkCommands [i]; i++) {
-         if (0 == strcasecmp (key, gSecondaryOkCommands [i])) {
-            found = true;
-            break;
-         }
-      }
-      if (!found) {
-         cursor->redir_primary = true;
-         local_read_prefs = mongoc_read_prefs_new (MONGOC_READ_PRIMARY);
-         read_prefs = local_read_prefs;
-         MONGOC_INFO ("Database command \"%s\" rerouted to primary node", key);
-      }
-   }
 
    /*
     * Cursors execute their query lazily. This sadly means that we must copy
@@ -166,7 +92,6 @@ _mongoc_cursor_new (mongoc_client_t           *client,
    cursor->batch_size = batch_size;
    cursor->is_command = is_command;
    cursor->has_fields = !!fields;
-   cursor->is_write_command = false;
 
 #define MARK_FAILED(c) \
    do { \
@@ -270,10 +195,6 @@ _mongoc_cursor_new (mongoc_client_t           *client,
 finish:
    mongoc_counter_cursors_active_inc();
 
-   if (local_read_prefs) {
-      mongoc_read_prefs_destroy (local_read_prefs);
-   }
-
    RETURN (cursor);
 }
 
@@ -331,246 +252,9 @@ _mongoc_cursor_destroy (mongoc_cursor_t *cursor)
 }
 
 
-static void
-_mongoc_cursor_populate_error (mongoc_cursor_t *cursor,
-                               const bson_t    *doc,
-                               bson_error_t    *error)
-{
-   uint32_t code = MONGOC_ERROR_QUERY_FAILURE;
-   bson_iter_t iter;
-   const char *msg = "Unknown query failure";
-
-   BSON_ASSERT (cursor);
-   BSON_ASSERT (doc);
-   BSON_ASSERT (error);
-
-   if (bson_iter_init_find (&iter, doc, "code") &&
-       BSON_ITER_HOLDS_INT32 (&iter)) {
-      code = bson_iter_int32 (&iter);
-   }
-
-   if (bson_iter_init_find (&iter, doc, "$err") &&
-       BSON_ITER_HOLDS_UTF8 (&iter)) {
-      msg = bson_iter_utf8 (&iter, NULL);
-   }
-
-   if (cursor->is_command &&
-       bson_iter_init_find (&iter, doc, "errmsg") &&
-       BSON_ITER_HOLDS_UTF8 (&iter)) {
-      msg = bson_iter_utf8 (&iter, NULL);
-   }
-
-   bson_set_error(error, MONGOC_ERROR_QUERY, code, "%s", msg);
-}
-
-
-static bool
-_mongoc_cursor_unwrap_failure (mongoc_cursor_t *cursor)
-{
-   bson_iter_t iter;
-   bson_t b;
-
-   ENTRY;
-
-   BSON_ASSERT (cursor);
-
-   if (cursor->rpc.header.opcode != MONGOC_OPCODE_REPLY) {
-      bson_set_error(&cursor->error,
-                     MONGOC_ERROR_PROTOCOL,
-                     MONGOC_ERROR_PROTOCOL_INVALID_REPLY,
-                     "Received rpc other than OP_REPLY.");
-      RETURN(true);
-   }
-
-   if ((cursor->rpc.reply.flags & MONGOC_REPLY_QUERY_FAILURE)) {
-      if (_mongoc_rpc_reply_get_first(&cursor->rpc.reply, &b)) {
-         _mongoc_cursor_populate_error(cursor, &b, &cursor->error);
-         bson_destroy(&b);
-      } else {
-         bson_set_error(&cursor->error,
-                        MONGOC_ERROR_QUERY,
-                        MONGOC_ERROR_QUERY_FAILURE,
-                        "Unknown query failure.");
-      }
-      RETURN(true);
-   } else if (cursor->is_command) {
-      if (_mongoc_rpc_reply_get_first (&cursor->rpc.reply, &b)) {
-         if (bson_iter_init_find (&iter, &b, "ok")) {
-            if (bson_iter_as_bool (&iter)) {
-               RETURN (false);
-            } else {
-               _mongoc_cursor_populate_error (cursor, &b, &cursor->error);
-               bson_destroy (&b);
-               RETURN (true);
-            }
-         }
-      } else {
-         bson_set_error (&cursor->error,
-                         MONGOC_ERROR_BSON,
-                         MONGOC_ERROR_BSON_INVALID,
-                         "Failed to decode document from the server.");
-         RETURN (true);
-      }
-   }
-
-   if ((cursor->rpc.reply.flags & MONGOC_REPLY_CURSOR_NOT_FOUND)) {
-      bson_set_error(&cursor->error,
-                     MONGOC_ERROR_CURSOR,
-                     MONGOC_ERROR_CURSOR_INVALID_CURSOR,
-                     "The cursor is invalid or has expired.");
-      RETURN(true);
-   }
-
-   RETURN(false);
-}
-
-
-/* Server Selection Spec: "When any $ modifier is used, including the
- * $readPreference modifier, the query MUST be provided using the $query
- * modifier".
- *
- * This applies to commands, too.
- */
-static void
-_prep_for_read_pref_modifier (bson_t *query_bson)
-{
-   bson_t tmp;
-
-   BSON_ASSERT (query_bson);
-
-   if (bson_empty (query_bson) || bson_has_field (query_bson, "$query")) {
-      return;
-   }
-
-   bson_copy_to (query_bson, &tmp);
-   bson_reinit (query_bson);
-   bson_append_document (query_bson, "$query", 6, &tmp);
-   bson_destroy (&tmp);
-}
-
-
-/* Update the RPC with the read prefs, following Server Selection Spec.
- * The driver must have discovered the server is a mongos.
- */
-static void
-_apply_read_preferences_mongos (mongoc_read_prefs_t *read_prefs,
-                                bson_t *query_bson,
-                                mongoc_rpc_query_t *query_rpc)  /* IN  / OUT */
-{
-   mongoc_read_mode_t mode = MONGOC_READ_PRIMARY;
-   const bson_t *tags = NULL;
-   bson_t child;
-   const char *mode_str;
-
-   if (read_prefs) {
-      mode = mongoc_read_prefs_get_mode (read_prefs);
-      tags = mongoc_read_prefs_get_tags (read_prefs);
-   }
-
-   /* Server Selection Spec says:
-    *
-    * For mode 'primary', drivers MUST NOT set the slaveOK wire protocol flag
-    *   and MUST NOT use $readPreference
-    *
-    * For mode 'secondary', drivers MUST set the slaveOK wire protocol flag and
-    *   MUST also use $readPreference
-    *
-    * For mode 'primaryPreferred', drivers MUST set the slaveOK wire protocol
-    *   flag and MUST also use $readPreference
-    *
-    * For mode 'secondaryPreferred', drivers MUST set the slaveOK wire protocol
-    *   flag. If the read preference contains a non-empty tag_sets parameter,
-    *   drivers MUST use $readPreference; otherwise, drivers MUST NOT use
-    *   $readPreference
-    *
-    * For mode 'nearest', drivers MUST set the slaveOK wire protocol flag and
-    *   MUST also use $readPreference
-    */
-   if (mode == MONGOC_READ_SECONDARY_PREFERRED && bson_empty0 (tags)) {
-      query_rpc->flags |= MONGOC_QUERY_SLAVE_OK;
-
-   } else if (mode != MONGOC_READ_PRIMARY) {
-      query_rpc->flags |= MONGOC_QUERY_SLAVE_OK;
-
-      _prep_for_read_pref_modifier (query_bson);
-      bson_append_document_begin (query_bson, "$readPreference",
-                                  15, &child);
-      mode_str = _mongoc_cursor_get_read_mode_string (mode);
-      bson_append_utf8 (&child, "mode", 4, mode_str, -1);
-      if (!bson_empty0 (tags)) {
-         bson_append_array (&child, "tags", 4, tags);
-      }
-
-      bson_append_document_end (query_bson, &child);
-   }
-
-   query_rpc->query = bson_get_data (query_bson);
-}
-
-
-/* Update rpc->query and flags from read prefs, following Server Selection Spec.
- * Called after selecting a server: topology and server type must be known.
- */
-static void
-_apply_read_preferences (mongoc_read_prefs_t *read_prefs,
-                         mongoc_topology_description_type_t topology_type,
-                         mongoc_server_description_type_t server_type,
-                         bson_t *query_bson,
-                         mongoc_rpc_query_t *query_rpc)         /* IN  / OUT */
-{
-   switch (topology_type) {
-   case MONGOC_TOPOLOGY_SINGLE:
-      if (server_type == MONGOC_SERVER_MONGOS) {
-         _apply_read_preferences_mongos (read_prefs, query_bson, query_rpc);
-         return;
-      } else {
-         /* Server Selection Spec: for topology type single and server types
-          * besides mongos, "clients MUST always set the slaveOK wire protocol
-          * flag on reads to ensure that any server type can handle the
-          * request."
-          */
-         query_rpc->flags |= MONGOC_QUERY_SLAVE_OK;
-      }
-
-      break;
-
-   case MONGOC_TOPOLOGY_RS_NO_PRIMARY:
-   case MONGOC_TOPOLOGY_RS_WITH_PRIMARY:
-      if (read_prefs) {
-         /* Server Selection Spec: for RS topology types, "For all read
-          * preferences modes except primary, clients MUST set the slaveOK wire
-          * protocol flag to ensure that any suitable server can handle the
-          * request. Clients MUST  NOT set the slaveOK wire protocol flag if the
-          * read preference mode is primary.
-          */
-         if (mongoc_read_prefs_get_mode (read_prefs) != MONGOC_READ_PRIMARY) {
-            query_rpc->flags |= MONGOC_QUERY_SLAVE_OK;
-         }
-      }
-
-      break;
-
-   case MONGOC_TOPOLOGY_SHARDED:
-      _apply_read_preferences_mongos (read_prefs, query_bson, query_rpc);
-      return;
-
-   case MONGOC_TOPOLOGY_UNKNOWN:
-   case MONGOC_TOPOLOGY_DESCRIPTION_TYPES:
-   default:
-      /* must not call _apply_read_preferences with unknown topology type */
-      BSON_ASSERT (false);
-      break;
-   }
-
-   /* we haven't called _apply_read_preferences_mongos, must set query */
-   query_rpc->query = bson_get_data (query_bson);
-}
-
-
 static bool
 _mongoc_cursor_query (mongoc_cursor_t *cursor)
 {
-   mongoc_read_prefs_t *local_read_prefs = NULL;
    mongoc_topology_t *topology;
    mongoc_server_description_t *sd;
    mongoc_rpc_t rpc;
@@ -601,44 +285,30 @@ _mongoc_cursor_query (mongoc_cursor_t *cursor)
 
    topology = cursor->client->topology;
 
-   if (cursor->hint) {
-      sd = mongoc_topology_server_by_id(topology, cursor->hint);
-   } else {
-      if (!cursor->read_prefs) {
-         local_read_prefs = mongoc_read_prefs_new (MONGOC_READ_PRIMARY);
-      }
-
+   if (!cursor->hint) {
       sd = mongoc_cluster_select_by_optype (
          &cursor->client->cluster,
          MONGOC_SS_READ,
-         cursor->read_prefs ? cursor->read_prefs : local_read_prefs,
+         cursor->read_prefs,
          &cursor->error);
 
-      if (local_read_prefs) {
-         mongoc_read_prefs_destroy (local_read_prefs);
+      if (!sd) {
+         GOTO (failure);
       }
+
+      cursor->hint = sd->id;
+      mongoc_server_description_destroy (sd);
    }
 
-   if (!sd) {
+   if (!apply_read_preferences (cursor->read_prefs,
+                                false /* is_write_command */,
+                                topology,
+                                cursor->hint,
+                                &cursor->query,
+                                &rpc.query,
+                                &cursor->error)) {
       GOTO (failure);
    }
-
-   if (!cursor->hint) {
-      cursor->hint = sd->id;
-   }
-
-   if (!cursor->is_write_command) {
-      _apply_read_preferences (cursor->read_prefs,
-                               topology->description.type,
-                               sd->type,
-                               &cursor->query,
-                               &rpc.query);
-   } else {
-      /* we haven't called apply_read_preferences, must set query */
-      rpc.query.query = bson_get_data (&cursor->query);
-   }
-
-   mongoc_server_description_destroy (sd);
 
    if (!mongoc_cluster_sendv_to_server (&cursor->client->cluster,
                                         &rpc, 1, cursor->hint,
@@ -676,16 +346,25 @@ _mongoc_cursor_query (mongoc_cursor_t *cursor)
       GOTO (failure);
    }
 
-   if (_mongoc_cursor_unwrap_failure(cursor)) {
-      GOTO (failure);
+   if (cursor->is_command) {
+       if (_mongoc_rpc_parse_command_error (&cursor->rpc,
+                                            &cursor->error)) {
+          GOTO (failure);
+       }
+   } else {
+      if (_mongoc_rpc_parse_query_error (&cursor->rpc,
+                                         &cursor->error)) {
+         GOTO (failure);
+      }
    }
 
    if (cursor->reader) {
       bson_reader_destroy(cursor->reader);
    }
 
-   cursor->reader = bson_reader_new_from_data(cursor->rpc.reply.documents,
-                                              cursor->rpc.reply.documents_len);
+   cursor->reader = bson_reader_new_from_data(
+      cursor->rpc.reply.documents,
+      (size_t) cursor->rpc.reply.documents_len);
 
    if ((cursor->flags & MONGOC_QUERY_EXHAUST)) {
       cursor->in_exhaust = true;
@@ -778,7 +457,8 @@ _mongoc_cursor_get_more (mongoc_cursor_t *cursor)
       GOTO (failure);
    }
 
-   if (_mongoc_cursor_unwrap_failure(cursor)) {
+   if (_mongoc_rpc_parse_query_error (&cursor->rpc,
+                                      &cursor->error)) {
       GOTO (failure);
    }
 
@@ -815,22 +495,6 @@ mongoc_cursor_error (mongoc_cursor_t *cursor,
       ret = cursor->iface.error(cursor, error);
    } else {
       ret = _mongoc_cursor_error(cursor, error);
-   }
-
-   if (ret && error) {
-      /*
-       * Rewrite the error code if we are talking to an older mongod
-       * and the command was not found. It used to simply return an
-       * error code of 17 and we can synthesize 59.
-       *
-       * Additionally, old versions of mongos may send 13390 indicating
-       * unrecognized command.
-       */
-      if (cursor->is_command &&
-          ((error->code == MONGOC_ERROR_PROTOCOL_ERROR) ||
-           (error->code == 13390))) {
-         error->code = MONGOC_ERROR_QUERY_COMMAND_NOT_FOUND;
-      }
    }
 
    RETURN(ret);
@@ -1056,14 +720,14 @@ _mongoc_cursor_get_host (mongoc_cursor_t    *cursor,
 
    if (!cursor->hint) {
       MONGOC_WARNING("%s(): Must send query before fetching peer.",
-                     __func__);
+                     BSON_FUNC);
       return;
    }
 
-   description = mongoc_topology_server_by_id(cursor->client->topology, cursor->hint);
+   description = mongoc_topology_server_by_id(cursor->client->topology,
+                                              cursor->hint,
+                                              &cursor->error);
    if (!description) {
-      MONGOC_WARNING("%s(): Invalid cursor hint, no matching host.",
-                     __func__);
       return;
    }
 

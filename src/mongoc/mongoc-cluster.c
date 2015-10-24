@@ -85,7 +85,6 @@ mongoc_cluster_fetch_stream_pooled (mongoc_cluster_t *cluster,
                                     bool reconnect_ok,
                                     bson_error_t *error);
 
-
 static const char *
 get_command_name (const bson_t *command)
 {
@@ -100,12 +99,38 @@ get_command_name (const bson_t *command)
 }
 
 
+static void
+_bson_error_message_printf (bson_error_t *error,
+                            const char *format,
+                            ...) BSON_GNUC_PRINTF (2, 3);
+
+/* Allows caller to safely overwrite error->message with a formatted string,
+ * even if the formatted string includes original error->message. */
+static void
+_bson_error_message_printf (bson_error_t *error,
+                            const char *format,
+                            ...)
+{
+   va_list args;
+   char error_message[sizeof error->message];
+
+   if (error) {
+      va_start (args, format);
+      bson_vsnprintf (error_message, sizeof error->message, format, args);
+      va_end (args);
+
+      bson_strncpy (error->message, error_message, sizeof error->message);
+   }
+}
+
 /*
  *--------------------------------------------------------------------------
  *
- * _mongoc_cluster_run_command --
+ * mongoc_cluster_run_command --
  *
- *       Helper to run a command on a given stream.
+ *       Internal function to run a command on a given stream
+ *       with read preference PRIMARY.
+ *       @error and @reply are optional out-pointers.
  *
  * Returns:
  *       true if successful; otherwise false and @error is set.
@@ -116,13 +141,54 @@ get_command_name (const bson_t *command)
  *--------------------------------------------------------------------------
  */
 
-static bool
-_mongoc_cluster_run_command (mongoc_cluster_t      *cluster,
-                             mongoc_stream_t       *stream,
-                             const char            *db_name,
-                             const bson_t          *command,
-                             bson_t                *reply,
-                             bson_error_t          *error)
+bool
+mongoc_cluster_run_command (mongoc_cluster_t      *cluster,
+                            mongoc_stream_t       *stream,
+                            const char            *db_name,
+                            const bson_t          *command,
+                            bson_t                *reply,
+                            bson_error_t          *error)
+{
+   return mongoc_cluster_run_command_with_read_preference (
+      cluster,
+      stream,
+      db_name,
+      command,
+      0       /* server_id */,
+      NULL    /* read_prefs */,
+      false   /* is_write_command */,
+      reply,
+      error);
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_cluster_run_command_with_read_preference --
+ *
+ *       Internal function to run a command on a given stream.
+ *       A NULL @read_prefs means PRIMARY.
+ *       @error and @reply are optional out-pointers.
+ *
+ * Returns:
+ *       true if successful; otherwise false and @error is set.
+ *
+ * Side effects:
+ *       @reply is set and should ALWAYS be released with bson_destroy().
+ *
+ *--------------------------------------------------------------------------
+ */
+
+bool
+mongoc_cluster_run_command_with_read_preference (mongoc_cluster_t            *cluster,
+                                                 mongoc_stream_t             *stream,
+                                                 const char                  *db_name,
+                                                 const bson_t                *command,
+                                                 uint32_t                     server_id,
+                                                 const mongoc_read_prefs_t   *read_prefs,
+                                                 bool                         is_write_command,
+                                                 bson_t                      *reply,
+                                                 bson_error_t                *error)
 {
    mongoc_buffer_t buffer;
    mongoc_array_t ar;
@@ -130,7 +196,11 @@ _mongoc_cluster_run_command (mongoc_cluster_t      *cluster,
    int32_t msg_len;
    bson_t reply_local;
    char ns[MONGOC_NAMESPACE_MAX];
-   char error_message[sizeof error->message];
+   bool error_set = false;
+   bool reply_local_initialized = false;
+   bool ret = false;
+   mongoc_topology_t *topology;
+   bson_t command_local;
 
    ENTRY;
 
@@ -138,41 +208,69 @@ _mongoc_cluster_run_command (mongoc_cluster_t      *cluster,
    BSON_ASSERT(db_name);
    BSON_ASSERT(command);
 
+   _mongoc_array_init (&ar, sizeof (mongoc_iovec_t));
+   _mongoc_buffer_init (&buffer, NULL, 0, NULL, NULL);
+
+   if (cluster->client->in_exhaust) {
+      bson_set_error(error,
+                     MONGOC_ERROR_CLIENT,
+                     MONGOC_ERROR_CLIENT_IN_EXHAUST,
+                     "A cursor derived from this client is in exhaust.");
+      error_set = true;
+      GOTO (done);
+   }
+
    bson_snprintf(ns, sizeof ns, "%s.$cmd", db_name);
 
    rpc.query.msg_len = 0;
    rpc.query.request_id = ++cluster->request_id;
    rpc.query.response_to = 0;
    rpc.query.opcode = MONGOC_OPCODE_QUERY;
-   rpc.query.flags = MONGOC_QUERY_SLAVE_OK;
    rpc.query.collection = ns;
    rpc.query.skip = 0;
    rpc.query.n_return = -1;
-   rpc.query.query = bson_get_data(command);
    rpc.query.fields = NULL;
 
-   _mongoc_array_init (&ar, sizeof (mongoc_iovec_t));
-   _mongoc_buffer_init (&buffer, NULL, 0, NULL, NULL);
+   if (!mongoc_read_prefs_is_primary_or_null (read_prefs)) {
+      BSON_ASSERT (server_id);
+      topology = cluster->client->topology;
+
+      /* apply_read_preferences may add $readPreference to command */
+      bson_copy_to (command, &command_local);
+      if (!apply_read_preferences (read_prefs,
+                                   is_write_command,
+                                   topology,
+                                   server_id,
+                                   &command_local,
+                                   &rpc.query,
+                                   error)) {
+         error_set = true;
+         GOTO (done);
+      }
+   } else {
+      /* we haven't called apply_read_preferences, must set query */
+      rpc.query.query = bson_get_data (command);
+      rpc.query.flags = is_write_command ? MONGOC_QUERY_NONE
+                                         : MONGOC_QUERY_SLAVE_OK;
+   }
 
    _mongoc_rpc_gather(&rpc, &ar);
    _mongoc_rpc_swab_to_le(&rpc);
 
    if (!_mongoc_stream_writev_full (stream, (mongoc_iovec_t *)ar.data, ar.len,
-                                   cluster->sockettimeoutms, error)) {
-      /* add info about the command to writev_full's error message */
-      bson_snprintf (error_message,
-                     sizeof error->message,
-                     "Failed to send \"%s\" command with database \"%s\": %s",
-                     get_command_name (command),
-                     db_name,
-                     error->message);
-      bson_strncpy (error->message, error_message, sizeof error->message);
-      GOTO(failure);
-   }
-
-   if (!_mongoc_buffer_append_from_stream(&buffer, stream, 4,
+                                   cluster->sockettimeoutms, error) ||
+       !_mongoc_buffer_append_from_stream(&buffer, stream, 4,
                                           cluster->sockettimeoutms, error)) {
-      GOTO(failure);
+      /* add info about the command to writev_full's error message */
+      _bson_error_message_printf (
+         error,
+         "Failed to send \"%s\" command with database \"%s\": %s",
+         get_command_name (command),
+         db_name,
+         error->message);
+
+      error_set = true;
+      GOTO (done);
    }
 
    BSON_ASSERT(buffer.len == 4);
@@ -180,56 +278,69 @@ _mongoc_cluster_run_command (mongoc_cluster_t      *cluster,
    memcpy(&msg_len, buffer.data, 4);
    msg_len = BSON_UINT32_FROM_LE(msg_len);
    if ((msg_len < 16) || (msg_len > (1024 * 1024 * 16))) {
-      GOTO(invalid_reply);
+      GOTO (done);
    }
 
    if (!_mongoc_buffer_append_from_stream(&buffer, stream, msg_len - 4,
                                           cluster->sockettimeoutms, error)) {
-      GOTO(failure);
+      error_set = true;
+      GOTO (done);
    }
 
    if (!_mongoc_rpc_scatter(&rpc, buffer.data, buffer.len)) {
-      GOTO(invalid_reply);
+      GOTO (done);
    }
 
    _mongoc_rpc_swab_from_le(&rpc);
 
    if (rpc.header.opcode != MONGOC_OPCODE_REPLY) {
-      GOTO(invalid_reply);
+      GOTO (done);
    }
 
-   if (reply) {
-      if (!_mongoc_rpc_reply_get_first(&rpc.reply, &reply_local)) {
-         bson_set_error (error,
-                         MONGOC_ERROR_BSON,
-                         MONGOC_ERROR_BSON_INVALID,
-                         "Failed to decode reply BSON document.");
-         GOTO(failure);
-      }
-      bson_copy_to(&reply_local, reply);
-      bson_destroy(&reply_local);
+   /* static-init reply_local to point into buffer */
+   if (!_mongoc_rpc_reply_get_first(&rpc.reply, &reply_local)) {
+      bson_set_error (error,
+                      MONGOC_ERROR_BSON,
+                      MONGOC_ERROR_BSON_INVALID,
+                      "Failed to decode reply BSON document.");
+      error_set = true;
+      GOTO (done);
+   }
+
+   reply_local_initialized = true;
+
+   if (_mongoc_rpc_parse_command_error (&rpc, error)) {
+      error_set = true;
+      GOTO (done);
+   }
+
+   ret = true;
+
+done:
+   if (reply && reply_local_initialized) {
+      bson_copy_to (&reply_local, reply);
+      bson_destroy (&reply_local);
+   } else if (reply) {
+      bson_init (reply);
+   }
+
+   if (!mongoc_read_prefs_is_primary_or_null (read_prefs)) {
+      /* we made a copy of "command" */
+      bson_destroy (&command_local);
    }
 
    _mongoc_buffer_destroy(&buffer);
    _mongoc_array_destroy(&ar);
 
-   RETURN(true);
-
-invalid_reply:
-   bson_set_error(error,
-                  MONGOC_ERROR_PROTOCOL,
-                  MONGOC_ERROR_PROTOCOL_INVALID_REPLY,
-                  "Invalid reply from server.");
-
-failure:
-   _mongoc_buffer_destroy(&buffer);
-   _mongoc_array_destroy(&ar);
-
-   if (reply) {
-      bson_init(reply);
+   if (!ret && !error_set) {
+      /* generic error */
+      bson_set_error (error,
+                      MONGOC_ERROR_PROTOCOL,
+                      MONGOC_ERROR_PROTOCOL_INVALID_REPLY,
+                      "Invalid reply from server.");
    }
 
-   RETURN(false);
+   RETURN (ret);
 }
 
 /*
@@ -267,8 +378,8 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
    bson_init (&command);
    bson_append_int32 (&command, "ismaster", 8, 1);
 
-   ret = _mongoc_cluster_run_command (cluster, stream, "admin", &command,
-                                      reply, error);
+   ret = mongoc_cluster_run_command (cluster, stream, "admin", &command,
+                                     reply, error);
 
    bson_destroy (&command);
 
@@ -436,6 +547,7 @@ _mongoc_cluster_auth_node_cr (mongoc_cluster_t      *cluster,
    bson_t reply = { 0 };
    char *digest;
    char *nonce;
+   bool ret;
 
    ENTRY;
 
@@ -460,9 +572,10 @@ _mongoc_cluster_auth_node_cr (mongoc_cluster_t      *cluster,
     */
    bson_init (&command);
    bson_append_int32 (&command, "getnonce", 8, 1);
-   if (!_mongoc_cluster_run_command (cluster, stream, auth_source, &command,
-                                     &reply, error)) {
+   if (!mongoc_cluster_run_command (cluster, stream, auth_source, &command,
+                                    &reply, error)) {
       bson_destroy (&command);
+      bson_destroy (&reply);
       RETURN (false);
    }
    bson_destroy (&command);
@@ -491,29 +604,21 @@ _mongoc_cluster_auth_node_cr (mongoc_cluster_t      *cluster,
    bson_free(digest);
 
    /*
-    * Execute the authenticate command and check for {ok:1}
+    * Execute the authenticate command. mongoc_cluster_run_command
+    * checks for {ok: 1} in the response.
     */
-   if (!_mongoc_cluster_run_command (cluster, stream, auth_source, &command,
-                                     &reply, error)) {
-      bson_destroy (&command);
-      RETURN (false);
+   ret = mongoc_cluster_run_command (cluster, stream, auth_source,
+                                     &command, &reply, error);
+   if (!ret) {
+      /* error->message is already set */
+      error->domain = MONGOC_ERROR_CLIENT;
+      error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
    }
 
    bson_destroy (&command);
+   bson_destroy (&reply);
 
-   if (!bson_iter_init_find_case(&iter, &reply, "ok") ||
-       !bson_iter_as_bool(&iter)) {
-      bson_set_error(error,
-                     MONGOC_ERROR_CLIENT,
-                     MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                     "Failed to authenticate credentials.");
-      bson_destroy(&reply);
-      RETURN(false);
-   }
-
-   bson_destroy(&reply);
-
-   RETURN(true);
+   RETURN (ret);
 }
 
 
@@ -692,8 +797,9 @@ _mongoc_cluster_auth_node_sasl (mongoc_cluster_t *cluster,
                    mongoc_uri_get_username (cluster->uri),
                    sasl.step);
 
-      if (!_mongoc_cluster_run_command (cluster, stream, "$external", &cmd, &reply, error)) {
+      if (!mongoc_cluster_run_command (cluster, stream, "$external", &cmd, &reply, error)) {
          bson_destroy (&cmd);
+         bson_destroy (&reply);
          goto failure;
       }
 
@@ -705,9 +811,7 @@ _mongoc_cluster_auth_node_sasl (mongoc_cluster_t *cluster,
          break;
       }
 
-      if (!bson_iter_init_find (&iter, &reply, "ok") ||
-          !bson_iter_as_bool (&iter) ||
-          !bson_iter_init_find (&iter, &reply, "conversationId") ||
+      if (!bson_iter_init_find (&iter, &reply, "conversationId") ||
           !BSON_ITER_HOLDS_INT32 (&iter) ||
           !(conv_id = bson_iter_int32 (&iter)) ||
           !bson_iter_init_find (&iter, &reply, "payload") ||
@@ -729,6 +833,8 @@ _mongoc_cluster_auth_node_sasl (mongoc_cluster_t *cluster,
                          MONGOC_ERROR_CLIENT,
                          MONGOC_ERROR_CLIENT_AUTHENTICATE,
                          "SASL reply from MongoDB is too large.");
+
+         bson_destroy (&reply);
          goto failure;
       }
 
@@ -774,14 +880,13 @@ _mongoc_cluster_auth_node_plain (mongoc_cluster_t      *cluster,
 {
    char buf[4096];
    int buflen = 0;
-   bson_iter_t iter;
    const char *username;
    const char *password;
-   const char *errmsg = "Unknown authentication error.";
    bson_t b = BSON_INITIALIZER;
    bson_t reply;
    size_t len;
    char *str;
+   bool ret;
 
    BSON_ASSERT (cluster);
    BSON_ASSERT (stream);
@@ -814,30 +919,19 @@ _mongoc_cluster_auth_node_plain (mongoc_cluster_t      *cluster,
    bson_append_utf8 (&b, "payload", 7, (const char *)buf, buflen);
    BSON_APPEND_INT32 (&b, "autoAuthorize", 1);
 
-   if (!_mongoc_cluster_run_command (cluster, stream, "$external", &b, &reply, error)) {
-      bson_destroy (&b);
-      return false;
+   ret = mongoc_cluster_run_command (cluster, stream, "$external", &b,
+                                     &reply, error);
+
+   if (!ret) {
+      /* error->message is already set */
+      error->domain = MONGOC_ERROR_CLIENT;
+      error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
    }
 
    bson_destroy (&b);
-
-   if (!bson_iter_init_find_case (&iter, &reply, "ok") ||
-       !bson_iter_as_bool (&iter)) {
-      if (bson_iter_init_find_case (&iter, &reply, "errmsg") &&
-          BSON_ITER_HOLDS_UTF8 (&iter)) {
-         errmsg = bson_iter_utf8 (&iter, NULL);
-      }
-      bson_set_error (error,
-                      MONGOC_ERROR_CLIENT,
-                      MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                      "%s", errmsg);
-      bson_destroy (&reply);
-      return false;
-   }
-
    bson_destroy (&reply);
 
-   return true;
+   return ret;
 }
 
 
@@ -847,12 +941,10 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t      *cluster,
                                 mongoc_stream_t       *stream,
                                 bson_error_t          *error)
 {
-   const char *username = "";
-   const char *errmsg = "X509 authentication failure";
-   bson_iter_t iter;
-   bool ret = false;
+   const char *username;
    bson_t cmd;
    bson_t reply;
+   bool ret;
 
    BSON_ASSERT (cluster);
    BSON_ASSERT (stream);
@@ -881,28 +973,14 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t      *cluster,
    BSON_APPEND_UTF8 (&cmd, "mechanism", "MONGODB-X509");
    BSON_APPEND_UTF8 (&cmd, "user", username);
 
-   if (!_mongoc_cluster_run_command (cluster, stream, "$external", &cmd, &reply,
-                                     error)) {
-      bson_destroy (&cmd);
-      return false;
+   ret = mongoc_cluster_run_command (cluster, stream, "$external", &cmd,
+                                     &reply, error);
+
+   if (!ret) {
+      /* error->message is already set */
+      error->domain = MONGOC_ERROR_CLIENT;
+      error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
    }
-
-   if (!bson_iter_init_find (&iter, &reply, "ok") ||
-       !bson_iter_as_bool (&iter)) {
-      if (bson_iter_init_find (&iter, &reply, "errmsg") &&
-          BSON_ITER_HOLDS_UTF8 (&iter)) {
-         errmsg = bson_iter_utf8 (&iter, NULL);
-      }
-      bson_set_error (error,
-                      MONGOC_ERROR_CLIENT,
-                      MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                      "%s", errmsg);
-      goto failure;
-   }
-
-   ret = true;
-
-failure:
 
    bson_destroy (&cmd);
    bson_destroy (&reply);
@@ -965,8 +1043,14 @@ _mongoc_cluster_auth_node_scram (mongoc_cluster_t      *cluster,
                    mongoc_uri_get_username (cluster->uri),
                    scram.step);
 
-      if (!_mongoc_cluster_run_command (cluster, stream, auth_source, &cmd, &reply, error)) {
+      if (!mongoc_cluster_run_command (cluster, stream, auth_source, &cmd,
+                                       &reply, error)) {
          bson_destroy (&cmd);
+         bson_destroy (&reply);
+
+         /* error->message is already set */
+         error->domain = MONGOC_ERROR_CLIENT;
+         error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
          goto failure;
       }
 
@@ -978,9 +1062,7 @@ _mongoc_cluster_auth_node_scram (mongoc_cluster_t      *cluster,
          break;
       }
 
-      if (!bson_iter_init_find (&iter, &reply, "ok") ||
-          !bson_iter_as_bool (&iter) ||
-          !bson_iter_init_find (&iter, &reply, "conversationId") ||
+      if (!bson_iter_init_find (&iter, &reply, "conversationId") ||
           !BSON_ITER_HOLDS_INT32 (&iter) ||
           !(conv_id = bson_iter_int32 (&iter)) ||
           !bson_iter_init_find (&iter, &reply, "payload") ||
@@ -1010,6 +1092,7 @@ _mongoc_cluster_auth_node_scram (mongoc_cluster_t      *cluster,
                          MONGOC_ERROR_CLIENT,
                          MONGOC_ERROR_CLIENT_AUTHENTICATE,
                          "SCRAM reply from MongoDB is too large.");
+         bson_destroy (&reply);
          goto failure;
       }
 
@@ -1237,7 +1320,6 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
 {
    mongoc_cluster_node_t *cluster_node;
    mongoc_stream_t *stream;
-   int64_t expire_at;
 
    ENTRY;
 
@@ -1250,18 +1332,6 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
    if (!stream) {
       MONGOC_WARNING ("Failed connection to %s (%s)", sd->connection_address, error->message);
       RETURN (NULL);
-   }
-
-   expire_at = bson_get_monotonic_time() + cluster->client->topology->connect_timeout_msec * 1000;
-   if (!mongoc_stream_wait (stream, expire_at)) {
-      bson_set_error (error,
-                      MONGOC_ERROR_STREAM,
-                      MONGOC_ERROR_STREAM_CONNECT,
-                      "Failed to connect to target host: '%s'",
-                      sd->host.host_and_port);
-      memcpy (&sd->error, error, sizeof sd->error);
-      mongoc_stream_failed (stream);
-      return NULL;
    }
 
    /* take critical fields from a fresh ismaster */
@@ -1284,16 +1354,6 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
    mongoc_set_add (cluster->nodes, sd->id, cluster_node);
 
    RETURN (stream);
-}
-
-static void
-server_description_not_found (uint32_t server_id,
-                              bson_error_t *error /* OUT */)
-{
-   bson_set_error (error,
-                   MONGOC_ERROR_STREAM,
-                   MONGOC_ERROR_STREAM_NOT_ESTABLISHED,
-                   "Could not find description for node %u", server_id);
 }
 
 static void
@@ -1366,8 +1426,7 @@ mongoc_cluster_fetch_stream (mongoc_cluster_t *cluster,
 
    topology = cluster->client->topology;
 
-   if (!(sd = mongoc_topology_server_by_id (topology, server_id))) {
-      server_description_not_found (server_id, error);
+   if (!(sd = mongoc_topology_server_by_id (topology, server_id, error))) {
       RETURN (NULL);
    }
 
@@ -1895,7 +1954,8 @@ mongoc_cluster_node_max_bson_obj_size (mongoc_cluster_t *cluster,
    mongoc_cluster_node_t *node;
 
    if (cluster->client->topology->single_threaded) {
-      if ((sd = mongoc_topology_description_server_by_id (&cluster->client->topology->description, server_id))) {
+      if ((sd = mongoc_topology_description_server_by_id (
+         &cluster->client->topology->description, server_id, NULL))) {
          return sd->max_bson_obj_size;
       }
    } else {
@@ -1928,7 +1988,8 @@ mongoc_cluster_node_max_msg_size (mongoc_cluster_t *cluster,
    mongoc_cluster_node_t *node;
 
    if (cluster->client->topology->single_threaded) {
-      if ((sd = mongoc_topology_description_server_by_id (&cluster->client->topology->description, server_id))) {
+      if ((sd = mongoc_topology_description_server_by_id (
+         &cluster->client->topology->description, server_id, NULL))) {
          return sd->max_msg_size;
       }
    } else {
@@ -1961,7 +2022,8 @@ mongoc_cluster_node_max_write_batch_size (mongoc_cluster_t *cluster,
    mongoc_cluster_node_t *node;
 
    if (cluster->client->topology->single_threaded) {
-      if ((sd = mongoc_topology_description_server_by_id (&cluster->client->topology->description, server_id))) {
+      if ((sd = mongoc_topology_description_server_by_id (
+         &cluster->client->topology->description, server_id, NULL))) {
          return sd->max_write_batch_size;
       }
    } else {
@@ -2066,7 +2128,8 @@ mongoc_cluster_node_max_wire_version (mongoc_cluster_t *cluster,
    mongoc_cluster_node_t *node;
 
    if (cluster->client->topology->single_threaded) {
-      if ((sd = mongoc_topology_description_server_by_id (&cluster->client->topology->description, server_id))) {
+      if ((sd = mongoc_topology_description_server_by_id (
+         &cluster->client->topology->description, server_id, NULL))) {
          return sd->max_wire_version;
       }
    } else {
@@ -2099,7 +2162,8 @@ mongoc_cluster_node_min_wire_version (mongoc_cluster_t *cluster,
    mongoc_cluster_node_t *node;
 
    if (cluster->client->topology->single_threaded) {
-      if ((sd = mongoc_topology_description_server_by_id (&cluster->client->topology->description, server_id))) {
+      if ((sd = mongoc_topology_description_server_by_id (
+         &cluster->client->topology->description, server_id, NULL))) {
          return sd->min_wire_version;
       }
    } else {
@@ -2163,17 +2227,16 @@ _mongoc_cluster_check_interval (mongoc_cluster_t *cluster,
 
       before_ismaster = now;
 
-      r = _mongoc_cluster_run_command (cluster, stream, "admin", &command,
-                                       &reply,
-                                       error);
+      r = mongoc_cluster_run_command (cluster, stream, "admin",
+                                      &command, &reply, error);
 
       now = bson_get_monotonic_time ();
 
       bson_destroy (&command);
 
       if (r) {
-         sd = mongoc_topology_description_server_by_id (
-            &topology->description, server_id);
+         sd = mongoc_topology_description_server_by_id (&topology->description,
+                                                        server_id, NULL);
 
          if (!sd) {
             bson_destroy (&reply);

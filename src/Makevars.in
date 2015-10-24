@@ -28,7 +28,8 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-async.o mongoc/mongoc-async-cmd.o mongoc/mongoc-host-list.o \
 	mongoc/mongoc-opcode.o mongoc/mongoc-server-description.o mongoc/mongoc-set.o \
 	mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
-	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o
+	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o \
+	mongoc/mongoc-memcmp.o
 
 PKG_LIBS=-L. -lmongoc -lbson -lyajl @libs@
 
