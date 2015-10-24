@@ -1,3 +1,9 @@
+/* libmongoc requires 'inet_ntop' and 'inet_pton' but Rtools with
+ * gcc 4.6.3 does not have this for win32, only for win64.
+ *
+ */
+#include <_mingw.h>
+#if !defined(_WIN64) && defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 3
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -52,3 +58,4 @@ const char *inet_ntop(int af, const void *src, char *dst, socklen_t size)
   return (WSAAddressToString((struct sockaddr *)&ss, sizeof(ss), NULL, dst, &s) == 0)?
           dst : NULL;
 }
+#endif
