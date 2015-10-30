@@ -2,6 +2,8 @@
 ^\.Rproj\.user$
 ^src/readme.txt$
 ^src/.*\.a$
+^src/.*\.out$
+^src/a.out.dSYM$
 ^windows$
 ^.travis.yml$
 ^readme.md$
