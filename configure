@@ -93,7 +93,8 @@ if [ $R_CONFIG_ERROR ]; then
 fi
 
 # Feature test for 'sasl_client_done'
-${CC} ./src/tests/has_sasl_client_done.c ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} ${PKG_LIBS} >/dev/null 2>&1 && HAS_SASL_CLIENT_DONE=1;
+cd src
+${CC} ./tests/has_sasl_client_done.c ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} ${PKG_LIBS} >/dev/null 2>&1 && HAS_SASL_CLIENT_DONE=1;
 if [ $HAS_SASL_CLIENT_DONE ]; then
   echo "SASL has sasl_client_done"
   PKG_CFLAGS="$PKG_CFLAGS -DMONGOC_HAVE_SASL_CLIENT_DONE"
@@ -102,7 +103,7 @@ else
 fi
 
 # Write to Makevars
-sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
+sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" Makevars.in > Makevars
 
 # Success
 exit 0
