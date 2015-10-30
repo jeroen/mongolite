@@ -137,7 +137,9 @@
 #define bson_str_empty0(s) (!s || !s[0])
 
 
-#if __STDC_VERSION__ < 199901L
+#if defined(_WIN32)
+#  define BSON_FUNC __FUNCTION__
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ < 199901L
 #  define BSON_FUNC __FUNCTION__
 #else
 #  define BSON_FUNC __func__

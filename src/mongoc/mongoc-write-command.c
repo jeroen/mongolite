@@ -39,7 +39,7 @@
 
 typedef void (*mongoc_write_op_t) (mongoc_write_command_t       *command,
                                    mongoc_client_t              *client,
-                                   uint32_t                      hint,
+                                   mongoc_server_stream_t       *server_stream,
                                    const char                   *database,
                                    const char                   *collection,
                                    const mongoc_write_concern_t *write_concern,
@@ -183,6 +183,7 @@ _mongoc_write_command_init_insert (mongoc_write_command_t    *command,          
    command->n_documents = 0;
    command->flags = flags;
    command->u.insert.allow_bulk_op_insert = (uint8_t)allow_bulk_op_insert;
+   command->hint = 0;
 
    /* must handle NULL document from mongoc_collection_insert_bulk */
    if (document) {
@@ -209,6 +210,7 @@ _mongoc_write_command_init_delete (mongoc_write_command_t    *command,  /* IN */
    command->n_documents = 0;
    command->u.delete_.multi = (uint8_t)multi;
    command->flags = flags;
+   command->hint = 0;
 
    _mongoc_write_command_delete_append (command, selector);
 
@@ -234,6 +236,7 @@ _mongoc_write_command_init_update (mongoc_write_command_t    *command,  /* IN */
    command->documents = bson_new ();
    command->n_documents = 0;
    command->flags = flags;
+   command->hint = 0;
 
    _mongoc_write_command_update_append (command, selector, update, upsert, multi);
 
@@ -244,7 +247,7 @@ _mongoc_write_command_init_update (mongoc_write_command_t    *command,  /* IN */
 static void
 _mongoc_write_command_delete_legacy (mongoc_write_command_t       *command,
                                      mongoc_client_t              *client,
-                                     uint32_t                      hint,
+                                     mongoc_server_stream_t       *server_stream,
                                      const char                   *database,
                                      const char                   *collection,
                                      const mongoc_write_concern_t *write_concern,
@@ -266,7 +269,7 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t       *command,
    BSON_ASSERT (command);
    BSON_ASSERT (client);
    BSON_ASSERT (database);
-   BSON_ASSERT (hint);
+   BSON_ASSERT (server_stream);
    BSON_ASSERT (collection);
 
    r = bson_iter_init (&iter, command->documents);
@@ -313,14 +316,14 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t       *command,
       rpc.delete_.selector = data;
 
       if (!mongoc_cluster_sendv_to_server (&client->cluster,
-                                           &rpc, 1, hint,
-                                           write_concern, true, error)) {
+                                           &rpc, 1, server_stream,
+                                           write_concern, error)) {
          result->failed = true;
          EXIT;
       }
 
       if (_mongoc_write_concern_needs_gle (write_concern)) {
-         if (!_mongoc_client_recv_gle (client, hint, &gle, error)) {
+         if (!_mongoc_client_recv_gle (client, server_stream, &gle, error)) {
             result->failed = true;
             EXIT;
          }
@@ -357,7 +360,7 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t       *command,
 
 static void
 too_large_error (bson_error_t *error,
-                 int32_t       index,
+                 int32_t       idx,
                  int32_t       len,
                  int32_t       max_bson_size,
                  bson_t       *err_doc)
@@ -368,10 +371,10 @@ too_large_error (bson_error_t *error,
    bson_set_error (error, MONGOC_ERROR_BSON, code,
                    "Document %u is too large for the cluster. "
                    "Document is %u bytes, max is %d.",
-                   index, len, max_bson_size);
+                   idx, len, max_bson_size);
 
    if (err_doc) {
-      BSON_APPEND_INT32 (err_doc, "index", index);
+      BSON_APPEND_INT32 (err_doc, "index", idx);
       BSON_APPEND_UTF8 (err_doc, "err", error->message);
       BSON_APPEND_INT32 (err_doc, "code", code);
    }
@@ -381,7 +384,7 @@ too_large_error (bson_error_t *error,
 static void
 _mongoc_write_command_insert_legacy (mongoc_write_command_t       *command,
                                      mongoc_client_t              *client,
-                                     uint32_t                      hint,
+                                     mongoc_server_stream_t       *server_stream,
                                      const char                   *database,
                                      const char                   *collection,
                                      const mongoc_write_concern_t *write_concern,
@@ -401,7 +404,7 @@ _mongoc_write_command_insert_legacy (mongoc_write_command_t       *command,
    char ns [MONGOC_NAMESPACE_MAX + 1];
    bool r;
    uint32_t n_docs_in_batch;
-   uint32_t index = 0;
+   uint32_t idx = 0;
    int32_t max_msg_size;
    int32_t max_bson_obj_size;
    bool singly;
@@ -411,14 +414,15 @@ _mongoc_write_command_insert_legacy (mongoc_write_command_t       *command,
    BSON_ASSERT (command);
    BSON_ASSERT (client);
    BSON_ASSERT (database);
-   BSON_ASSERT (hint);
+   BSON_ASSERT (server_stream);
    BSON_ASSERT (collection);
    BSON_ASSERT (command->type == MONGOC_WRITE_COMMAND_INSERT);
 
    current_offset = offset;
 
-   max_bson_obj_size = mongoc_cluster_node_max_bson_obj_size(&client->cluster, hint);
-   max_msg_size = mongoc_cluster_node_max_msg_size (&client->cluster, hint);
+   max_bson_obj_size = mongoc_stream_max_bson_obj_size (server_stream);
+   max_msg_size = mongoc_stream_max_msg_size (server_stream);
+
    singly = !command->u.insert.allow_bulk_op_insert;
 
    r = bson_iter_init (&iter, command->documents);
@@ -453,8 +457,8 @@ again:
 
    do {
       BSON_ASSERT (BSON_ITER_HOLDS_DOCUMENT (&iter));
-      BSON_ASSERT (n_docs_in_batch <= index);
-      BSON_ASSERT (index < command->n_documents);
+      BSON_ASSERT (n_docs_in_batch <= idx);
+      BSON_ASSERT (idx < command->n_documents);
 
       bson_iter_document (&iter, &len, &data);
 
@@ -465,11 +469,11 @@ again:
          /* document is too large */
          bson_t write_err_doc = BSON_INITIALIZER;
 
-         too_large_error (error, index, len,
+         too_large_error (error, idx, len,
                           max_bson_obj_size, &write_err_doc);
 
          _mongoc_write_result_merge_legacy (result, command,
-                                            &write_err_doc, offset + index);
+                                            &write_err_doc, offset + idx);
 
          bson_destroy (&write_err_doc);
 
@@ -489,7 +493,7 @@ again:
          n_docs_in_batch++;
       }
 
-      index++;
+      idx++;
    } while (bson_iter_next (&iter));
 
    if (n_docs_in_batch) {
@@ -505,8 +509,8 @@ again:
       rpc.insert.n_documents = n_docs_in_batch;
 
       if (!mongoc_cluster_sendv_to_server (&client->cluster,
-                                           &rpc, 1, hint,
-                                           write_concern, true, error)) {
+                                           &rpc, 1, server_stream,
+                                           write_concern, error)) {
          result->failed = true;
          GOTO (cleanup);
       }
@@ -515,7 +519,7 @@ again:
          bool err = false;
          bson_iter_t citer;
 
-         if (!_mongoc_client_recv_gle (client, hint, &gle, error)) {
+         if (!_mongoc_client_recv_gle (client, server_stream, &gle, error)) {
             result->failed = true;
             GOTO (cleanup);
          }
@@ -540,7 +544,7 @@ cleanup:
 
    if (gle) {
       _mongoc_write_result_merge_legacy (result, command, gle, current_offset);
-      current_offset = offset + index;
+      current_offset = offset + idx;
       bson_destroy (gle);
       gle = NULL;
    }
@@ -602,7 +606,7 @@ _mongoc_write_command_will_overflow (uint32_t len_so_far,
 static void
 _mongoc_write_command_update_legacy (mongoc_write_command_t       *command,
                                      mongoc_client_t              *client,
-                                     uint32_t                      hint,
+                                     mongoc_server_stream_t       *server_stream,
                                      const char                   *database,
                                      const char                   *collection,
                                      const mongoc_write_concern_t *write_concern,
@@ -630,7 +634,7 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t       *command,
    BSON_ASSERT (command);
    BSON_ASSERT (client);
    BSON_ASSERT (database);
-   BSON_ASSERT (hint);
+   BSON_ASSERT (server_stream);
    BSON_ASSERT (collection);
 
    bson_iter_init (&iter, command->documents);
@@ -708,14 +712,14 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t       *command,
       }
 
       if (!mongoc_cluster_sendv_to_server (&client->cluster,
-                                           &rpc, 1, hint,
-                                           write_concern, true, error)) {
+                                           &rpc, 1, server_stream,
+                                           write_concern, error)) {
          result->failed = true;
          EXIT;
       }
 
       if (_mongoc_write_concern_needs_gle (write_concern)) {
-         if (!_mongoc_client_recv_gle (client, hint, &gle, error)) {
+         if (!_mongoc_client_recv_gle (client, server_stream, &gle, error)) {
             result->failed = true;
             EXIT;
          }
@@ -764,7 +768,7 @@ static mongoc_write_op_t gLegacyWriteOps[3] = {
 static void
 _mongoc_write_command(mongoc_write_command_t       *command,
                       mongoc_client_t              *client,
-                      uint32_t                      hint,
+                      mongoc_server_stream_t       *server_stream,
                       const char                   *database,
                       const char                   *collection,
                       const mongoc_write_concern_t *write_concern,
@@ -794,11 +798,11 @@ _mongoc_write_command(mongoc_write_command_t       *command,
    BSON_ASSERT (command);
    BSON_ASSERT (client);
    BSON_ASSERT (database);
-   BSON_ASSERT (hint);
+   BSON_ASSERT (server_stream);
    BSON_ASSERT (collection);
 
-   max_bson_obj_size = mongoc_cluster_node_max_bson_obj_size(&client->cluster, hint);
-   max_write_batch_size = mongoc_cluster_node_max_write_batch_size(&client->cluster, hint);
+   max_bson_obj_size = mongoc_stream_max_bson_obj_size (server_stream);
+   max_write_batch_size = mongoc_stream_max_write_batch_size (server_stream);
 
    /*
     * If we have an unacknowledged write and the server supports the legacy
@@ -806,12 +810,7 @@ _mongoc_write_command(mongoc_write_command_t       *command,
     * a response from the server.
     */
 
-   min_wire_version = mongoc_cluster_node_min_wire_version (&client->cluster,
-                                                            hint);
-   if (min_wire_version == -1) {
-      EXIT;
-   }
-
+   min_wire_version = server_stream->sd->min_wire_version;
    if ((min_wire_version == 0) &&
        !_mongoc_write_concern_needs_gle (write_concern)) {
       if (command->flags.bypass_document_validation != MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT) {
@@ -821,7 +820,7 @@ _mongoc_write_command(mongoc_write_command_t       *command,
                          "Cannot set bypassDocumentValidation for unacknowledged writes");
          EXIT;
       }
-      gLegacyWriteOps[command->type] (command, client, hint, database,
+      gLegacyWriteOps[command->type] (command, client, server_stream, database,
                                       collection, write_concern, offset,
                                       result, error);
       EXIT;
@@ -898,8 +897,9 @@ again:
       result->failed = true;
       ret = false;
    } else {
-      ret = _mongoc_client_command_simple_with_hint (client, database, &cmd, NULL,
-                                                     true, &reply, hint, error);
+      ret = mongoc_cluster_run_command (&client->cluster, server_stream->stream,
+                                        MONGOC_QUERY_NONE, database, &cmd,
+                                        &reply, error);
 
       if (!ret) {
          result->failed = true;
@@ -923,19 +923,18 @@ again:
 void
 _mongoc_write_command_execute (mongoc_write_command_t       *command,       /* IN */
                                mongoc_client_t              *client,        /* IN */
-                               uint32_t                      hint,          /* IN */
+                               mongoc_server_stream_t       *server_stream, /* IN */
                                const char                   *database,      /* IN */
                                const char                   *collection,    /* IN */
                                const mongoc_write_concern_t *write_concern, /* IN */
                                uint32_t                      offset,        /* IN */
                                mongoc_write_result_t        *result)        /* OUT */
 {
-   int32_t max_wire_version;
-
    ENTRY;
 
    BSON_ASSERT (command);
    BSON_ASSERT (client);
+   BSON_ASSERT (server_stream);
    BSON_ASSERT (database);
    BSON_ASSERT (collection);
    BSON_ASSERT (result);
@@ -953,28 +952,18 @@ _mongoc_write_command_execute (mongoc_write_command_t       *command,       /* I
       EXIT;
    }
 
-   if (!hint) {
-      hint = _mongoc_client_preselect (client, MONGOC_OPCODE_INSERT,
-                                       write_concern, NULL, &result->error);
-      if (!hint) {
-         result->failed = true;
-         EXIT;
-      }
+   if (!command->hint) {
+      command->hint = server_stream->sd->id;
+   } else {
+      BSON_ASSERT (command->hint == server_stream->sd->id);
    }
 
-   command->hint = hint;
-
-   max_wire_version = mongoc_cluster_node_max_wire_version (&client->cluster, hint);
-   if (max_wire_version == -1) {
-      EXIT;
-   }
-
-   if (max_wire_version >= WRITE_COMMAND_WIRE_VERSION) {
-      _mongoc_write_command (command, client, hint, database,
+   if (server_stream->sd->max_wire_version >= WRITE_COMMAND_WIRE_VERSION) {
+      _mongoc_write_command (command, client, server_stream, database,
                              collection, write_concern, offset,
                              result, &result->error);
    } else {
-      gLegacyWriteOps[command->type] (command, client, hint, database,
+      gLegacyWriteOps[command->type] (command, client, server_stream, database,
                                       collection, write_concern, offset,
                                       result, &result->error);
    }
