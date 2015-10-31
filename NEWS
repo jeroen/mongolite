@@ -1,8 +1,8 @@
 0.6
- - Update mongo-c-driver to 1.2.0
+ - Update mongo-c-driver to db120a3526
+ - Workaround GNU extension in mongoc-util-private.h:34
  - Fix for m$export() on windows (UTF8 related)
  - Fix for setInternet2 in R 3.3.0 on Windows
- - Temporary fix for __FUNCTION__ to please gcc 5
 
 0.5
  - Update mongo-c-driver and libbson to 1.1.10
