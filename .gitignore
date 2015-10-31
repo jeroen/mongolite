@@ -1,6 +1,8 @@
 *.so
 *.o
 *.dll
+*.out
+*.out.dSYM
 .DS_Store
 .Rproj.user
 .Rhistory
