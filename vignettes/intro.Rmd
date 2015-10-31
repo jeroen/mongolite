@@ -129,9 +129,9 @@ library(jsonlite)
 library(mongolite)
 
 # Stream from url into mongo
-m <- mongo("zips")
+m <- mongo("zips", verbose = FALSE)
 stream_in(url("http://media.mongodb.org/zips.json"), handler = function(df){
-  m$insert(df, verbose = FALSE)
+  m$insert(df)
 })
 
 # Check count
@@ -147,9 +147,9 @@ Nested data
 Stream large bulk samples from [openweathermap](http://openweathermap.org/current#bulk) with deeply nested data (takes a while).
 
 ```r
-m <- mongo("weather")
+m <- mongo("weather", verbose = FALSE)
 stream_in(gzcon(url("http://78.46.48.103/sample/daily_14.json.gz")), handler = function(df){
-  m$insert(df, verbose = FALSE)  
+  m$insert(df)  
 }, pagesize = 50)
 
 berlin <- m$find('{"city.name" : "Berlin"}')
