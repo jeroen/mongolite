@@ -1,3 +1,6 @@
+0.7
+ - Link to brew openssl 1.0.2 on OSX instead of native 0.9.8
+
 0.6
  - Update mongo-c-driver to db120a3526
  - Workaround GNU extension in mongoc-util-private.h:34
