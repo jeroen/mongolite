@@ -13,7 +13,7 @@
 #' @examples # Connect to mongolabs
 #' m <- mongo("mtcars", url = "mongodb://readonly:test@ds043942.mongolab.com:43942/jeroen_test")
 #' mydata <- m$find()
-#' all.equal(mydata, mtcars)
+#' stopifnot(all.equal(mydata, mtcars))
 #'
 #' \dontrun{
 #' # dplyr example
