@@ -10,8 +10,10 @@
 #include <sys/byteorder.h>
 #ifdef _BIG_ENDIAN
 #define BSON_BYTE_ORDER 4321
+#define BSON_HAVE_STRNLEN 0
 #else
 #define BSON_BYTE_ORDER 1234
+#define BSON_HAVE_STRNLEN 1
 #endif
 #else
 /* for everyone else */
@@ -78,7 +80,6 @@
 /*
  * Define to 1 if you have strnlen available on your platform.
  */
-#define BSON_HAVE_STRNLEN 1
 #if BSON_HAVE_STRNLEN != 1
 # undef BSON_HAVE_STRNLEN
 #endif
