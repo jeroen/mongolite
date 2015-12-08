@@ -46,9 +46,13 @@ Connect to a MongoDB collection.
 }
 \examples{
 # Connect to mongolabs
-m <- mongo("mtcars", url = "mongodb://readonly:test@ds043942.mongolab.com:43942/jeroen_test")
-mydata <- m$find()
+con <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
+if(con$count() > 0) con$drop()
+con$insert(mtcars)
+stopifnot(con$count() == nrow(mtcars))
+mydata <- con$find()
 stopifnot(all.equal(mydata, mtcars))
+con$drop()
 
 \dontrun{
 # dplyr example
