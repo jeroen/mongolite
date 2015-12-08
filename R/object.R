@@ -15,9 +15,15 @@
 #' if(con$count() > 0) con$drop()
 #' con$insert(mtcars)
 #' stopifnot(con$count() == nrow(mtcars))
+#'
+#' # Query data
 #' mydata <- con$find()
 #' stopifnot(all.equal(mydata, mtcars))
 #' con$drop()
+#'
+#' # Automatically disconnect when connection is removed
+#' rm(con)
+#' gc()
 #'
 #' \dontrun{
 #' # dplyr example
