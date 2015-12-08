@@ -112,11 +112,11 @@
 
 /*
 * Define to 1 if you want extra aligned types in libbson
+* Moved to this in Makevars because it doesn't work well with mingw
+* #if BSON_EXTRA_ALIGN != 1
+* # undef BSON_EXTRA_ALIGN
+* #endif
 */
-#define BSON_EXTRA_ALIGN 1
-#if BSON_EXTRA_ALIGN != 1
-# undef BSON_EXTRA_ALIGN
-#endif
 
 
 
