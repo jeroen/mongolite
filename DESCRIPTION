@@ -1,8 +1,8 @@
 Package: mongolite
 Type: Package
 Title: Fast and Simple 'MongoDB' Client for R
-Description: High-level 'MongoDB' client based on 'jsonlite' and 'mongoc' driver.
-    Includes support for aggregation, indexing, map-reduce, streaming, 'TLS'
+Description: High-level 'MongoDB' client based on 'jsonlite' and 'mongoc'
+    driver. Includes support for aggregation, indexing, map-reduce, streaming, 'TLS'
     encryption and 'SASL' authentication.
 Version: 0.7.9000
 Authors@R: c(
@@ -10,12 +10,17 @@ Authors@R: c(
     person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver")
   )
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
-Imports: jsonlite (>= 0.9.16)
+Imports:
+    jsonlite (>= 0.9.16)
 License: Apache License 2.0
-URL: https://github.com/jeroenooms/mongolite, https://github.com/mongodb/mongo-c-driver
+URL: https://github.com/jeroenooms/mongolite, https://github.com/mongodb/mongo-
+    c-driver
 BugReports: https://github.com/jeroenooms/mongolite/issues
-SystemRequirements:
-    OpenSSL: libssl-dev (deb) or openssl-devel (rpm) or libssl_dev (csw).
-    SASL: libsasl2-dev (deb) or cyrus-sasl-devel (rpm) or sasl_dev (csw).
-Suggests: knitr, rmarkdown
+SystemRequirements: OpenSSL: libssl-dev (deb) or openssl-devel (rpm) or
+    libssl_dev (csw). SASL: libsasl2-dev (deb) or cyrus-sasl-devel (rpm) or sasl_dev
+    (csw).
+Suggests:
+    knitr,
+    rmarkdown
 VignetteBuilder: knitr
+RoxygenNote: 5.0.1.9000

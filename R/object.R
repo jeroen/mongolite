@@ -10,7 +10,12 @@
 #' @param verbose emit some more output
 #' @return Upon success returns a pointer to a collection on the server.
 #' The collection can be interfaced using the methods described below.
-#' @examples \dontrun{
+#' @examples # Connect to mongolabs
+#' m <- mongo("mtcars", url = "mongodb://readonly:test@ds043942.mongolab.com:43942/jeroen_test")
+#' mydata <- m$find()
+#' all.equal(mydata, mtcars)
+#'
+#' \dontrun{
 #' # dplyr example
 #' library(nycflights13)
 #'
@@ -56,7 +61,7 @@
 #'
 #' # Import from jsonlines stream from connection
 #' dmd <- mongo("diamonds")
-#' dmd$import(url("http://jeroenooms.github.io/data/diamonds.json))
+#' dmd$import(url("http://jeroenooms.github.io/data/diamonds.json"))
 #' dmd$count()
 #'
 #' # Export
