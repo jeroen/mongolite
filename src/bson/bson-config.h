@@ -4,7 +4,6 @@
 /* stuff for solaris */
 #if (defined(__sun) && defined(__SVR4))
 #define BSON_HAVE_STRNLEN 0
-#define BSON_PTHREAD_ONCE_INIT_NEEDS_BRACES 1
 #define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 0
 #define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 0
 /* sparc is big endian */
@@ -18,7 +17,6 @@
 /* for everyone else */
 #define BSON_BYTE_ORDER 1234
 #define BSON_HAVE_STRNLEN 1
-#define BSON_PTHREAD_ONCE_INIT_NEEDS_BRACES 0
 #define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 1
 #define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 1
 #endif
@@ -64,6 +62,7 @@
  * Define to 1 if your system requires {} around PTHREAD_ONCE_INIT.
  * This is typically just Solaris 8-10.
  */
+#define BSON_PTHREAD_ONCE_INIT_NEEDS_BRACES 0
 #if BSON_PTHREAD_ONCE_INIT_NEEDS_BRACES != 1
 # undef BSON_PTHREAD_ONCE_INIT_NEEDS_BRACES
 #endif
