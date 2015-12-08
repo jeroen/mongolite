@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2015 MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,44 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef MONGOC_HOST_LIST_H
-#define MONGOC_HOST_LIST_H
+#ifndef MONGOC_FIND_AND_MODIFY_PRIVATE_H
+#define MONGOC_FIND_AND_MODIFY_PRIVATE_H
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
 # error "Only <mongoc.h> can be included directly."
 #endif
 
 #include <bson.h>
-
+#include "mongoc-write-command-private.h"
 
 BSON_BEGIN_DECLS
 
-
-#ifndef HOST_NAME_MAX
-# ifdef _POSIX_HOST_NAME_MAX
-#  define BSON_HOST_NAME_MAX _POSIX_HOST_NAME_MAX
-# else
-#  define BSON_HOST_NAME_MAX 255
-# endif
-#else
-# define BSON_HOST_NAME_MAX HOST_NAME_MAX
-#endif
-
-
-typedef struct _mongoc_host_list_t mongoc_host_list_t;
-
-
-struct _mongoc_host_list_t
+struct _mongoc_find_and_modify_opts_t
 {
-   mongoc_host_list_t *next;
-   char                host [BSON_HOST_NAME_MAX + 1];
-   char                host_and_port [BSON_HOST_NAME_MAX + 7];
-   uint16_t            port;
-   int                 family;
-   void               *padding [4];
+   bson_t                                    *sort;
+   bson_t                                    *update;
+   bson_t                                    *fields;
+   mongoc_find_and_modify_flags_t             flags;
+   mongoc_write_bypass_document_validation_t  bypass_document_validation;
 };
+
 
 BSON_END_DECLS
 
 
-#endif /* MONGOC_HOST_LIST_H */
+#endif /* MONGOC_FIND_AND_MODIFY_PRIVATE_H */

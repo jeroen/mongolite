@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2015 MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,36 +14,31 @@
  * limitations under the License.
  */
 
-#ifndef MONGOC_CURSOR_ARRAY_PRIVATE_H
-#define MONGOC_CURSOR_ARRAY_PRIVATE_H
+#ifndef MONGOC_READ_CONCERN_PRIVATE_H
+#define MONGOC_READ_CONCERN_PRIVATE_H
 
 #if !defined (MONGOC_I_AM_A_DRIVER) && !defined (MONGOC_COMPILATION)
 #error "Only <mongoc.h> can be included directly."
 #endif
 
 #include <bson.h>
-
-#include "mongoc-cursor-private.h"
+#include "mongoc-read-concern.h"
 
 
 BSON_BEGIN_DECLS
 
 
-void
-_mongoc_cursor_array_init (mongoc_cursor_t *cursor,
-                           const bson_t    *command,
-                           const char      *field_name);
+struct _mongoc_read_concern_t
+{
+   char   *level;
+   bool    frozen;
+   bson_t  compiled;
+};
 
-bool
-_mongoc_cursor_array_prime (mongoc_cursor_t *cursor);
 
-
-void
-_mongoc_cursor_array_set_bson (mongoc_cursor_t *cursor,
-                               const bson_t    *bson);
-
+const bson_t *_mongoc_read_concern_get_bson  (mongoc_read_concern_t       *read_concern);
 
 BSON_END_DECLS
 
 
-#endif /* MONGOC_CURSOR_ARRAY_PRIVATE_H */
+#endif /* MONGOC_READ_CONCERN_PRIVATE_H */

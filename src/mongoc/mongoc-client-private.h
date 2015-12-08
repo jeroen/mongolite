@@ -41,6 +41,25 @@
 
 BSON_BEGIN_DECLS
 
+/* protocol versions this driver can speak */
+#define WIRE_VERSION_MIN 0
+#define WIRE_VERSION_MAX 4
+
+/* first version that supported aggregation cursors */
+#define WIRE_VERSION_AGG_CURSOR 1
+/* first version that supported "insert", "update", "delete" commands */
+#define WIRE_VERSION_WRITE_CMD 2
+/* first version when SCRAM-SHA-1 replaced MONGODB-CR as default auth mech */
+#define WIRE_VERSION_SCRAM_DEFAULT 3
+/* first version that supported "find" and "getMore" commands */
+#define WIRE_VERSION_FIND_CMD 4
+/* first version with "killCursors" command */
+#define WIRE_VERSION_KILLCURSORS_CMD 4
+/* first version when findAndModify accepts writeConcern */
+#define WIRE_VERSION_FAM_WRITE_CONCERN 4
+/* first version to support readConcern */
+#define WIRE_VERSION_READ_CONCERN 4
+
 
 struct _mongoc_client_t
 {
@@ -54,20 +73,22 @@ struct _mongoc_client_t
    void                      *initiator_data;
 
 #ifdef MONGOC_ENABLE_SSL
+   bool                       use_ssl;
    mongoc_ssl_opt_t           ssl_opts;
    char                      *pem_subject;
 #endif
 
-   mongoc_topology_t             *topology;
+   mongoc_topology_t         *topology;
 
    mongoc_read_prefs_t       *read_prefs;
+   mongoc_read_concern_t     *read_concern;
    mongoc_write_concern_t    *write_concern;
 };
 
 
 mongoc_client_t *
 _mongoc_client_new_from_uri (const mongoc_uri_t *uri,
-                             mongoc_topology_t      *topology);
+                             mongoc_topology_t  *topology);
 
 mongoc_stream_t *
 mongoc_client_default_stream_initiator (const mongoc_uri_t       *uri,
@@ -106,7 +127,9 @@ _mongoc_client_get_server_description (mongoc_client_t *client,
 void
 _mongoc_client_kill_cursor              (mongoc_client_t *client,
                                          uint32_t         server_id,
-                                         int64_t          cursor_id);
+                                         int64_t          cursor_id,
+                                         const char      *db,
+                                         const char      *collection);
 
 BSON_END_DECLS
 

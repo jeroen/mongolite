@@ -50,6 +50,7 @@ mongoc_bulk_operation_new (bool ordered)
    bulk = (mongoc_bulk_operation_t *)bson_malloc0 (sizeof *bulk);
    bulk->flags.bypass_document_validation = MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT;
    bulk->flags.ordered = ordered;
+   bulk->hint = 0;
 
    _mongoc_array_init (&bulk->commands, sizeof (mongoc_write_command_t));
 
@@ -61,7 +62,6 @@ mongoc_bulk_operation_t *
 _mongoc_bulk_operation_new (mongoc_client_t              *client,        /* IN */
                             const char                   *database,      /* IN */
                             const char                   *collection,    /* IN */
-                            uint32_t                      hint,          /* IN */
                             mongoc_bulk_write_flags_t     flags,         /* IN */
                             const mongoc_write_concern_t *write_concern) /* IN */
 {
@@ -74,7 +74,6 @@ _mongoc_bulk_operation_new (mongoc_client_t              *client,        /* IN *
    bulk->client = client;
    bulk->database = bson_strdup (database);
    bulk->collection = bson_strdup (collection);
-   bulk->hint = hint;
    bulk->write_concern = mongoc_write_concern_copy (write_concern);
    bulk->executed = false;
    bulk->flags = flags;
@@ -543,12 +542,3 @@ mongoc_bulk_operation_set_bypass_document_validation (mongoc_bulk_operation_t *b
 }
 
 
-void
-mongoc_bulk_operation_set_flags (mongoc_bulk_operation_t  *bulk,
-                                 mongoc_bulk_write_flags_t flags)
-{
-   BSON_ASSERT (bulk);
-
-   bulk->flags.ordered = flags.ordered;
-   bulk->flags.bypass_document_validation = flags.bypass_document_validation;
-}

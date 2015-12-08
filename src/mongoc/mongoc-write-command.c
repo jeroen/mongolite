@@ -30,8 +30,6 @@
  *    - Remove error parameter to ops, favor result->error.
  */
 
-#define WRITE_COMMAND_WIRE_VERSION 2
-
 #define WRITE_CONCERN_DOC(wc) \
    (wc && _mongoc_write_concern_needs_gle ((wc))) ? \
    (_mongoc_write_concern_get_bson((mongoc_write_concern_t*)(wc))) : \
@@ -328,7 +326,10 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t       *command,
             EXIT;
          }
 
-         _mongoc_write_result_merge_legacy (result, command, gle, offset);
+         _mongoc_write_result_merge_legacy (
+            result, command, gle,
+            MONGOC_ERROR_COLLECTION_DELETE_FAILED, offset);
+
          offset++;
          bson_destroy (gle);
       }
@@ -420,8 +421,8 @@ _mongoc_write_command_insert_legacy (mongoc_write_command_t       *command,
 
    current_offset = offset;
 
-   max_bson_obj_size = mongoc_stream_max_bson_obj_size (server_stream);
-   max_msg_size = mongoc_stream_max_msg_size (server_stream);
+   max_bson_obj_size = mongoc_server_stream_max_bson_obj_size (server_stream);
+   max_msg_size = mongoc_server_stream_max_msg_size (server_stream);
 
    singly = !command->u.insert.allow_bulk_op_insert;
 
@@ -472,8 +473,9 @@ again:
          too_large_error (error, idx, len,
                           max_bson_obj_size, &write_err_doc);
 
-         _mongoc_write_result_merge_legacy (result, command,
-                                            &write_err_doc, offset + idx);
+         _mongoc_write_result_merge_legacy (
+            result, command, &write_err_doc,
+            MONGOC_ERROR_COLLECTION_INSERT_FAILED, offset + idx);
 
          bson_destroy (&write_err_doc);
 
@@ -543,7 +545,10 @@ again:
 cleanup:
 
    if (gle) {
-      _mongoc_write_result_merge_legacy (result, command, gle, current_offset);
+      _mongoc_write_result_merge_legacy (
+         result, command, gle, MONGOC_ERROR_COLLECTION_INSERT_FAILED,
+         current_offset);
+
       current_offset = offset + idx;
       bson_destroy (gle);
       gle = NULL;
@@ -749,7 +754,10 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t       *command,
             }
          }
 
-         _mongoc_write_result_merge_legacy (result, command, gle, offset);
+         _mongoc_write_result_merge_legacy (
+            result, command, gle,
+            MONGOC_ERROR_COLLECTION_UPDATE_FAILED, offset);
+
          offset++;
          bson_destroy (gle);
       }
@@ -801,8 +809,8 @@ _mongoc_write_command(mongoc_write_command_t       *command,
    BSON_ASSERT (server_stream);
    BSON_ASSERT (collection);
 
-   max_bson_obj_size = mongoc_stream_max_bson_obj_size (server_stream);
-   max_write_batch_size = mongoc_stream_max_write_batch_size (server_stream);
+   max_bson_obj_size = mongoc_server_stream_max_bson_obj_size (server_stream);
+   max_write_batch_size = mongoc_server_stream_max_write_batch_size (server_stream);
 
    /*
     * If we have an unacknowledged write and the server supports the legacy
@@ -958,7 +966,7 @@ _mongoc_write_command_execute (mongoc_write_command_t       *command,       /* I
       BSON_ASSERT (command->hint == server_stream->sd->id);
    }
 
-   if (server_stream->sd->max_wire_version >= WRITE_COMMAND_WIRE_VERSION) {
+   if (server_stream->sd->max_wire_version >= WIRE_VERSION_WRITE_CMD) {
       _mongoc_write_command (command, client, server_stream, database,
                              collection, write_concern, offset,
                              result, &result->error);
@@ -1042,14 +1050,77 @@ _mongoc_write_result_append_upsert (mongoc_write_result_t *result,
 }
 
 
+static void
+_append_write_concern_err_legacy (mongoc_write_result_t *result,
+                                  const char            *err,
+                                  int32_t                code)
+{
+   char str[16];
+   const char *key;
+   size_t keylen;
+   bson_t write_concern_error;
+
+   /* don't set result->failed; record the write concern err and continue */
+   keylen = bson_uint32_to_string (result->n_writeConcernErrors, &key,
+                                   str, sizeof str);
+
+   BSON_ASSERT (keylen < INT_MAX);
+
+   bson_append_document_begin (&result->writeConcernErrors, key, (int) keylen,
+                               &write_concern_error);
+
+   bson_append_int32 (&write_concern_error, "code", 4, code);
+   bson_append_utf8 (&write_concern_error, "errmsg", 6, err, -1);
+   bson_append_document_end (&result->writeConcernErrors, &write_concern_error);
+   result->n_writeConcernErrors++;
+}
+
+
+static void
+_append_write_err_legacy (mongoc_write_result_t *result,
+                          const char            *err,
+                          int32_t                code,
+                          uint32_t               offset)
+{
+   bson_t holder, write_errors, child;
+   bson_iter_t iter;
+
+   BSON_ASSERT (code > 0);
+
+   bson_set_error (&result->error, MONGOC_ERROR_COLLECTION, (uint32_t) code,
+                   "%s", err);
+
+   /* stop processing, if result->ordered */
+   result->failed = true;
+
+   bson_init (&holder);
+   bson_append_array_begin (&holder, "0", 1, &write_errors);
+   bson_append_document_begin (&write_errors, "0", 1, &child);
+
+   /* set error's "index" to 0; fixed up in _mongoc_write_result_merge_arrays */
+   bson_append_int32 (&child, "index", 5, 0);
+   bson_append_int32 (&child, "code", 4, code);
+   bson_append_utf8 (&child, "errmsg", 6, err, -1);
+   bson_append_document_end (&write_errors, &child);
+   bson_append_array_end (&holder, &write_errors);
+   bson_iter_init (&iter, &holder);
+   bson_iter_next (&iter);
+
+   _mongoc_write_result_merge_arrays (offset, result,
+                                      &result->writeErrors, &iter);
+
+   bson_destroy (&holder);
+}
+
+
 void
 _mongoc_write_result_merge_legacy (mongoc_write_result_t  *result,  /* IN */
                                    mongoc_write_command_t *command, /* IN */
                                    const bson_t           *reply,   /* IN */
+                                   mongoc_error_code_t     default_code,
                                    uint32_t                offset)
 {
    const bson_value_t *value;
-   bson_t holder, write_errors, child;
    bson_iter_t iter;
    bson_iter_t ar;
    bson_iter_t citer;
@@ -1078,28 +1149,26 @@ _mongoc_write_result_merge_legacy (mongoc_write_result_t  *result,  /* IN */
       code = bson_iter_int32 (&iter);
    }
 
-   if (code && err) {
-      bson_set_error (&result->error,
-                      MONGOC_ERROR_COLLECTION,
-                      code,
-                      "%s", err);
-      result->failed = true;
+   if (code || err) {
+      if (!err) {
+         err = "unknown error";
+      }
 
-      bson_init(&holder);
-      bson_append_array_begin(&holder, "0", 1, &write_errors);
-      bson_append_document_begin(&write_errors, "0", 1, &child);
-      bson_append_int32(&child, "index", 5, 0);
-      bson_append_int32(&child, "code", 4, code);
-      bson_append_utf8(&child, "errmsg", 6, err, -1);
-      bson_append_document_end(&write_errors, &child);
-      bson_append_array_end(&holder, &write_errors);
-      bson_iter_init(&iter, &holder);
-      bson_iter_next(&iter);
+      if (bson_iter_init_find (&iter, reply, "wtimeout") &&
+          bson_iter_as_bool (&iter)) {
 
-      _mongoc_write_result_merge_arrays (offset, result, &result->writeErrors,
-                                         &iter);
+         if (!code) {
+            code = (int32_t) MONGOC_ERROR_WRITE_CONCERN_ERROR;
+         }
 
-      bson_destroy(&holder);
+         _append_write_concern_err_legacy (result, err, code);
+      } else {
+         if (!code) {
+            code = (int32_t) default_code;
+         }
+
+         _append_write_err_legacy (result, err, code, offset);
+      }
    }
 
    switch (command->type) {
