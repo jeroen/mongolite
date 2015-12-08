@@ -3,7 +3,8 @@ Type: Package
 Title: Fast and Simple MongoDB Client for R
 Description: High-level, high-performance MongoDB client based on libmongoc and
     jsonlite. Includes support for aggregation, indexing, map-reduce, streaming,
-    SSL encryption and SASL authentication.
+    SSL encryption and SASL authentication. The vignette gives a brief overview
+    of the available methods in the package.
 Version: 0.6.9000
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen.ooms@stat.ucla.edu", role = c("aut", "cre")),
