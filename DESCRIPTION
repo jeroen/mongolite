@@ -5,7 +5,7 @@ Description: High-level, high-performance MongoDB client based on libmongoc and
     jsonlite. Includes support for aggregation, indexing, map-reduce, streaming,
     SSL encryption and SASL authentication. The vignette gives a brief overview
     of the available methods in the package.
-Version: 0.7
+Version: 0.7.9000
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen.ooms@stat.ucla.edu", role = c("aut", "cre")),
     person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver")

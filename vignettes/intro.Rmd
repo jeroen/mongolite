@@ -149,7 +149,7 @@ Stream large bulk samples from [openweathermap](http://openweathermap.org/curren
 
 ```r
 m <- mongo("weather", verbose = FALSE)
-stream_in(gzcon(url("http://78.46.48.103/sample/daily_14.json.gz")), handler = function(df){
+stream_in(gzcon(url("http://bulk.openweathermap.org/sample/daily_14.json.gz")), handler = function(df){
   m$insert(df)  
 }, pagesize = 50)
 
