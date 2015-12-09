@@ -1,4 +1,5 @@
 0.7
+ - Added mongolabs example that runs with R CMD check
  - Update mongo-c-driver to 1.3.0
  - Link to OpenSSL 1.0.2d on Windows
  - Backport workaround GNU extension in mongoc-util-private.h:34
