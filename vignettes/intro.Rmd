@@ -139,6 +139,7 @@ m$count()
 
 # Import. Note the 'location' column is actually an array!
 zips <- m$find()
+m$drop()
 ```
 
 Nested data

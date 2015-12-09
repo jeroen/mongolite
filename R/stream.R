@@ -72,12 +72,17 @@ mongo_export <- function(col, con = stdout(), verbose = FALSE){
     on.exit(close(con))
   }
   cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
-  count = 0;
-  while(length(json <- mongo_cursor_next_json(cur, n = 100))){
-    writeLines(json, con)
-    count <- count + length(json);
+  count <- 0;
+  pagesize <- 100
+  repeat {
+    page <- mongo_cursor_next_json(cur, n = pagesize)
+    size <- length(page)
+    writeLines(page, con)
+    count <- count + size;
     if(verbose)
       cat("\rExported", count, "lines...")
+    if(size < pagesize)
+      break
   }
   if(verbose) cat("\rDone! Exported a total of", count, "lines.\n")
   invisible(count)
@@ -91,12 +96,17 @@ mongo_dump <- function(col, con = stdout(), verbose = FALSE){
     on.exit(close(con))
   }
   cur <- mongo_collection_find(col, query = '{}', fields = '{}')
-  count <- 0;
-  while(length(bson <- mongo_cursor_next_bsonlist(cur, n = 100))){
-    lapply(bson, writeBin, con = con)
-    count <- count + length(bson);
+  count <- 0
+  pagesize <- 100
+  repeat {
+    page <- mongo_cursor_next_bsonlist(cur, n = pagesize)
+    size <- length(page)
+    lapply(page, writeBin, con = con)
+    count <- count + size
     if(verbose)
       cat("\rExported", count, "lines...")
+    if(size < pagesize)
+      break
   }
   if(verbose) cat("\rDone! Exported a total of", count, "lines.\n")
   invisible(count)
