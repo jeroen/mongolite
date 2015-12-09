@@ -1,6 +1,6 @@
-PKG_CPPFLAGS = -I../windows/openssl-1.0.1j/include -I../windows/libsasl-2.1.26/include -DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION -I. -Iyajl -Ibson -Imongoc
+PKG_CPPFLAGS = -I../windows/openssl-1.0.2d/include -I../windows/libsasl-2.1.26/include -DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION -I. -Iyajl -Ibson -Imongoc
 PKG_CFLAGS = -DMONGOC_HAVE_SASL_CLIENT_DONE -Wno-unused-value -Wno-implicit-function-declaration
-PKG_LIBS = -L. -L../windows/openssl-1.0.1j/lib${R_ARCH} -L../windows/libsasl-2.1.26/lib${R_ARCH} -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2 -lcrypto -lgdi32 -lcrypt32 -lws2_32
+PKG_LIBS = -L. -L../windows/openssl-1.0.2d/lib${R_ARCH} -L../windows/libsasl-2.1.26/lib${R_ARCH} -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2 -lcrypto -lgdi32 -lcrypt32 -lws2_32
 
 LIBMONGOC = $(wildcard mongoc/*.c win32/*.c)
 LIBBSON = $(wildcard bson/*.c)
