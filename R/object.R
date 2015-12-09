@@ -1,8 +1,10 @@
 #' MongoDB client
 #'
-#' Connect to a MongoDB collection.
+#' Connect to a MongoDB collection. Returns a \code{mongo} connection object with
+#' methods listed below.
 #'
 #' @export
+#' @aliases mongolite
 #' @param url address of the mongodb server in mongo connection string
 #' \href{http://docs.mongodb.org/manual/reference/connection-string/}{URI format}.
 #' @param db name of database

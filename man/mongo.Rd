@@ -2,6 +2,7 @@
 % Please edit documentation in R/object.R
 \name{mongo}
 \alias{mongo}
+\alias{mongolite}
 \title{MongoDB client}
 \usage{
 mongo(collection = "test", db = "test", url = "mongodb://localhost",
@@ -22,7 +23,8 @@ Upon success returns a pointer to a collection on the server.
 The collection can be interfaced using the methods described below.
 }
 \description{
-Connect to a MongoDB collection.
+Connect to a MongoDB collection. Returns a \code{mongo} connection object with
+methods listed below.
 }
 \section{Methods}{
 
