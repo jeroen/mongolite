@@ -21,6 +21,15 @@
 #define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 1
 #endif
 
+/* Fix for snow leopard */
+#ifdef __APPLE__
+#include <Availability.h>
+#ifndef MAC_OS_X_VERSION_10_8
+#undef BSON_HAVE_STRNLEN
+#define BSON_HAVE_STRNLEN 0
+#endif
+#endif
+
 /*
  * Define to 1 if you have stdbool.h
  */
