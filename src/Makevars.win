@@ -16,14 +16,14 @@ winlibs:
 	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
 
 libyajl.a: $(LIBYAJL:.c=.o)
-	ar rcs libyajl.a yajl/*.o
+	$(AR) rcs libyajl.a yajl/*.o
 
 libbson.a: $(LIBBSON:.c=.o)
-	ar rcs libbson.a bson/*.o
+	$(AR) rcs libbson.a bson/*.o
 
 libmongoc.a: $(LIBMONGOC:.c=.o)
 ifeq "$(WIN)" "64"
-	ar rcs libmongoc.a mongoc/*.o
+	$(AR) rcs libmongoc.a mongoc/*.o
 else
-	ar rcs libmongoc.a mongoc/*.o win32/*.o
+	$(AR) rcs libmongoc.a mongoc/*.o win32/*.o
 endif
