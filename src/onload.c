@@ -7,7 +7,7 @@ mongoc_log_level_t max_log_level = MONGOC_LOG_LEVEL_INFO;
 SEXP R_mongo_log_level(SEXP level){
   if(level != R_NilValue)
     max_log_level = asInteger(level);
-  return ScalarInteger(max_log_level);
+  return mkString(mongoc_log_level_str(max_log_level));
 }
 
 void mongolite_log_handler (mongoc_log_level_t event, const char *log_domain, const char *message, void *user_data) {
