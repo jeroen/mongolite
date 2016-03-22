@@ -1,8 +1,19 @@
 #include <R_ext/Rdynload.h>
 #include <mongolite.h>
 
-void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain, const char *message, void *user_data) {
-  switch (log_level) {
+//default
+mongoc_log_level_t max_log_level = MONGOC_LOG_LEVEL_INFO;
+
+SEXP R_mongo_log_level(SEXP level){
+  if(level != R_NilValue)
+    max_log_level = asInteger(level);
+  return ScalarInteger(max_log_level);
+}
+
+void mongolite_log_handler (mongoc_log_level_t event, const char *log_domain, const char *message, void *user_data) {
+  if(event > max_log_level)
+    return;
+  switch (event) {
   case MONGOC_LOG_LEVEL_ERROR: //0
     stop(message);
     break;
@@ -12,10 +23,10 @@ void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain
     break;
   case MONGOC_LOG_LEVEL_MESSAGE: //3
   case MONGOC_LOG_LEVEL_INFO: //4
-    Rprintf("Mongo Message: %s\n", message);
-    break;
   case MONGOC_LOG_LEVEL_DEBUG: //5
   case MONGOC_LOG_LEVEL_TRACE: //6
+    Rprintf("Mongo Message: %s\n", message);
+    break;
   default:
     break;
   }
