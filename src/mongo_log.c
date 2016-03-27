@@ -15,11 +15,9 @@ void mongolite_log_handler (mongoc_log_level_t event, const char *log_domain, co
     return;
   switch (event) {
   case MONGOC_LOG_LEVEL_ERROR: //0
-    stop(message);
-    break;
   case MONGOC_LOG_LEVEL_CRITICAL: //1
   case MONGOC_LOG_LEVEL_WARNING: //2
-    Rf_warningcall_immediate(R_NilValue, message);
+    Rf_warningcall_immediate(R_NilValue, "[%s] %s", mongoc_log_level_str(event), message);
     break;
   case MONGOC_LOG_LEVEL_MESSAGE: //3
   case MONGOC_LOG_LEVEL_INFO: //4
