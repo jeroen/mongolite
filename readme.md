@@ -24,7 +24,7 @@ About the R package:
 
 ## Hello World
 
-There are three download interfaces (memory, disk and streaming). Always start by setting up a request handle:
+Mongolite allows for inserting and retrieving data frames:
 
 ```r
 # Init connection to local mongod
@@ -45,7 +45,11 @@ out <- m$find('{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
 # Compare
 nrow(out)
 nrow(subset(diamonds, cut == "Premium" & price < 1000))
+```
 
+More advanced features include map reduce:
+
+```r
 # Cross-table
 tbl <- m$mapreduce(
   map = "function(){emit({cut:this.cut, color:this.color}, 1)}",
@@ -53,7 +57,11 @@ tbl <- m$mapreduce(
 )
 # Same as:
 data.frame(with(diamonds, table(cut, color)))
+```
 
+Importing and exporting json or bson data:
+
+```r
 # Stream jsonlines into a connection
 tmp <- tempfile()
 m$export(file(tmp))
