@@ -90,7 +90,7 @@
 #'   \item{\code{import(con, bson = FALSE)}}{Stream import data in \href{http://ndjson.org}{jsonlines} format from a \code{\link{connection}}, similar to the \href{http://docs.mongodb.org/v2.6/reference/mongoimport/}{mongoimport} utility. Alternatively when \code{bson = TRUE} it assumes the binary \href{http://bsonspec.org/faq.html}{bson} format (similar to \href{http://docs.mongodb.org/manual/reference/program/mongorestore/}{mongorestore}).}
 #'   \item{\code{index(add = NULL, remove = NULL)}}{List, add, or remove indexes from the collection. The \code{add} and \code{remove} arguments can either be a field name or json object. Returns a dataframe with current indexes.}
 #'   \item{\code{info()}}{Returns collection statistics and server info (if available).}
-#'   \item{\code{insert(data, pagesize = 1000)}}{Insert a dataframe into the collection.}
+#'   \item{\code{insert(data, pagesize = 1000, ...)}}{Insert rows into the collection. Argument 'data' must be a data-frame, named list (for single record) or character vector with json strings (one string for each row). For lists and data frames, arguments in \code{...} get passed to \code{\link[jsonlite:toJSON]{jsonlite::toJSON}}}
 #'   \item{\code{iterate(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0)}}{Runs query and returns iterator to read single records one-by-one.}
 #'   \item{\code{mapreduce(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function. Set \code{out} to a string to store results in a collection instead of returning.}
 #'   \item{\code{remove(query = "{}", multiple = FALSE)}}{Remove record(s) matching \code{query} from the collection.}
@@ -114,8 +114,25 @@ mongo <- function(collection = "test", db = "test", url = "mongodb://localhost",
 
 mongo_object <- function(col, client, verbose){
   self <- local({
-    insert <- function(data, pagesize = 1000)
-      mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose)
+    insert <- function(data, pagesize = 1000, ...){
+      if(is.data.frame(data)){
+        mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose, ...)
+      } else if(is.list(data) && !is.null(names(data))){
+        mongo_collection_insert_page(col, jsonlite::toJSON(data, ...))
+      } else if(is.character(data)) {
+        if(!all(is_valid <- vapply(data, jsonlite::validate, logical(1), USE.NAMES = FALSE))){
+          el <- paste(which(!is_valid), collapse = ", ")
+          stop("Argument 'data' is a character vector but contains invalid JSON at elements: ", el)
+        }
+        if(!all(is_valid <- grepl("^\\s*\\{", data))){
+          el <- paste(which(!is_valid), collapse = ", ")
+          stop("Argument 'data' contains strings that are not JSON objects at elements: ", el)
+        }
+         mongo_collection_insert_page(col, data)
+      } else {
+        stop("Argument 'data' must be a data frame, named list, or character vector with json strings")
+      }
+    }
 
     find <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0, handler = NULL, pagesize = 1000){
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)

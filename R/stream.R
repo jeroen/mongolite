@@ -1,14 +1,24 @@
 #' @importFrom jsonlite toJSON fromJSON
-mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE){
+mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
   stopifnot(is.data.frame(data))
   stopifnot(is.numeric(pagesize))
   stopifnot(is.logical(verbose))
   FUN <- function(x){
-    mongo_collection_insert_page(mongo, jsonlite:::asJSON(x, digits = 9,
-      POSIXt = "mongo", raw = "mongo", collapse = FALSE))
+    mongo_collection_insert_page(mongo, mongo_to_json(x, collapse = FALSE, ...))
   }
-  jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
-  TRUE
+  out <- jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
+  list(
+    nInserted = sum(vapply(out, `[[`, numeric(1), 'nInserted')),
+    nMatched = sum(vapply(out, `[[`, numeric(1), 'nMatched')),
+    nRemoved = sum(vapply(out, `[[`, numeric(1), 'nRemoved')),
+    nUpserted = sum(vapply(out, `[[`, numeric(1), 'nUpserted')),
+    writeErrors = do.call(c, lapply(out, `[[`, 'writeErrors'))
+  )
+}
+
+# Different defaults than jsonlite
+mongo_to_json <- function(x, digits = 9, POSIXt = "mongo", raw = "mongo", ...){
+  jsonlite:::asJSON(x, digits = digits, POSIXt = POSIXt, raw = raw, ...)
 }
 
 mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE){
