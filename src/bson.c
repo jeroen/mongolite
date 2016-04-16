@@ -60,8 +60,10 @@ SEXP ConvertValue(bson_iter_t* iter){
   } else if(BSON_ITER_HOLDS_DATE_TIME(iter)){
     return ConvertDate(iter);
   } else if(BSON_ITER_HOLDS_OID(iter)){
-    //not sure if this casting works
-    return mkRaw((unsigned char *) bson_iter_oid(iter), 12);
+    const bson_oid_t *val = bson_iter_oid(iter);
+    char str[25];
+    bson_oid_to_string(val, str);
+    return mkString(str);
   } else if(BSON_ITER_HOLDS_ARRAY(iter)){
     bson_iter_t child1;
     bson_iter_t child2;
