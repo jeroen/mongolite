@@ -1,18 +1,21 @@
 language: r
+sudo: false
+cache: packages
 
-warnings_are_errors: true
-#r_check_revdep: true
-
-apt_packages:
-  - libssl-dev
-  - libsasl2-dev
-  - libicu-dev
+addons:
+  apt:
+    packages:
+    - libssl-dev
+    - libsasl2-dev
+    - libicu-dev
 
 r_github_packages:
-  - jeroenooms/stringi
   - jeroenooms/jsonlite
 
 notifications:
   email:
     on_success: change
     on_failure: change
+
+after_success:
+  - Rscript -e 'covr::codecov(type = "all")'
