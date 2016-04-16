@@ -24,7 +24,32 @@ About the R package:
 
 ## Hello World
 
-Mongolite allows for inserting and retrieving data frames:
+
+Example using a public test server
+
+```r
+# Connect to mongolabs
+con <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
+
+# Wipe collection
+if(con$count() > 0) 
+  con$drop()
+  
+# Insert some data
+con$insert(mtcars)
+stopifnot(con$count() == nrow(mtcars))
+
+# Query data
+mydata <- con$find()
+stopifnot(all.equal(mydata, mtcars))
+con$drop()
+
+# Automatically disconnect when connection is removed
+rm(con)
+gc()
+```
+
+Insert/retrieve data from your local mongodb server:
 
 ```r
 # Init connection to local mongod
