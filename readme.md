@@ -80,7 +80,7 @@ Binary packages for __OS-X__ or __Windows__ can be installed directly from CRAN:
 install.packages("mongolite")
 ```
 
-Installation from source on Linux requires `openssl` and `libsasl2`. On __Debian__ or __Ubuntu__ use [libssl-dev](https://packages.debian.org/testing/libssl-dev) and [libsasl2-dev](https://packages.debian.org/testing/libsasl2-dev):
+Installation from source on Linux requires `openssl` and `Cyrus SASL` (**not** `GNU sasl`). On __Debian__ or __Ubuntu__ use [libssl-dev](https://packages.debian.org/testing/libssl-dev) and [libsasl2-dev](https://packages.debian.org/testing/libsasl2-dev):
 
 ```
 sudo apt-get install -y libssl-dev libsasl2-dev
@@ -92,7 +92,7 @@ On __Fedora__, __CentOS or RHEL__ use [openssl-devel](https://apps.fedoraproject
 sudo yum install openssl-devel cyrus-sasl-devel
 ````
 
-On __OS-X__ libsasl2 is included with the system so only [openssl](https://github.com/Homebrew/homebrew-core/blob/master/Formula/openssl.rb) is needed.
+On __OS-X__ sasl is included with the system so only [openssl](https://github.com/Homebrew/homebrew-core/blob/master/Formula/openssl.rb) is needed.
 
 ```
 brew install openssl
