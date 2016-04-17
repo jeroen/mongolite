@@ -52,6 +52,11 @@ print.mongo_collection <- function(x, ...){
   cat(paste0("Mongo collection '", mongo_collection_name(x), "'\n"));
 }
 
+#' @useDynLib mongolite R_null_ptr
+null_ptr <- function(x){
+  .Call(R_null_ptr, x)
+}
+
 #setGeneric("serialize")
 #setOldClass("bson")
 #setMethod("serialize", "bson", function(object, connection){

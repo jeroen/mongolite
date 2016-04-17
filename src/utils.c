@@ -1,6 +1,10 @@
 #include <mongolite.h>
 #include <stdio.h>
 
+SEXP R_null_ptr(SEXP ptr){
+  return ScalarLogical(!R_ExternalPtrAddr(ptr));
+}
+
 SEXP mkStringUTF8(const char* str){
   SEXP out = PROTECT(allocVector(STRSXP, 1));
   SET_STRING_ELT(out, 0, Rf_mkCharCE(str, CE_UTF8));
