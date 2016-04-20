@@ -40,7 +40,7 @@ SEXP R_mongo_collection_count (SEXP ptr, SEXP ptr_query){
   bson_t *query = r2bson(ptr_query);
 
   bson_error_t err;
-  int64_t count = mongoc_collection_count (col, MONGOC_QUERY_NONE, query, 0, 0, NULL, &err);
+  int64_t count = mongoc_collection_count (col, MONGOC_QUERY_NO_CURSOR_TIMEOUT, query, 0, 0, NULL, &err);
   if (count < 0)
     stop(err.message);
 
@@ -161,7 +161,7 @@ SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_fields, SEXP
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *query = r2bson(ptr_query);
   bson_t *fields = r2bson(ptr_fields);
-  mongoc_query_flags_t flags = MONGOC_QUERY_NONE;
+  mongoc_query_flags_t flags = MONGOC_QUERY_NO_CURSOR_TIMEOUT;
 
   mongoc_cursor_t *c = mongoc_collection_find(col, flags, asInteger(skip), asInteger(limit),
     0, query, fields, NULL);
@@ -222,7 +222,7 @@ SEXP R_mongo_collection_rename(SEXP ptr_col, SEXP db, SEXP name) {
 SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline) {
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *pipeline = r2bson(ptr_pipeline);
-  mongoc_cursor_t *c = mongoc_collection_aggregate (col, MONGOC_QUERY_NONE, pipeline, NULL, NULL);
+  mongoc_cursor_t *c = mongoc_collection_aggregate (col, MONGOC_QUERY_NO_CURSOR_TIMEOUT, pipeline, NULL, NULL);
   if(!c)
     stop("Error executing pipeline.");
   return cursor2r(c);
@@ -231,7 +231,7 @@ SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline) {
 SEXP R_mongo_collection_command(SEXP ptr_col, SEXP ptr_cmd){
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *cmd = r2bson(ptr_cmd);
-  mongoc_cursor_t *c = mongoc_collection_command(col, MONGOC_QUERY_NONE, 0, 0, 0, cmd, NULL, NULL);
+  mongoc_cursor_t *c = mongoc_collection_command(col, MONGOC_QUERY_NO_CURSOR_TIMEOUT, 0, 0, 0, cmd, NULL, NULL);
   if(!c)
     stop("Error executing command.");
   return cursor2r(c);
