@@ -11,6 +11,8 @@ install:
   ps: Bootstrap
 
 # Adapt as necessary starting from here
+services:
+  - mongodb
 
 build_script:
   - travis-tool.sh install_deps

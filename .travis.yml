@@ -2,6 +2,9 @@ language: r
 sudo: false
 cache: packages
 
+# needed for covr
+services: mongodb
+
 addons:
   apt:
     packages:
