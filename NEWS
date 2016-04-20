@@ -3,6 +3,7 @@
  - Make 'mongo' objects serializable (persistent between R sessions)
  - New function 'mongo_log_level' to set debugging verbosity
  - Add 'list' and 'json' support for m$insert()
+ - Disabled query timeout for count(), find(), aggregate()
  - Update mongo-c-driver to 1.3.5
 
 0.8.1
