@@ -47,14 +47,16 @@ mongo_collection_rename <- function(col, db = NULL, name){
 }
 
 #' @useDynLib mongolite R_mongo_collection_count
-mongo_collection_count <- function(col, query = "{}"){
-  .Call(R_mongo_collection_count, col, bson_or_json(query))
+mongo_collection_count <- function(col, query = "{}", no_timeout = FALSE){
+  stopifnot(is.logical(no_timeout))
+  .Call(R_mongo_collection_count, col, bson_or_json(query), no_timeout)
 }
 
 #' @useDynLib mongolite R_mongo_collection_command_simple
-mongo_collection_command_simple <- function(col, command = "{}"){
+mongo_collection_command_simple <- function(col, command = "{}", no_timeout = FALSE){
   #returns data
-  .Call(R_mongo_collection_command_simple, col, bson_or_json(command))
+  stopifnot(is.logical(no_timeout))
+  .Call(R_mongo_collection_command_simple, col, bson_or_json(command), no_timeout)
 }
 
 #' @useDynLib mongolite R_mongo_collection_command
@@ -113,18 +115,20 @@ mongo_collection_remove <- function(col, doc, multiple = TRUE){
 }
 
 #' @useDynLib mongolite R_mongo_collection_find
-mongo_collection_find <- function(col, query = '{}', sort = '{}', fields = '{"_id":0}', skip = 0, limit = 0){
+mongo_collection_find <- function(col, query = '{}', sort = '{}', fields = '{"_id":0}', skip = 0, limit = 0, no_timeout = FALSE){
   stopifnot(is.numeric(skip))
   stopifnot(is.numeric(limit))
+  stopifnot(is.logical(no_timeout))
   if(!identical(sort, '{}') && !("$query" %in% names(fromJSON(query)))){
     query <- paste('{"$query":', query, ', "$orderby":', sort, '}')
   }
-  .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(fields), skip, limit)
+  .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(fields), skip, limit, no_timeout)
 }
 
 #' @useDynLib mongolite R_mongo_collection_aggregate
-mongo_collection_aggregate <- function(col, pipeline = '{}'){
-  .Call(R_mongo_collection_aggregate, col, bson_or_json(pipeline))
+mongo_collection_aggregate <- function(col, pipeline = '{}', no_timeout = FALSE){
+  stopifnot(is.logical(no_timeout))
+  .Call(R_mongo_collection_aggregate, col, bson_or_json(pipeline), no_timeout)
 }
 
 #' @useDynLib mongolite R_mongo_cursor_more
