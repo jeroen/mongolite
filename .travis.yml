@@ -22,4 +22,4 @@ notifications:
     on_failure: change
 
 after_success:
-  - Rscript -e 'covr::codecov(quiet = FALSE, type = "all")'
+  - Rscript -e 'covr::codecov(type = "all")'
