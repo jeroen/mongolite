@@ -22,4 +22,5 @@ notifications:
     on_failure: change
 
 after_success:
+  - mkdir -p ~/.R/ && echo "CFLAGS += -coverage -O0" > ~/.R/Makevars
   - Rscript -e 'covr::codecov(type = "all")'
