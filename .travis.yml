@@ -14,7 +14,7 @@ addons:
 
 r_github_packages:
   - jeroenooms/jsonlite
-  - jimhester/covr
+  - jeroenooms/covr
 
 notifications:
   email:
