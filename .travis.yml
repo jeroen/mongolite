@@ -22,5 +22,4 @@ notifications:
     on_failure: change
 
 after_success:
-  - mkdir -p ~/.R/ && echo "CFLAGS += -fprofile-arcs -ftest-coverage" > ~/.R/Makevars && "LDFLAGS += -fprofile-arcs"
-  - Rscript -e 'covr::codecov(type = "all")'
+  - Rscript -e 'covr::codecov(quiet = FALSE, type = "all")'
