@@ -1,5 +1,6 @@
 0.8.2
  - BREAKING: ObjectID fields are now returned as strings instead of raw vectors
+ - Use new 'force_decimal' option in jsonlite to keep real numbers as doubles
  - Make 'mongo' objects serializable (persistent between R sessions)
  - New function 'mongo_log_level' to set debugging verbosity
  - Add 'list' and 'json' support for m$insert()
