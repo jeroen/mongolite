@@ -12,7 +12,7 @@ Authors@R: c(
   )
 Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
 Imports:
-    jsonlite (>= 0.9.21)
+    jsonlite (>= 0.9.22)
 License: Apache License 2.0
 URL: https://github.com/jeroenooms/mongolite#readme https://github.com/mongodb/mongo-c-driver
 BugReports: https://github.com/jeroenooms/mongolite/issues
