@@ -1,4 +1,5 @@
 0.8.2
+ - Fix configure script for new Homebrew
  - BREAKING: ObjectID fields are now returned as strings instead of raw vectors
  - Use new 'always_decimal' option in jsonlite to keep real numbers as doubles
  - Make 'mongo' objects serializable (persistent between R sessions)
