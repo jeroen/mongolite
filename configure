@@ -96,14 +96,17 @@ fi
 cd src
 ${CC} ./tests/has_sasl_client_done.c ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} ${PKG_LIBS} >/dev/null 2>&1 && HAS_SASL_CLIENT_DONE=1;
 if [ $HAS_SASL_CLIENT_DONE ]; then
-  echo "SASL has sasl_client_done"
+  echo "SASL has sasl_client_done."
   PKG_CFLAGS="$PKG_CFLAGS -DMONGOC_HAVE_SASL_CLIENT_DONE"
 else
-  echo "SASL does not have sasl_client_done"
+  echo "SASL does not have sasl_client_done."
 fi
 
 # Use optimization unless UBSAN is enabled
-if [[ $CC != *"undefined"* ]]; then
+if [[ $CC == *"undefined"* ]]; then
+  echo "Found UBSAN. Not using extra alignment."
+else
+  echo "Compiling with extra alignment."
   PKG_CFLAGS="$PKG_CFLAGS -DBSON_EXTRA_ALIGN"
 fi
 
