@@ -27,7 +27,7 @@ SEXP R_mongo_restore(SEXP con, SEXP ptr_col, SEXP verb) {
   bool verbose = asLogical(verb);
   mongoc_collection_t *col = r2col(ptr_col);
   bson_reader_t *reader = bson_reader_new_from_handle(&con, bson_reader_feed, bson_reader_finalize);
-  mongoc_bulk_operation_t *bulk;
+  mongoc_bulk_operation_t *bulk = NULL;
 
   const bson_t *b;
   bson_error_t err;
