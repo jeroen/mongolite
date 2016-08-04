@@ -102,6 +102,11 @@ else
   echo "SASL does not have sasl_client_done"
 fi
 
+# Use optimization unless UBSAN is enabled
+if [[ $CC != *"undefined"* ]]; then
+  PKG_CFLAGS="$PKG_CFLAGS -DBSON_EXTRA_ALIGN"
+fi
+
 # Write to Makevars
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" Makevars.in > Makevars
 
