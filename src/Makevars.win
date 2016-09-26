@@ -59,7 +59,7 @@ libyajl.a: $(LIBYAJL)
 libbson.a: $(LIBBSON)
 	$(AR) rcs libbson.a $(LIBBSON)
 
-libmongoc.a: $(LIBMONGOC:.c=.o)
+libmongoc.a: $(LIBMONGOC:.c=.o) win32/ipv6.o
 ifeq "$(WIN)" "64"
 	$(AR) rcs libmongoc.a mongoc/*.o
 else
