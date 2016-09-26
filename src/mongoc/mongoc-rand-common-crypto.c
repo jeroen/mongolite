@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 MongoDB, Inc.
+ * Copyright 2016 MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,33 +16,30 @@
 
 #include "mongoc-config.h"
 
-#ifdef MONGOC_ENABLE_SSL
+#ifdef MONGOC_ENABLE_CRYPTO_COMMON_CRYPTO
 
 #include "mongoc-rand.h"
 #include "mongoc-rand-private.h"
 
 #include "mongoc.h"
+#include <Security/Security.h>
+/* rumour has it this wasn't in standard Security.h in ~10.8 */
+#include <Security/SecRandom.h>
 
-#include <openssl/rand.h>
-
-int _mongoc_rand_bytes(uint8_t * buf, int num) {
-    return RAND_bytes(buf, num);
-}
-
-int _mongoc_pseudo_rand_bytes(uint8_t * buf, int num) {
-    return RAND_pseudo_bytes(buf, num);
+int _mongoc_rand_bytes(uint8_t *buf, int num) {
+	return !SecRandomCopyBytes(kSecRandomDefault, num, buf);
 }
 
 void mongoc_rand_seed(const void* buf, int num) {
-    RAND_seed(buf, num);
+	/* No such thing in Common Crypto */
 }
 
 void mongoc_rand_add(const void* buf, int num, double entropy) {
-    RAND_add(buf, num, entropy);
+	/* No such thing in Common Crypto */
 }
 
 int mongoc_rand_status(void) {
-    return RAND_status();
+    return 1;
 }
 
 #endif

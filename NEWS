@@ -1,4 +1,5 @@
-0.8.2
+0.9
+ - Update mongo-c-driver to 1.4.1 (Still use OpenSSL on all platforms)
  - Fix configure script for new Homebrew
  - BREAKING: ObjectID fields are now returned as strings instead of raw vectors
  - Use new 'always_decimal' option in jsonlite to keep real numbers as doubles
@@ -6,7 +7,6 @@
  - New function 'mongo_log_level' to set debugging verbosity
  - Add 'list' and 'json' support for m$insert()
  - Add option to disable query timeout for count(), find(), aggregate()
- - Update mongo-c-driver to 1.3.5
  - Disable DBSON_EXTRA_ALIGN when UBSAN is enabled
 
 0.8.1
