@@ -104,7 +104,8 @@ mongo <- function(collection = "test", db = "test", url = "mongodb://localhost",
 
   # workaround for missing 'mongoc_client_get_default_database'
   if(missing(db) || is.null(db)){
-    if(!is.null(url_db <- mongo_get_default_database(client)))
+    url_db <- mongo_get_default_database(client)
+    if(length(url_db) && nchar(url_db))
       db <- url_db
   }
 
