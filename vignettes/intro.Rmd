@@ -122,7 +122,7 @@ m$count()
 Combine with jsonlite
 ---------------------
 
-Example data with zipcodes from [mongolite tutorial](http://docs.mongodb.org/manual/tutorial/aggregation-zip-code-data-set/). This dataset has an `_id` column so you cannot insert it more than once.
+Example data with zipcodes from [MongoDB tutorial](http://docs.mongodb.org/manual/tutorial/aggregation-zip-code-data-set/). This dataset has an `_id` column so you cannot insert it more than once.
 
 ```r
 library(jsonlite)
