@@ -19,6 +19,7 @@
 #define BSON_HAVE_STRNLEN 1
 #define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 1
 #define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 1
+#define BSON_HAVE_SYSCALL_TID 1
 #endif
 
 /* Fix for snow leopard */
@@ -45,10 +46,10 @@
 */
 #ifdef _WIN32
 #define BSON_OS 2
+#undef BSON_HAVE_SYSCALL_TID
 #else
 #define BSON_OS 1
 #define BSON_HAVE_CLOCK_GETTIME 1
-#define BSON_HAVE_SYSCALL_TID 1
 #endif
 
 /*
