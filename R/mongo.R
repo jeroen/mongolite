@@ -13,9 +13,17 @@ mongo_get_default_database <- function(client){
 }
 
 #' @useDynLib mongolite R_mongo_client_new
-mongo_client_new <- function(uri = "mongodb://localhost"){
+mongo_client_new <- function(uri = "mongodb://localhost", pem_file = NULL, pem_pwd = NULL,
+    ca_file = NULL, ca_dir = NULL, crl_file = NULL, weak_cert_validation = NULL){
+
   stopifnot(is.character(uri))
-  .Call(R_mongo_client_new, uri)
+  pem_file <- as.character(pem_file)
+  pem_pwd <- as.character(pem_pwd)
+  ca_file <- as.character(ca_file)
+  ca_dir <- as.character(ca_dir)
+  crl_file <- as.character(crl_file)
+  weak_cert_validation <- as.character(weak_cert_validation)
+  .Call(R_mongo_client_new, uri, pem_file, pem_pwd, ca_file, ca_dir, crl_file, weak_cert_validation)
 }
 
 #' @useDynLib mongolite R_mongo_client_server_status
