@@ -10,3 +10,4 @@ src/*.a
 src/*.o
 src/Makevars
 inst/doc
+windows

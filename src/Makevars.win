@@ -1,29 +1,74 @@
-PKG_CPPFLAGS = -I../windows/openssl-1.0.2d/include -I../windows/libsasl-2.1.26/include -DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION -I. -Iyajl -Ibson -Imongoc
-PKG_CFLAGS = -DMONGOC_HAVE_SASL_CLIENT_DONE -Wno-unused-value -Wno-implicit-function-declaration
-PKG_LIBS = -L. -L../windows/openssl-1.0.2d/lib${R_ARCH} -L../windows/libsasl-2.1.26/lib${R_ARCH} -lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2 -lcrypto -lgdi32 -lcrypt32 -lws2_32
+PKG_CPPFLAGS = \
+	-I../windows/openssl-1.0.2h/include \
+	-I../windows/libsasl-2.1.26/include \
+	-I. -Iyajl -Ibson -Imongoc \
+	-DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION \
+	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
 
-LIBMONGOC = $(wildcard mongoc/*.c win32/*.c)
-LIBBSON = $(wildcard bson/*.c)
-LIBYAJL = $(wildcard yajl/*.c)
+PKG_CFLAGS = \
+	-Wno-unused-value -Wno-implicit-function-declaration
 
-all: winlibs libyajl.a libbson.a libmongoc.a
+PKG_LIBS = \
+	-L. -L../windows/openssl-1.0.2h/lib${R_ARCH} \
+	-L../windows/libsasl-2.1.26/lib${R_ARCH} \
+	-lmongoc -lbson -lssl -lyajl -lcrypto -lsasl2 \
+	-lcrypto -lgdi32 -lcrypt32 -lws2_32
 
-clean:
-	rm -f *.o mongoc/*.o bson/*.o yajl/*.o win32/*.o
-	rm -f *.a
+LIBYAJL=yajl/yajl_alloc.o yajl/yajl_buf.o yajl/yajl_encode.o yajl/yajl_gen.o \
+	yajl/yajl_lex.o yajl/yajl_parser.o yajl/yajl_tree.o yajl/yajl_version.o \
+	yajl/yajl.o
 
-winlibs:
-	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
+LIBBSON=bson/bcon.o bson/bson-atomic.o bson/bson-clock.o bson/bson-context.o \
+	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
+	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
+	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
+	bson/bson-value.o bson/bson-version-functions.o bson/bson-writer.o bson/bson.o
 
-libyajl.a: $(LIBYAJL:.c=.o)
-	$(AR) rcs libyajl.a yajl/*.o
+LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
+	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
+	mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
+	mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor-cursorid.o \
+	mongoc/mongoc-cursor-transform.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
+	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
+	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
+	mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
+	mongoc/mongoc-matcher-op.o mongoc/mongoc-matcher.o mongoc/mongoc-queue.o \
+	mongoc/mongoc-rand-openssl.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
+	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
+	mongoc/mongoc-stream-buffered.o mongoc/mongoc-stream-file.o \
+	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
+	mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
+	mongoc/mongoc-write-command.o mongoc/mongoc-write-concern.o \
+	mongoc/mongoc-async.o mongoc/mongoc-async-cmd.o mongoc/mongoc-host-list.o \
+	mongoc/mongoc-opcode.o mongoc/mongoc-server-description.o mongoc/mongoc-set.o \
+	mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
+	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o \
+	mongoc/mongoc-memcmp.o mongoc/mongoc-server-stream.o mongoc/mongoc-find-and-modify.o \
+	mongoc/mongoc-read-concern.o mongoc/mongoc-openssl.o mongoc/mongoc-apm.o \
+	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-openssl.o \
+	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o
 
-libbson.a: $(LIBBSON:.c=.o)
-	$(AR) rcs libbson.a bson/*.o
+# For development only
+all: clean winlibs
+
+$(SHLIB): libyajl.a libbson.a libmongoc.a
+
+libyajl.a: $(LIBYAJL)
+	$(AR) rcs libyajl.a $(LIBYAJL)
+
+libbson.a: $(LIBBSON)
+	$(AR) rcs libbson.a $(LIBBSON)
 
 libmongoc.a: $(LIBMONGOC:.c=.o)
 ifeq "$(WIN)" "64"
 	$(AR) rcs libmongoc.a mongoc/*.o
 else
-	$(AR) rcs libmongoc.a mongoc/*.o win32/*.o
+	$(AR) rcs libmongoc.a mongoc/*.o win32/ipv6.o
 endif
+
+winlibs:
+	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
+
+clean:
+	rm -f $(LIBYAJL) $(LIBBSON) $(LIBMONGOC) $(SHLIB) $(OBJECTS)
+	rm -f libyajl.a libbson.a libmongoc.a win32/ipv6.o
