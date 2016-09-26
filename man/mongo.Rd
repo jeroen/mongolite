@@ -6,7 +6,7 @@
 \title{MongoDB client}
 \usage{
 mongo(collection = "test", db = "test", url = "mongodb://localhost",
-  verbose = TRUE)
+  verbose = TRUE, options = ssl_options())
 }
 \arguments{
 \item{collection}{name of collection}
@@ -17,6 +17,8 @@ mongo(collection = "test", db = "test", url = "mongodb://localhost",
 \href{http://docs.mongodb.org/manual/reference/connection-string/}{URI format}.}
 
 \item{verbose}{emit some more output}
+
+\item{options}{additional connection options such as SSL keys/certs.}
 }
 \value{
 Upon success returns a pointer to a collection on the server.

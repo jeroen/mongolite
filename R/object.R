@@ -10,6 +10,7 @@
 #' @param db name of database
 #' @param collection name of collection
 #' @param verbose emit some more output
+#' @param options additional connection options such as SSL keys/certs.
 #' @return Upon success returns a pointer to a collection on the server.
 #' The collection can be interfaced using the methods described below.
 #' @examples # Connect to mongolabs
@@ -98,8 +99,8 @@
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
 #' }
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
-mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = TRUE){
-  client <- mongo_client_new(url)
+mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = TRUE, options = ssl_options()){
+  client <- do.call(mongo_client_new, c(list(uri = url), options))
 
   # workaround for missing 'mongoc_client_get_default_database'
   if(missing(db) || is.null(db)){

@@ -1,5 +1,7 @@
 #include <mongolite.h>
 
+#define safe_string(x) x ? Rf_mkString(x) : R_NilValue
+
 SEXP R_mongo_client_server_status(SEXP ptr_client) {
   bson_t reply;
   bson_error_t err;
@@ -9,6 +11,16 @@ SEXP R_mongo_client_server_status(SEXP ptr_client) {
   return bson2list(&reply);
 }
 
+SEXP R_default_ssl_options(){
+  const mongoc_ssl_opt_t *opt = mongoc_ssl_opt_get_default();
+  return Rf_list5(
+    safe_string(opt->pem_file),
+    safe_string(opt->ca_file),
+    safe_string(opt->ca_dir),
+    safe_string(opt->crl_file),
+    ScalarLogical(opt->weak_cert_validation)
+  );
+}
 
 SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_file,
                         SEXP ca_dir, SEXP crl_file, SEXP weak_cert_validation) {
