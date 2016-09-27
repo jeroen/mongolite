@@ -117,6 +117,8 @@ mongo <- function(collection = "test", db = "test", url = "mongodb://localhost",
     url = url,
     options = options
   )
+  if(length(options$pem_file) && file.exists(options$pem_file))
+    attr(orig, "pemdata") <- readLines(options$pem_file)
   mongo_object(col, client, verbose = verbose, orig)
 }
 
@@ -125,6 +127,10 @@ mongo_object <- function(col, client, verbose, orig){
   check_col <- function(){
     if(null_ptr(col)){
       message("Connection lost. Trying to reconnect with mongo...")
+      if(length(orig$options$pem_file) && !file.exists(orig$options$pem_file)){
+        orig$options$pem_file <- tempfile()
+        writeLines(attr(orig, "pemdata"), orig$options$pem_file)
+      }
       newclient <-  do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
       newcol <- mongo_collection_new(newclient, orig$name, orig$db)
       mongo_collection_command_simple(newcol, '{"ping":1}')
