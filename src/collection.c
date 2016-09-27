@@ -226,15 +226,16 @@ SEXP R_mongo_collection_rename(SEXP ptr_col, SEXP db, SEXP name) {
   return ScalarLogical(1);
 }
 
-SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline, SEXP no_timeout) {
+SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline, SEXP ptr_options, SEXP no_timeout) {
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *pipeline = r2bson(ptr_pipeline);
+  bson_t *options = r2bson(ptr_options);
 
   mongoc_query_flags_t flags = MONGOC_QUERY_NONE;
   if(asLogical(no_timeout))
     flags += MONGOC_QUERY_NO_CURSOR_TIMEOUT;
 
-  mongoc_cursor_t *c = mongoc_collection_aggregate (col, flags, pipeline, NULL, NULL);
+  mongoc_cursor_t *c = mongoc_collection_aggregate (col, flags, pipeline, options, NULL);
   if(!c)
     stop("Error executing pipeline.");
   return cursor2r(c);

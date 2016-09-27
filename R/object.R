@@ -193,9 +193,9 @@ mongo_object <- function(col, client, verbose, orig){
       }
     }
 
-    aggregate <- function(pipeline = '{}', handler = NULL, pagesize = 1000){
+    aggregate <- function(pipeline = '{}', options = '{"allowDiskUse":true}', handler = NULL, pagesize = 1000){
       check_col()
-      cur <- mongo_collection_aggregate(col, pipeline)
+      cur <- mongo_collection_aggregate(col, pipeline, options)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 

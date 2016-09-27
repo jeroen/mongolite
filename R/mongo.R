@@ -134,9 +134,9 @@ mongo_collection_find <- function(col, query = '{}', sort = '{}', fields = '{"_i
 }
 
 #' @useDynLib mongolite R_mongo_collection_aggregate
-mongo_collection_aggregate <- function(col, pipeline = '{}', no_timeout = FALSE){
+mongo_collection_aggregate <- function(col, pipeline = '{}', options = '{}', no_timeout = FALSE){
   stopifnot(is.logical(no_timeout))
-  .Call(R_mongo_collection_aggregate, col, bson_or_json(pipeline), no_timeout)
+  .Call(R_mongo_collection_aggregate, col, bson_or_json(pipeline), bson_or_json(options), no_timeout)
 }
 
 #' @useDynLib mongolite R_mongo_cursor_more
