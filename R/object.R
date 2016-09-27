@@ -114,7 +114,8 @@ mongo <- function(collection = "test", db = "test", url = "mongodb://localhost",
   orig <- list(
     name = tryCatch(mongo_collection_name(col), error = function(e){collection}),
     db = db,
-    url = url
+    url = url,
+    options = options
   )
   mongo_object(col, client, verbose = verbose, orig)
 }
@@ -123,10 +124,12 @@ mongo_object <- function(col, client, verbose, orig){
   # Check if the ptr has died and automatically recreate it
   check_col <- function(){
     if(null_ptr(col)){
-      if(verbose)
-        message("Trying to reconnect with mongo...")
-      client <<- mongo_client_new(orig$url)
-      col <<- mongo_collection_new(client, orig$name, orig$db)
+      message("Connection lost. Trying to reconnect with mongo...")
+      newclient <-  do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
+      newcol <- mongo_collection_new(newclient, orig$name, orig$db)
+      mongo_collection_command_simple(newcol, '{"ping":1}')
+      client <<- newclient
+      col <<- newcol
     }
   }
 
