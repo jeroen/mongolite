@@ -1,4 +1,7 @@
-0.9
+0.9.1
+ - Add 'ssl_options()' funtion and 'options' parameter for SSL connections
+
+0.9.0
  - Update mongo-c-driver to 1.4.1 (Still use OpenSSL on all platforms)
  - Fix configure script for new Homebrew
  - BREAKING: ObjectID fields are now returned as strings instead of raw vectors
