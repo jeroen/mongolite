@@ -11,8 +11,10 @@ matrix:
       sudo: false
     - os: linux
       dist: trusty
-      env: R_CODECOV=true
       r_check_args: '--use-valgrind'
+    - os: linux
+      dist: trusty
+      env: R_CODECOV=true
     - os: osx
       osx_image: xcode8
       brew_packages: openssl
