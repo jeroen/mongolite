@@ -13,7 +13,7 @@ mongo_get_default_database <- function(client){
 }
 
 #' @useDynLib mongolite R_mongo_client_new
-mongo_client_new <- function(uri = "mongodb://localhost", pem_file = NULL, pem_pwd = NULL,
+mongo_client_new <- function(uri = "mongodb://127.0.0.1", pem_file = NULL, pem_pwd = NULL,
     ca_file = NULL, ca_dir = NULL, crl_file = NULL, weak_cert_validation = NULL){
 
   stopifnot(is.character(uri))
