@@ -18,6 +18,9 @@
 #ifndef MONGOC_CONFIG_H
 #define MONGOC_CONFIG_H
 
+/* R packages should be portable */
+#define MONGOC_USER_SET_CFLAGS ""
+#define MONGOC_USER_SET_LDFLAGS ""
 
 /*
  * MONGOC_ENABLE_SSL_SECURE_CHANNEL is set from configure to determine if we are
