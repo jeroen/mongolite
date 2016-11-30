@@ -127,10 +127,15 @@ mongo_collection_find <- function(col, query = '{}', sort = '{}', fields = '{"_i
   stopifnot(is.numeric(skip))
   stopifnot(is.numeric(limit))
   stopifnot(is.logical(no_timeout))
-  if(!identical(sort, '{}') && !("$query" %in% names(fromJSON(query)))){
-    query <- paste('{"$query":', query, ', "$orderby":', sort, '}')
-  }
-  .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(fields), skip, limit, no_timeout)
+  opts = list(
+    projection = structure(fields, class = "json"),
+    sort = structure(sort, class = "json"),
+    skip = skip,
+    limit = limit,
+    noCursorTimeout = no_timeout
+  )
+  opts <- jsonlite::toJSON(opts, auto_unbox = TRUE, json_verbatim = TRUE)
+  .Call(R_mongo_collection_find, col, bson_or_json(query), bson_or_json(opts))
 }
 
 #' @useDynLib mongolite R_mongo_collection_aggregate

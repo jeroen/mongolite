@@ -41,7 +41,7 @@ PKG_LIBS=-L. -lmongoc -lbson -lyajl @libs@
 
 # For development only
 #PKG_CFLAGS= -Wall -pedantic
-all: clean
+# all: clean
 
 $(SHLIB): libyajl.a libbson.a libmongoc.a
 

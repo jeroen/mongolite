@@ -161,18 +161,12 @@ SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP all){
   return ScalarLogical(1);
 }
 
-SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_fields, SEXP skip, SEXP limit, SEXP no_timeout) {
+SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_opts) {
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *query = r2bson(ptr_query);
-  bson_t *fields = r2bson(ptr_fields);
-
-  mongoc_query_flags_t flags = MONGOC_QUERY_NONE;
-  if(asLogical(no_timeout))
-    flags += MONGOC_QUERY_NO_CURSOR_TIMEOUT;
-
-  mongoc_cursor_t *c = mongoc_collection_find(col, flags, asInteger(skip), asInteger(limit),
-    0, query, fields, NULL);
-
+  bson_t *opts = r2bson(ptr_opts);
+  mongoc_read_prefs_t * readpref = mongoc_read_prefs_new(MONGOC_READ_PRIMARY);
+  mongoc_cursor_t *c = mongoc_collection_find_with_opts(col, query, opts, readpref);
   return cursor2r(c);
 }
 
