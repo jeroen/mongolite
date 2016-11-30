@@ -14,24 +14,32 @@
  * limitations under the License.
  */
 
+#ifndef MONGOC_LIBRESSL_PRIVATE_H
+#define MONGOC_LIBRESSL_PRIVATE_H
 
-#ifndef MONGOC_METADATA_H
-#define MONGOC_METADATA_H
-
-#if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
-# error "Only <mongoc.h> can be included directly."
+#if !defined (MONGOC_COMPILATION)
+#error "Only <mongoc.h> can be included directly."
 #endif
 
 #include <bson.h>
 
+#include "mongoc-ssl.h"
+#include "mongoc-stream-tls-libressl-private.h"
+#include <tls.h>
+
+
 BSON_BEGIN_DECLS
 
-#define MONGOC_METADATA_APPNAME_MAX 128
 
-bool mongoc_handshake_data_append (const char *driver_name,
-                                   const char *driver_version,
-                                   const char *platform);
+bool
+mongoc_libressl_setup_ca          (mongoc_stream_tls_libressl_t         *libressl,
+                                   mongoc_ssl_opt_t                     *opt);
+bool
+mongoc_libressl_setup_certificate (mongoc_stream_tls_libressl_t         *libressl,
+                                   mongoc_ssl_opt_t                     *opt);
 
 BSON_END_DECLS
 
-#endif
+
+#endif /* MONGOC_LIBRESSL_PRIVATE_H */
+
