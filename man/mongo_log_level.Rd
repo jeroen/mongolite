@@ -18,7 +18,7 @@ Default is 4 (info). Function always returns the current logging level.
 \details{
 The \code{level} parameter sets the \emph{maximum} level of
 events which will be shown by R.
-See the \href{http://api.mongodb.org/c/current/logging.html}{mongoc manual}
+See the \href{http://mongoc.org/libmongoc/current/logging.html}{mongoc manual}
 for details. Possible values for level are:
 
 \preformatted{
