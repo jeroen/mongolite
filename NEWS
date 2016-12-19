@@ -1,3 +1,6 @@
+0.9.2
+ - Upgrade mongo-c-driver to upstream 1.5.1
+
 0.9.1
  - Add 'ssl_options()' funtion and 'options' parameter for SSL connections
 
