@@ -5,6 +5,7 @@ SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertValue(bson_iter_t* iter);
 SEXP ConvertBinary(bson_iter_t* iter);
 SEXP ConvertDate(bson_iter_t* iter);
+SEXP ConvertDec128(bson_iter_t* iter);
 
 SEXP R_json_to_bson(SEXP json){
   bson_t *b;
@@ -59,6 +60,8 @@ SEXP ConvertValue(bson_iter_t* iter){
     return ConvertBinary(iter);
   } else if(BSON_ITER_HOLDS_DATE_TIME(iter)){
     return ConvertDate(iter);
+  } else if(BSON_ITER_HOLDS_DECIMAL128(iter)){
+    return ConvertDec128(iter);
   } else if(BSON_ITER_HOLDS_OID(iter)){
     const bson_oid_t *val = bson_iter_oid(iter);
     char str[25];
@@ -87,6 +90,14 @@ SEXP ConvertDate(bson_iter_t* iter){
   setAttrib(list, R_NamesSymbol, mkString("$date"));
   UNPROTECT(1);
   return list;
+}
+
+SEXP ConvertDec128(bson_iter_t* iter){
+  bson_decimal128_t decimal128;
+  bson_iter_decimal128(iter, &decimal128);
+  char string[BSON_DECIMAL128_STRING];
+  bson_decimal128_to_string (&decimal128, string);
+  return mkString(string);
 }
 
 SEXP ConvertBinary(bson_iter_t* iter){
