@@ -1,0 +1,3 @@
+[submodule "tests/testthat/specifications"]
+	path = tests/testthat/specifications
+	url = https://github.com/mongodb/specifications

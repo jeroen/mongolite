@@ -6,6 +6,7 @@ SEXP ConvertValue(bson_iter_t* iter);
 SEXP ConvertBinary(bson_iter_t* iter);
 SEXP ConvertDate(bson_iter_t* iter);
 SEXP ConvertDec128(bson_iter_t* iter);
+SEXP ConvertTimestamp(bson_iter_t* iter);
 
 SEXP R_json_to_bson(SEXP json){
   bson_t *b;
@@ -43,7 +44,8 @@ SEXP R_bson_to_list(SEXP ptr) {
 
 SEXP ConvertValue(bson_iter_t* iter){
   if(BSON_ITER_HOLDS_INT32(iter)){
-    return ScalarInteger(bson_iter_int32(iter));
+    int res = bson_iter_int32(iter);
+    return res == NA_INTEGER ? ScalarReal(res) : ScalarInteger(res);
   } else if(BSON_ITER_HOLDS_NULL(iter)){
     return R_NilValue;
   } else if(BSON_ITER_HOLDS_BOOL(iter)){
@@ -62,6 +64,8 @@ SEXP ConvertValue(bson_iter_t* iter){
     return ConvertDate(iter);
   } else if(BSON_ITER_HOLDS_DECIMAL128(iter)){
     return ConvertDec128(iter);
+  } else if(BSON_ITER_HOLDS_TIMESTAMP(iter)){
+    return ConvertTimestamp(iter);
   } else if(BSON_ITER_HOLDS_OID(iter)){
     const bson_oid_t *val = bson_iter_oid(iter);
     char str[25];
@@ -82,6 +86,21 @@ SEXP ConvertValue(bson_iter_t* iter){
   } else {
     stop("Unimplemented BSON type %d\n", bson_iter_type(iter));
   }
+}
+
+SEXP ConvertTimestamp(bson_iter_t* iter){
+  uint32_t timestamp;
+  uint32_t increment;
+  bson_iter_timestamp(iter, &timestamp, &increment);
+  SEXP res = PROTECT(allocVector(VECSXP, 2));
+  SET_VECTOR_ELT(res, 0, ScalarInteger(timestamp));
+  SET_VECTOR_ELT(res, 1, ScalarInteger(increment));
+  SEXP names = PROTECT(allocVector(STRSXP, 2));
+  SET_STRING_ELT(names, 0, Rf_mkChar("t"));
+  SET_STRING_ELT(names, 1, Rf_mkChar("i"));
+  setAttrib(res, R_NamesSymbol, names);
+  UNPROTECT(2);
+  return res;
 }
 
 SEXP ConvertDate(bson_iter_t* iter){
@@ -111,7 +130,7 @@ SEXP ConvertBinary(bson_iter_t* iter){
   for (int i = 0; i < binary_len; i++) {
     RAW(out)[i] = binary[i];
   }
-  setAttrib(out, install("subtype"), ScalarInteger(subtype));
+  setAttrib(out, install("type"), ScalarRaw(subtype));
   UNPROTECT(1);
   return out;
 
