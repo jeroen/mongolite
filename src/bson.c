@@ -116,7 +116,7 @@ SEXP ConvertDec128(bson_iter_t* iter){
   bson_iter_decimal128(iter, &decimal128);
   char string[BSON_DECIMAL128_STRING];
   bson_decimal128_to_string (&decimal128, string);
-  return mkString(string);
+  return ScalarReal(strtod(string, NULL));
 }
 
 SEXP ConvertBinary(bson_iter_t* iter){

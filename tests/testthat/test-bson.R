@@ -6,7 +6,7 @@ roundtrip_json <- function(testdata){
   on.exit(try(m$drop(), silent = TRUE))
   m$insert(extjson)
   out <- m$find()
-  jsonlite::toJSON(out, raw = "mongo", collapse = FALSE, always_decimal = TRUE, digits = NA)
+  jsonlite::toJSON(out, raw = "mongo", collapse = FALSE, always_decimal = TRUE, digits = NA, na = "string")
 }
 
 roundtrip_test <- function(testdata){
