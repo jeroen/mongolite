@@ -74,12 +74,14 @@ test_that("roundtrip timestamp", {
 })
 
 test_that("roundtrip dec128", {
-  testdata <- jsonlite::fromJSON("specifications/source/bson-decimal128/tests/decimal128-1.json")
-  json <- roundtrip_json(testdata)
-  for(i in seq_along(json)){
-    x <- jsonlite::fromJSON(testdata$valid$extjson[i], simplifyVector = FALSE)$d[["$numberDecimal"]]
-    y <- jsonlite::fromJSON(json[i], simplifyVector = FALSE)$d
-    expect_equal(parse_number(x), parse_number(y))
+  for(i in 1:5){
+    testdata <- jsonlite::fromJSON(sprintf("specifications/source/bson-decimal128/tests/decimal128-%d.json", i))
+    json <- roundtrip_json(testdata)
+    for(i in seq_along(json)){
+      x <- jsonlite::fromJSON(testdata$valid$extjson[i], simplifyVector = FALSE)$d[["$numberDecimal"]]
+      y <- jsonlite::fromJSON(json[i], simplifyVector = FALSE)$d
+      expect_equal(parse_number(x), parse_number(y))
+    }
   }
 })
 
