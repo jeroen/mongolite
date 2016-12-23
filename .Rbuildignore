@@ -12,3 +12,4 @@
 ^src/features\.mk$
 ^src/Makevars$
 ^appveyor\.yml$
+^tests/testthat/specifications$
