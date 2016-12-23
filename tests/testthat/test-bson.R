@@ -18,6 +18,12 @@ roundtrip_test <- function(testdata){
   }
 }
 
+parse_number <- function(x){
+  x <- sub("nan", "NaN", tolower(x), ignore.case = TRUE)
+  x <- sub("inf[a-z]*", "Inf", x, ignore.case = TRUE)
+  eval(parse(text=x))
+}
+
 test_that("roundtrip array", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/array.json")
   roundtrip_test(testdata)
@@ -73,8 +79,7 @@ test_that("roundtrip dec128", {
   for(i in seq_along(json)){
     x <- jsonlite::fromJSON(testdata$valid$extjson[i], simplifyVector = FALSE)$d[["$numberDecimal"]]
     y <- jsonlite::fromJSON(json[i], simplifyVector = FALSE)$d
-    x <- tolower(x)
-    y <- tolower(y)
-    #expect_equal(x, y)
+    expect_equal(parse_number(x), parse_number(y))
   }
 })
+
