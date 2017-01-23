@@ -157,6 +157,8 @@ mongo_object <- function(col, client, verbose, orig){
           stop("Argument 'data' contains strings that are not JSON objects at elements: ", el)
         }
          mongo_collection_insert_page(col, data)
+      } else if(inherits(data, "bson")){
+        mongo_collection_insert_bson(col, data)
       } else {
         stop("Argument 'data' must be a data frame, named list, or character vector with json strings")
       }
