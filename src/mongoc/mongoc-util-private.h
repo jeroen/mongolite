@@ -35,7 +35,7 @@
 #endif
 
 /* Suppress CWE-252 ("Unchecked return value") warnings for things we can't deal with */
-#if defined(__GNUC__) && __GNUC__ >= 99999
+#if defined(__GNUC__) && __GNUC__ >= 4
 # define _ignore_value(x) (({ __typeof__ (x) __x = (x); (void) __x; }))
 #else
 # define _ignore_value(x) ((void) (x))
