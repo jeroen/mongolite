@@ -20,7 +20,6 @@ BugReports: https://github.com/jeroenooms/mongolite/issues
 SystemRequirements: OpenSSL, Cyrus SASL (aka libsasl2)
 Suggests:
     knitr,
-    rmarkdown,
-    sodium
+    rmarkdown
 VignetteBuilder: knitr
 RoxygenNote: 5.0.1.9000

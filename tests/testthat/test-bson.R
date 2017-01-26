@@ -22,13 +22,13 @@ iterate_test <- function(testdata){
   m2 <- mongo(verbose = FALSE)
   on.exit(try(m2$drop(), silent = TRUE))
   lapply(testdata$valid$bson, function(bin){
-    bson <- mongolite:::raw_to_bson(sodium:::hex2bin(bin))
+    bson <- mongolite:::raw_to_bson(mongolite:::hex2bin(bin))
     m2$insert(bson)
   })
   # start iterator
   iter <- m2$iterate()
   invisible(lapply(testdata$valid$bson, function(bin){
-    bson <- mongolite:::raw_to_bson(sodium:::hex2bin(bin))
+    bson <- mongolite:::raw_to_bson(mongolite:::hex2bin(bin))
     list <- mongolite:::bson_to_list(bson)
     expect_equal(list, iter$one())
   }))
