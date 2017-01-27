@@ -12,4 +12,5 @@
 ^src/features\.mk$
 ^src/Makevars$
 ^appveyor\.yml$
-^tests/testthat/specifications$
+^tests/testthat/specifications/(?!source).*$
+^tests/testthat/specifications/source/(?!bson-).*$
