@@ -26,4 +26,3 @@ be the same PEM file as cert.}
 \description{
 Set SSL options to connect to the server.
 }
-

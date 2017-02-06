@@ -130,6 +130,16 @@
 #  undef MONGOC_ENABLE_SASL
 #endif
 
+/*
+ * MONGOC_ENABLE_SASL_CYRUS is set from configure to determine if we are
+ * compiled with Cyrus SASL support.
+ */
+#define MONGOC_ENABLE_SASL_CYRUS 1
+
+#if MONGOC_ENABLE_SASL_CYRUS != 1
+#  undef MONGOC_ENABLE_SASL_CYRUS
+#endif
+
 
 /*
  * MONGOC_HAVE_WEAK_SYMBOLS is set from configure to determine if the
@@ -153,6 +163,18 @@
 #if MONGOC_NO_AUTOMATIC_GLOBALS != 1
 #  undef MONGOC_NO_AUTOMATIC_GLOBALS
 #endif
+
+
+/*
+ * MONGOC_HAVE_SOCKLEN is set from configure to determine if we
+ * need to emulate the type.
+ */
+#define MONGOC_HAVE_SOCKLEN 1
+
+#if MONGOC_HAVE_SOCKLEN != 1
+#  undef MONGOC_HAVE_SOCKLEN
+#endif
+
 
 /*
  * Define to support experimental future mongoc features

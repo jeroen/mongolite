@@ -34,4 +34,3 @@ for details. Possible values for level are:
 Note that setting it below 2 will suppress important warnings and setting
 below 1 will suppress critical erros (not recommended). The default is 4.
 }
-
