@@ -25,4 +25,4 @@ Suggests:
     ggplot2,
     nycflights13
 VignetteBuilder: knitr
-RoxygenNote: 5.0.1.9000
+Remotes: jeroenooms/jsonlite
