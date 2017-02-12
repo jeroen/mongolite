@@ -146,7 +146,7 @@ mongo_object <- function(col, client, verbose, orig){
       if(is.data.frame(data)){
         mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose, ...)
       } else if(is.list(data) && !is.null(names(data))){
-        mongo_collection_insert_page(col, jsonlite::toJSON(data, ...))
+        mongo_collection_insert_page(col, mongolite:::mongo_to_json(data, ...))
       } else if(is.character(data)) {
         if(!all(is_valid <- vapply(data, jsonlite::validate, logical(1), USE.NAMES = FALSE))){
           el <- paste(which(!is_valid), collapse = ", ")

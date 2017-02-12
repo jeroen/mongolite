@@ -18,7 +18,7 @@ mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
 
 # Different defaults than jsonlite
 mongo_to_json <- function(x, digits = 9, POSIXt = "mongo", raw = "mongo", always_decimal = TRUE, ...){
-  jsonlite:::asJSON(x, digits = digits, POSIXt = POSIXt, raw = raw, always_decimal = always_decimal, ...)
+  jsonlite:::asJSON(x, digits = digits, POSIXt = POSIXt, raw = raw, always_decimal = always_decimal, no_dots = TRUE, ...)
 }
 
 mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE){
