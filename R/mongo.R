@@ -113,7 +113,8 @@ mongo_collection_update <- function(col, selector, update, upsert = TRUE, multip
 
 #' @useDynLib mongolite R_mongo_collection_insert_page
 mongo_collection_insert_page <- function(col, json, stop_on_error = TRUE){
-  .Call(R_mongo_collection_insert_page, col, json, stop_on_error)
+  out <- .Call(R_mongo_collection_insert_page, col, json, stop_on_error)
+  structure(out, class = c("miniprint"))
 }
 
 #' @useDynLib mongolite R_mongo_collection_remove

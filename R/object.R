@@ -99,7 +99,7 @@
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
 #' }
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
-mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = TRUE, options = ssl_options()){
+mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
   client <- do.call(mongo_client_new, c(list(uri = url), options))
 
   # workaround for missing 'mongoc_client_get_default_database'
@@ -280,6 +280,11 @@ print.mongo <- function(x, ...){
   print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(x)$col), "'"))
 }
 
+#' @export
+print.miniprint <- function(x, ...){
+  str(unclass(x))
+  invisible(x)
+}
 
 #setGeneric("serialize")
 #setOldClass("jeroen")

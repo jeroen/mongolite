@@ -6,7 +6,7 @@
 \title{MongoDB client}
 \usage{
 mongo(collection = "test", db = "test", url = "mongodb://localhost",
-  verbose = TRUE, options = ssl_options())
+  verbose = FALSE, options = ssl_options())
 }
 \arguments{
 \item{collection}{name of collection}
