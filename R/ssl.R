@@ -36,5 +36,5 @@ ssl_options <- function(cert = NULL, key = cert, ca = NULL, ca_dir = NULL,
     opts$crl_file = normalizePath(crl_file, mustWork = TRUE)
   if(length(weak_cert_validation))
     opts$weak_cert_validation = weak_cert_validation
-  return(opts)
+  structure(as.list(opts), class = "miniprint")
 }
