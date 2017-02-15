@@ -35,6 +35,8 @@ ssl_options <- function(cert = NULL, key = cert, ca = NULL, ca_dir = NULL,
     opts$ca_dir = normalizePath(ca_dir, mustWork = TRUE)
   if(length(crl_file))
     opts$crl_file = normalizePath(crl_file, mustWork = TRUE)
+  if(length(allow_invalid_hostname))
+    opts$allow_invalid_hostname = allow_invalid_hostname
   if(length(weak_cert_validation))
     opts$weak_cert_validation = weak_cert_validation
   structure(as.list(opts), class = "miniprint")
