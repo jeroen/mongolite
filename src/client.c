@@ -13,17 +13,19 @@ SEXP R_mongo_client_server_status(SEXP ptr_client) {
 
 SEXP R_default_ssl_options(){
   const mongoc_ssl_opt_t *opt = mongoc_ssl_opt_get_default();
-  return Rf_list5(
-    safe_string(opt->pem_file),
-    safe_string(opt->ca_file),
-    safe_string(opt->ca_dir),
-    safe_string(opt->crl_file),
-    ScalarLogical(opt->weak_cert_validation)
-  );
+  SEXP out = PROTECT(allocVector(VECSXP, 6));
+  SET_VECTOR_ELT(out, 0, safe_string(opt->pem_file));
+  SET_VECTOR_ELT(out, 1, safe_string(opt->ca_file));
+  SET_VECTOR_ELT(out, 2, safe_string(opt->ca_dir));
+  SET_VECTOR_ELT(out, 3, safe_string(opt->crl_file));
+  SET_VECTOR_ELT(out, 4, ScalarLogical(opt->weak_cert_validation));
+  SET_VECTOR_ELT(out, 5, ScalarLogical(opt->weak_cert_validation));
+  UNPROTECT(1);
+  return out;
 }
 
 SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_file,
-                        SEXP ca_dir, SEXP crl_file, SEXP weak_cert_validation) {
+                        SEXP ca_dir, SEXP crl_file, SEXP allow_invalid_hostname, SEXP weak_cert_validation) {
   mongoc_client_t *client = mongoc_client_new (translateCharUTF8(asChar(uri_string)));
   if(!client)
     stop("Invalid uri_string. Try mongodb://localhost");
@@ -41,6 +43,8 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
     opt.ca_dir = CHAR(STRING_ELT(ca_dir, 0));
   if(Rf_length(crl_file))
     opt.crl_file = CHAR(STRING_ELT(crl_file, 0));
+  if(Rf_length(allow_invalid_hostname))
+    opt.allow_invalid_hostname = asLogical(allow_invalid_hostname);
   if(Rf_length(weak_cert_validation))
     opt.weak_cert_validation = asLogical(weak_cert_validation);
 

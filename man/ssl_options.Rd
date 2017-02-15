@@ -5,7 +5,8 @@
 \title{SSL options}
 \usage{
 ssl_options(cert = NULL, key = cert, ca = NULL, ca_dir = NULL,
-  crl_file = NULL, weak_cert_validation = NULL)
+  crl_file = NULL, allow_invalid_hostname = NULL,
+  weak_cert_validation = NULL)
 }
 \arguments{
 \item{cert}{path to PEM file with client certificate, or a certificate as
@@ -20,6 +21,8 @@ be the same PEM file as cert.}
 \item{ca_dir}{directory with CA files}
 
 \item{crl_file}{file with revokations}
+
+\item{allow_invalid_hostname}{do not verify hostname on server certificate}
 
 \item{weak_cert_validation}{disable certificate verification}
 }
