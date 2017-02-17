@@ -1,18 +1,12 @@
 PKG_CPPFLAGS = \
-	-I../windows/openssl-1.0.2h/include \
-	-I../windows/libsasl-2.1.26/include \
 	-I. -Ijsonsl -Ibson -Imongoc \
-	-DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION \
-	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
+	-DLIBSASL_EXPORTS -DBSON_COMPILATION -DMONGOC_COMPILATION
 
 PKG_CFLAGS = \
 	-Wno-unused-value -Wno-implicit-function-declaration
 
 PKG_LIBS = \
-	-L. -L../windows/openssl-1.0.2h/lib${R_ARCH} \
-	-L../windows/libsasl-2.1.26/lib${R_ARCH} \
-	-lmongoc -lbson -lssl -lcrypto -lsasl2 \
-	-lcrypto -lgdi32 -lcrypt32 -lws2_32
+	-L. -lmongoc -lbson -lcrypt32 -lws2_32 -lbcrypt -lsecur32
 
 LIBBSON=bson/bcon.o bson/bson-atomic.o bson/bson-clock.o bson/bson-context.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
@@ -30,8 +24,8 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
 	mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
 	mongoc/mongoc-matcher-op.o mongoc/mongoc-matcher.o mongoc/mongoc-queue.o \
-	mongoc/mongoc-rand-openssl.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
-	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
+	mongoc/mongoc-rand-cng.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
+	mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
 	mongoc/mongoc-stream-buffered.o mongoc/mongoc-stream-file.o \
 	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
 	mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
@@ -41,29 +35,27 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
 	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o \
 	mongoc/mongoc-memcmp.o mongoc/mongoc-server-stream.o mongoc/mongoc-find-and-modify.o \
-	mongoc/mongoc-read-concern.o mongoc/mongoc-openssl.o mongoc/mongoc-apm.o \
-	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-openssl.o mongoc/mongoc-handshake.o \
-	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o \
-	mongoc/mongoc-cluster-sasl.o
+	mongoc/mongoc-read-concern.o mongoc/mongoc-apm.o \
+	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-cng.o mongoc/mongoc-handshake.o \
+	mongoc/mongoc-stream-tls-secure-channel.o mongoc/mongoc-stream-tls-secure-transport.o \
+	mongoc/mongoc-secure-channel.o mongoc/mongoc-cluster-sspi.o mongoc/mongoc-cluster-sasl.o \
+	mongoc/mongoc-sspi.o
 
 # For development only
-all: clean winlibs
+all: clean
 
 $(SHLIB): libbson.a libmongoc.a
 
 libbson.a: $(LIBBSON)
 	$(AR) rcs libbson.a $(LIBBSON)
 
-libmongoc.a: $(LIBMONGOC:.c=.o) win32/ipv6.o
+libmongoc.a: $(LIBMONGOC) win32/ipv6.o
 ifeq "$(WIN)" "64"
 	$(AR) rcs libmongoc.a mongoc/*.o
 else
 	$(AR) rcs libmongoc.a mongoc/*.o win32/ipv6.o
 endif
 
-winlibs:
-	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
-
 clean:
-	rm -f $(LIBBSON) $(LIBMONGOC) $(SHLIB) $(OBJECTS)
+	rm -f $(SHLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)
 	rm -f libbson.a libmongoc.a win32/ipv6.o

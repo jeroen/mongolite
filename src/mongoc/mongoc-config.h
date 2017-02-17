@@ -26,10 +26,13 @@
  * MONGOC_ENABLE_SSL_SECURE_CHANNEL is set from configure to determine if we are
  * compiled with Native SSL support on Windows
  */
-#define MONGOC_ENABLE_SSL_SECURE_CHANNEL 0
-
-#if MONGOC_ENABLE_SSL_SECURE_CHANNEL != 1
-#  undef MONGOC_ENABLE_SSL_SECURE_CHANNEL
+#ifdef _WIN32
+#define MONGOC_ENABLE_SSL_SECURE_CHANNEL 1
+#define MONGOC_ENABLE_CRYPTO_CNG 1
+#define MONGOC_ENABLE_SASL_SSPI 1
+#else
+#define MONGOC_ENABLE_SSL_OPENSSL 1
+#define MONGOC_ENABLE_CRYPTO_LIBCRYPTO 1
 #endif
 
 
@@ -37,22 +40,6 @@
  * MONGOC_ENABLE_CRYPTO_CNG is set from configure to determine if we are
  * compiled with Native Crypto support on Windows
  */
-#define MONGOC_ENABLE_CRYPTO_CNG 0
-
-#if MONGOC_ENABLE_CRYPTO_CNG != 1
-#  undef MONGOC_ENABLE_CRYPTO_CNG
-#endif
-
-
-/*
- * MONGOC_ENABLE_SSL_SECURE_TRANSPORT is set from configure to determine if we are
- * compiled with Native SSL support on Darwin
- */
-#define MONGOC_ENABLE_SSL_SECURE_TRANSPORT 0
-
-#if MONGOC_ENABLE_SSL_SECURE_TRANSPORT != 1
-#  undef MONGOC_ENABLE_SSL_SECURE_TRANSPORT
-#endif
 
 
 /*
@@ -70,22 +57,7 @@
  * MONGOC_ENABLE_SSL_OPENSSL is set from configure to determine if we are
  * compiled with OpenSSL support.
  */
-#define MONGOC_ENABLE_SSL_OPENSSL 1
 
-#if MONGOC_ENABLE_SSL_OPENSSL != 1
-#  undef MONGOC_ENABLE_SSL_OPENSSL
-#endif
-
-
-/*
- * MONGOC_ENABLE_CRYPTO_LIBCRYPTO is set from configure to determine if we are
- * compiled with OpenSSL support.
- */
-#define MONGOC_ENABLE_CRYPTO_LIBCRYPTO 1
-
-#if MONGOC_ENABLE_CRYPTO_LIBCRYPTO != 1
-#  undef MONGOC_ENABLE_CRYPTO_LIBCRYPTO
-#endif
 
 
 /*
@@ -126,6 +98,7 @@
  */
 #define MONGOC_ENABLE_SASL 1
 
+
 #if MONGOC_ENABLE_SASL != 1
 #  undef MONGOC_ENABLE_SASL
 #endif
@@ -134,7 +107,7 @@
  * MONGOC_ENABLE_SASL_CYRUS is set from configure to determine if we are
  * compiled with Cyrus SASL support.
  */
-#define MONGOC_ENABLE_SASL_CYRUS 1
+#define MONGOC_ENABLE_SASL_CYRUS 0
 
 #if MONGOC_ENABLE_SASL_CYRUS != 1
 #  undef MONGOC_ENABLE_SASL_CYRUS

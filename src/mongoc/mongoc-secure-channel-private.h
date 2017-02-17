@@ -32,6 +32,19 @@
 #include <schnlsp.h>
 #include <schannel.h>
 
+
+#ifndef SP_PROT_TLS1_1_CLIENT
+#define SP_PROT_TLS1_1_CLIENT           0x00000200
+#endif
+
+#ifndef SP_PROT_TLS1_2_CLIENT
+#define SP_PROT_TLS1_2_CLIENT           0x00000800
+#endif
+
+#ifndef SECBUFFER_ALERT
+#define SECBUFFER_ALERT                 17
+#endif
+
 BSON_BEGIN_DECLS
 
 
