@@ -134,12 +134,14 @@
  * MONGOC_ENABLE_SASL_CYRUS is set from configure to determine if we are
  * compiled with Cyrus SASL support.
  */
-#define MONGOC_ENABLE_SASL_CYRUS 1
-
-#if MONGOC_ENABLE_SASL_CYRUS != 1
-#  undef MONGOC_ENABLE_SASL_CYRUS
+#ifdef _WIN32
+#ifndef CRYPT_STRING_NOCRLF
+#define CRYPT_STRING_NOCRLF 0x40000000
 #endif
-
+#define MONGOC_ENABLE_SASL_SSPI 1
+#else
+#define MONGOC_ENABLE_SASL_CYRUS 1
+#endif
 
 /*
  * MONGOC_HAVE_WEAK_SYMBOLS is set from configure to determine if the

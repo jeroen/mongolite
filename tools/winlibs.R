@@ -9,10 +9,3 @@ if(!file.exists("../windows/openssl-1.0.2h/include/openssl/ssl.h")){
   unlink("lib.zip")
 }
 
-# Download SASL
-if(!file.exists("../windows/libsasl-2.1.26/include/sasl/sasl.h")){
-  download.file("https://github.com/rwinlib/libsasl/archive/v2.1.26.zip", "lib.zip", quiet = TRUE)
-  dir.create("../windows", showWarnings = FALSE)
-  unzip("lib.zip", exdir = "../windows")
-  unlink("lib.zip")
-}
