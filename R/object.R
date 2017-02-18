@@ -206,9 +206,9 @@ mongo_object <- function(col, client, verbose, orig){
       mongo_collection_count(col, query)
     }
 
-    remove <- function(query, multiple = FALSE){
+    remove <- function(query, just_one = FALSE){
       check_col()
-      mongo_collection_remove(col, query, multiple)
+      mongo_collection_remove(col, query, just_one)
     }
 
     drop <- function(){

@@ -119,9 +119,9 @@ mongo_collection_insert_page <- function(col, json, stop_on_error = TRUE){
 }
 
 #' @useDynLib mongolite R_mongo_collection_remove
-mongo_collection_remove <- function(col, doc, multiple = TRUE){
-  stopifnot(is.logical(multiple))
-  .Call(R_mongo_collection_remove, col, bson_or_json(doc), multiple)
+mongo_collection_remove <- function(col, doc, just_one = FALSE){
+  stopifnot(is.logical(just_one))
+  .Call(R_mongo_collection_remove, col, bson_or_json(doc), just_one)
 }
 
 #' @useDynLib mongolite R_mongo_collection_find

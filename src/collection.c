@@ -149,11 +149,11 @@ SEXP R_mongo_collection_drop_index(SEXP ptr_col, SEXP name) {
   return ScalarLogical(1);
 }
 
-SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP all){
+SEXP R_mongo_collection_remove(SEXP ptr_col, SEXP ptr_bson, SEXP just_one){
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *b = r2bson(ptr_bson);
   bson_error_t err;
-  mongoc_remove_flags_t flags = asLogical(all) ? MONGOC_REMOVE_NONE : MONGOC_REMOVE_SINGLE_REMOVE;
+  mongoc_remove_flags_t flags = asLogical(just_one) ? MONGOC_REMOVE_SINGLE_REMOVE : MONGOC_REMOVE_NONE;
 
   if(!mongoc_collection_remove(col, flags, b, NULL, &err))
     stop(err.message);
