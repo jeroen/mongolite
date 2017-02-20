@@ -1,13 +1,13 @@
-#' SSL options
+#' Connection SSL options
 #'
-#' Set SSL options to connect to the server.
+#' Set SSL options to connect to the MongoDB server.
 #'
 #' @useDynLib mongolite R_default_ssl_options
 #' @export
 #' @param cert path to PEM file with client certificate, or a certificate as
-#' returned by \link[openssl:read_cert]{openssl::read_cert}
+#' returned by [openssl::read_cert()]
 #' @param key path to PEM file with private key from the above certificate, or
-#' a key as returned by \link[openssl:read_key]{openssl::read_key}. This can
+#' a key as returned by [openssl::read_key()]. This can
 #' be the same PEM file as cert.
 #' @param ca a certificate authority PEM file
 #' @param ca_dir directory with CA files

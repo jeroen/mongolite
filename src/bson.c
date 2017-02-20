@@ -1,5 +1,8 @@
 #include <mongolite.h>
 
+//globals
+static int bigint_as_char = 0;
+
 SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertValue(bson_iter_t* iter);
@@ -7,6 +10,12 @@ SEXP ConvertBinary(bson_iter_t* iter);
 SEXP ConvertDate(bson_iter_t* iter);
 SEXP ConvertDec128(bson_iter_t* iter);
 SEXP ConvertTimestamp(bson_iter_t* iter);
+
+SEXP R_bigint_as_char(SEXP x){
+  if(Rf_isLogical(x))
+    bigint_as_char = asLogical(x);
+  return ScalarLogical(bigint_as_char);
+}
 
 SEXP R_json_to_bson(SEXP json){
   bson_t *b;
@@ -53,7 +62,13 @@ SEXP ConvertValue(bson_iter_t* iter){
   } else if(BSON_ITER_HOLDS_DOUBLE(iter)){
     return ScalarReal(bson_iter_double(iter));
   } else if(BSON_ITER_HOLDS_INT64(iter)){
-    return ScalarReal((double) bson_iter_int64(iter));
+    if(bigint_as_char){
+      char buf[32];
+      snprintf(buf, 32, "%lld", bson_iter_int64(iter));
+      return mkString(buf);
+    } else {
+      return ScalarReal((double) bson_iter_int64(iter));
+    }
   } else if(BSON_ITER_HOLDS_UTF8(iter)){
     return mkStringUTF8(bson_iter_utf8(iter, NULL));
   } else if(BSON_ITER_HOLDS_CODE(iter)){
@@ -102,13 +117,24 @@ SEXP ConvertTimestamp(bson_iter_t* iter){
   UNPROTECT(2);
   return res;
 }
-
+/*
 SEXP ConvertDate(bson_iter_t* iter){
   SEXP list = PROTECT(allocVector(VECSXP, 1));
   SET_VECTOR_ELT(list, 0, ScalarReal((double) bson_iter_date_time(iter)));
   setAttrib(list, R_NamesSymbol, mkString("$date"));
   UNPROTECT(1);
   return list;
+}
+*/
+
+SEXP ConvertDate(bson_iter_t* iter){
+  SEXP classes = PROTECT(allocVector(STRSXP, 2));
+  SET_STRING_ELT(classes, 0, mkChar("POSIXct"));
+  SET_STRING_ELT(classes, 1, mkChar("POSIXt"));
+  SEXP out = PROTECT(ScalarReal(bson_iter_date_time(iter) / 1000));
+  setAttrib(out, R_ClassSymbol, classes);
+  UNPROTECT(2);
+  return out;
 }
 
 SEXP ConvertDec128(bson_iter_t* iter){
