@@ -11,7 +11,7 @@ Authors@R: c(
     person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver")
   )
 Imports:
-    jsonlite (>= 1.3),
+    jsonlite (>= 1.2),
     openssl (>= 0.9.4)
 License: Apache License 2.0
 URL: https://jeroenooms.github.io/mongolite/
