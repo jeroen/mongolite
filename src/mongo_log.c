@@ -34,6 +34,8 @@ void R_init_mongolite(DllInfo *info) {
   static mongoc_log_func_t logfun = mongolite_log_handler;
   mongoc_init();
   mongoc_log_set_handler(logfun, NULL);
+  R_registerRoutines(info, NULL, NULL, NULL, NULL);
+  R_useDynamicSymbols(info, TRUE);
 }
 
 void R_unload_mongolite(DllInfo *info) {
