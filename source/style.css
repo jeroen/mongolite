@@ -1,0 +1,54 @@
+p.caption {
+  color: #777;
+  margin-top: 10px;
+}
+p code {
+  white-space: inherit;
+}
+pre {
+  word-break: normal;
+  word-wrap: normal;
+  box-shadow: 5px 5px 10px 0px lightgrey;
+}
+pre code {
+  white-space: inherit;
+}
+
+pre.sourceCode.r{
+  border-left: solid #F0F0F0 2px !important;
+  box-shadow: inset 0px -5px 10px 0px #FAFAFA !important;
+  margin-bottom: 0px !important;
+}
+
+pre.sourceCode.r:hover {
+  border-left: solid #4070a0 2px !important;
+  transition: all 0.3s ease !important;
+}
+
+div.sourceCode{
+  box-shadow: 5px 5px 10px 0px lightgrey;
+  overflow: hidden  !important;
+  margin-bottom: 10px !important;
+}
+
+pre.outputcode{
+  margin-top: -10px !important;
+  padding-top: -10px !important;
+  line-height: 1.2;
+  background-color: #F0F0F0 !important;
+  box-shadow: 5px 5px 10px 0px lightgrey;
+  font-style: italic;
+}
+
+/*
+
+@media screen and (min-width: 800px) {
+  pre {
+    overflow: hidden !important;
+  }
+  pre:hover {
+    overflow-x: auto !important;
+  }
+}
+*/
+

@@ -1,0 +1,107 @@
+--- 
+title: "Mongolite User Manual"
+date: "Version `r Sys.Date()`"
+site: bookdown::bookdown_site
+output: bookdown::gitbook
+output_dir: "docs"
+link-citations: yes
+github-repo: jeroenooms/mongobook
+description: "A brief introduction to MongoDB and mongolite for R users"
+---
+
+```{r, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(comment = "#>")
+options(width = 120, max.print = 100)
+strip_vspace <- function(x){ gsub("```\n+```\n", "```\n```{.outputcode}\n", x) }
+knitr::knit_hooks$set(document = strip_vspace)
+```
+
+
+# Getting Started
+
+This book provides a high level introduction to using MongoDB with the **mongolite** client in R. 
+
+## Requirements (Linux / Mac)
+
+Installation from source on Linux requires `openssl` and `Cyrus SASL` (**not** `GNU sasl`). On __Debian__ or __Ubuntu__ use [libssl-dev](https://packages.debian.org/testing/libssl-dev) and [libsasl2-dev](https://packages.debian.org/testing/libsasl2-dev):
+
+```
+sudo apt-get install -y libssl-dev libsasl2-dev
+```
+
+On __Fedora__, __CentOS or RHEL__ use [openssl-devel](https://apps.fedoraproject.org/packages/openssl-devel) and [cyrus-sasl-devel](https://apps.fedoraproject.org/packages/cyrus-sasl-devel):
+
+```
+sudo yum install openssl-devel cyrus-sasl-devel
+````
+
+On __OS-X__ sasl is included with the system so only [openssl](https://github.com/Homebrew/homebrew-core/blob/master/Formula/openssl.rb) is needed.
+
+```
+brew install openssl
+```
+
+On __Windows__ all dependencies are statically linked with mongolite; no separate installation is required.
+Elsewhere, mongolite will automatically find the system libraries when installed in default locations.
+
+
+## Install mongolite in R
+
+Binary packages of **mongolite** for __OS-X__ or __Windows__ can be installed directly from CRAN:
+
+```{r eval=FALSE}
+install.packages("mongolite")
+```
+
+Alternatively you can install the development version, which contains the latest features and bugs. This required compiling from source:
+
+```{r eval=FALSE}
+# installs development version of 'mongolite'
+devtools::install_github("jeroenooms/mongolite")
+```
+
+Note that Windows users need to install the [Rtools](https://cran.r-project.org/bin/windows/Rtools/) toolchain in order to compile from source. This is not needed for the CRAN version above.
+
+## Run local mongod
+
+Please refer to the official MongoDB [install manual](https://docs.mongodb.com/manual/installation/) for
+instructions how to setup a local MongoDB server. To get started on MacOS, simply use:
+
+```
+brew install mongodb
+```
+
+The Homebrew package does not install any system services. To run the daemon in a console:
+
+```
+mongod
+```
+
+Use this for running examples as the mongolite package defaults to ` url = "mongodb://localhost"`.
+
+## Testing with SSL
+
+To run a local `mongod` with SSL support you need a SSL key and certificate. See the
+[Mongo Configure SSL](https://docs.mongodb.com/manual/tutorial/configure-ssl/) manual page.
+A generate a self signed cert for testing purposes:
+
+```
+cd /etc/ssl/
+openssl req -newkey rsa:2048 -new -x509 -days 365 -nodes -out mongodb-cert.crt -keyout mongodb-cert.key
+cat mongodb-cert.key mongodb-cert.crt > mongodb.pem
+```
+
+And then start the daemon with:
+
+```
+mongod --sslMode requireSSL --sslPEMKeyFile /etc/ssl/mongodb.pem
+```
+
+Because this certificate has not been signed with a CA, you need to set `weak_cert_validation` in the client
+to connect:
+
+```r
+m <- mongo(url = "mongodb://localhost?ssl=true", options = ssl_options(weak_cert_validation = T))
+```
+
+Obviously in production you need to get your cert signed by a CA instead.

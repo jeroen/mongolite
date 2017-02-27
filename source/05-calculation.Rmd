@@ -1,0 +1,68 @@
+# Calculation
+
+MongoDB has two methods for performing in-database calculations: aggregation pipelines and mapreduce. The aggregation pipeline system provides better performance and more coherent interface. However, map-reduce operations provide some flexibility that is not presently available in the aggregation pipeline.
+
+## Aggregate
+
+The `aggregate`() method allows you to run an aggregation [pipeline](https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/). For example the pipeline below calculates the total flights per carrier and the average distance:
+
+```{r}
+stats <- flt$aggregate(
+  '[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]',
+  options = '{"allowDiskUse":true}'
+)
+names(stats) <- c("carrier", "count", "average")
+print(stats)
+```
+
+Let's make a pretty plot:
+
+```{r figstats}
+library(ggplot2)
+ggplot(aes(carrier, count), data = stats) + geom_col()
+```
+
+Check the [MongoDB manual](https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/#db.collection.aggregate) for detailed description of the pipeline syntax and supported options. 
+
+## Map/Reduce
+
+The `mapreduce()` method allow for running a custom in-database mapreduce job by providing custom `map` and `reduce` JavaScript functions. Running JavaScript is slower using the aggregate system, but you can implement fully customized database operations.
+
+Below is a simple example to do "binning" of distances to create a histogram.
+
+```{r}
+# Map-reduce (binning)
+histdata <- flt$mapreduce(
+  map = "function(){emit(Math.floor(this.distance/100)*100, 1)}", 
+  reduce = "function(id, counts){return Array.sum(counts)}"
+)
+names(histdata) <- c("distance", "count")
+print(histdata)
+```
+
+From this data we can create a pretty histogram:
+
+```{r fighist}
+library(ggplot2)
+ggplot(aes(distance, count), data = histdata) + geom_col()
+```
+
+Obviously we could have done binning in R instead, however if we are dealing with loads of data, doing it in database can be much more efficient. 
+
+
+
+
+
+
+
+
+```{r, error = TRUE, echo = FALSE}
+subjects$drop()
+dmd$drop()
+flt$drop()
+mt$drop()
+issues$drop()
+unlink("dump.json")
+unlink("flights.bson")
+unlink("mtcars.json")
+```

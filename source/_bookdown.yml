@@ -1,0 +1,5 @@
+book_filename: "mongobook"
+output_dir: ".."
+language:
+  ui:
+    chapter_name: "Chapter "

@@ -1,0 +1,226 @@
+# Connecting to MongoDB
+
+## Mongo URI Format
+
+The `mongo()` function initiates a connection object to a MongoDB server. For example:
+
+```{r}
+library(mongolite)
+m <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
+```
+
+To get an overview of available methods, simply print the object to the terminal. 
+
+```{r}
+print(m)
+```
+
+The R manual page for the `mongo()` function gives some brief descriptions as well.
+
+```r
+?mongo
+```
+
+The manual page tells us that `mongo()` supports the following arguments:
+
+ - `collection`: name of the collection to connect to. Defaults to `"test"`.
+ - `db`: name of the database to connect to. Defaults to `"test"`.
+ - `url`: address of the MongoDB server in standard [URI Format](https://docs.mongodb.com/manual/reference/connection-string/).
+ - `verbose`: if `TRUE`, emits some extra output
+ - `options`: additinoal connection options such as SSL keys/certs.
+ 
+The `url` parameter contains a special URI format which defines the server address
+and additional connection options. 
+
+```
+mongodb://[username:password@]host1[:port1][,host2[:port2],...[/[database][?options]]
+```
+
+The [Mongo Connection String Manual](https://docs.mongodb.com/manual/reference/connection-string/)
+gives an overview of the connection string syntax and options. 
+Below the most important options for using mongolite.
+
+
+
+## Authentication
+
+MongoDB supports several authentication modes.
+
+### LDAP
+
+```{r, eval = FALSE}
+USER = "drivers-team"
+PASS = "mongor0x$xgen"
+HOST = "ldaptest.10gen.cc"
+
+# Using plain-text
+URI = sprintf("mongodb://%s:%s@%s/ldap?authMechanism=PLAIN", USER, PASS, HOST)
+m <- mongo(url = URI)
+m$find()
+```
+
+However it is recommended to use SSL instead of plain text when authenticating with a username/password: 
+
+```{r, eval = FALSE}
+# Or over SSL
+m <- mongo(url = paste0(URI, "&ssl=true"), options = 
+             ssl_options(ca = "auth/ca.crt", allow_invalid_hostname = TRUE))
+m$find()
+```
+
+### X509
+
+Let's check if our server supports SSL:
+
+```{r, eval = FALSE}
+certs <- openssl::download_ssl_cert('ldaptest.10gen.cc', 27017)
+print(certs)
+str(as.list(certs[[1]]))
+```
+
+To use X509 authentication the Mongo URI needs `ssl=true&authMechanism=MONGODB-X509`:
+
+```{r, eval = FALSE}
+# Using X509 SSL auth
+HOST <- "ldaptest.10gen.cc"
+USER <- "CN=client,OU=kerneluser,O=10Gen,L=New York City,ST=New York,C=US"
+URI <- sprintf("mongodb://%s@%s/x509?ssl=true&authMechanism=MONGODB-X509", USER, HOST)
+OPTS <- ssl_options(cert = "auth/client.pem", key = "auth/key.pem", ca = "auth/ca.crt", allow_invalid_hostname = TRUE)
+m <- mongo(url = URI, options = OPTS)
+m$find()
+```
+
+### Kerberos
+
+*__Note__: Windows uses `SSPI` for Kerberos authentication. This section does not apply*.  
+
+Kerberos authentication on Linux requires installation of a Kerberos client. 
+On OS-X Kerberos is already installed by default. 
+On Ubuntu/Debian we need:
+
+```
+sudo apt-get install krb5-user libsasl2-modules-gssapi-mit
+```
+
+Next, create or edit `/etc/krbs5.conf` and add our server under `[realms]` for example:
+
+```
+[realms]
+  LDAPTEST.10GEN.CC = {
+    kdc = ldaptest.10gen.cc
+    admin_server = ldaptest.10gen.cc
+  }
+```
+
+In a terminal run the following (only have to do this once)
+
+```
+kinit drivers@LDAPTEST.10GEN.CC
+klist
+```
+
+We should now be able to connect in R:
+
+```{r, eval = FALSE}
+HOST <- "ldaptest.10gen.cc"
+USER <- "drivers%40LDAPTEST.10GEN.CC"
+URI <- sprintf("mongodb://%s@%s/kerberos?authMechanism=GSSAPI", USER, HOST)
+m <- mongo(url = URI)
+m$find()
+```
+
+
+## SSL options
+
+For security reasons, SSL options can not be configured in the URI but have to be set 
+manually via the `options` parameter. The `ssl_options` function shows the default values:
+
+```{r}
+ssl_options()
+```
+
+You can use this function to specify connection SSL options:
+
+```r
+m <- mongo(url = "mongodb://localhost?ssl=true", 
+  options = ssl_options(cert = "~/client.crt", key = "~/id_rsa.pem"))
+```
+
+The MongoDB [SSL client manual](https://docs.mongodb.com/manual/tutorial/configure-ssl-clients/)
+has more detailed descriptions on the various options.
+
+## Replica Options
+
+The URI accepts a few special keys when connecting to a replicaset. The
+[connection-string manual](https://docs.mongodb.com/manual/reference/connection-string/)
+is the canonical source for all parameters. Most users should stick with the
+defaults here, only specify these if you know what you are doing.
+
+
+### Read Preference
+
+The **Read Preference** paremeter specifies if the client should connect to the 
+primary node (default) or a secondary node in the replica set. 
+
+```r
+m <- mongo(url = "mongodb://host.example.com/?readPreference=secondary")
+```
+
+### Write Concern
+
+The **Write Concern** parameter is used to specify the level of acknowledgement that 
+the write operation has propagated to a number of server nodes. The url string parameter
+is the letter `w`.
+
+```r
+m <- mongo(url = "mongodb://host.example.com/?w=2")
+```
+
+Note that specifying this parameter to 2 on a server that is not a replicaset will result in an error when trying to write:
+
+```{r, error=TRUE}
+m <- mongo(url = "mongodb://localhost/?w=2")
+m$insert('{"foo" : "bar"}')
+```
+
+### Read Concern
+
+Finally, **Read Concern** allows clients to choose a level of isolation for their reads from replica sets. The default value `local` returns the instance’s most recent data, but provides no guarantee that the data has been written to a majority of the replica set members (i.e. may be rolled back).
+
+On the other hand, if we specify `majority` the server will only return data that has been propagated to the majority of nodes.
+
+```{r, error=TRUE}
+m <- mongo(url = "mongodb://localhost/?readConcernLevel=majority")
+m$insert('{"foo": 123}')
+m$insert('{"foo": 456}')
+```
+
+In the case of our local single-node server this is never the case. Therefore we see that the server does not return any data that meets the majority level.
+
+```{r, error=TRUE}
+m$count()
+m$find()
+```
+
+The data is definitely there though, it just doesn't meet the `majority` criterium. If we create a new connection with level `local` we do get to see our data:
+
+```{r}
+m2 <- mongo(url = "mongodb://localhost/?readConcernLevel=local")
+m2$count()
+m2$find()
+```
+
+## Global options
+
+Finally the `mongo_options` method allows for setting global client options that span across connections. Currently two options are supported:
+
+ - `log_level` set the mongo [log level](http://mongoc.org/libmongoc/current/logging.html), e.g. for printing debugging information.
+ - `bigint_as_char` set to `TRUE` to parse int64 numbers as strings rather than doubles (R does not support large integers natively)
+ 
+The default values are:
+
+```{r}
+mongo_options()
+```
+ 
+See the manual page for `?mongo_options` for more details.

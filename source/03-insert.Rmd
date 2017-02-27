@@ -1,0 +1,86 @@
+# Manipulate Data
+
+## Insert
+
+The easiest way to insert data is from an R data frame. The data frame columns will automatically be mapped to keys
+in the JSON records:
+
+```{r}
+test <- mongo()
+test$drop()
+test$insert(iris)
+```
+
+This is basically the inverse from `mongo$find()` which converts the collection back into a Data Frame:
+
+```{r}
+test$find(limit = 5)
+```
+
+Records can also be inserted directly as JSON strings. This requires a character vector where each element is a valid JSON string.
+
+```{r}
+subjects <- mongo("subjects")
+str <- c('{"name" : "jerry"}' , '{"name": "anna", "age" : 23}', '{"name": "joe"}')
+subjects$insert(str)
+subjects$find(query = '{}', fields = '{}')
+```
+
+Obviously you can generate such JSON records dynamically from data via e.g. `jsonlite::toJSON`.
+
+## Remove
+
+The same syntax that we use in `find()` to select records for reading, can also be used to select records for deleting:
+
+```{r}
+test$count()
+test$remove('{"Species" : "setosa"}')
+test$count()
+```
+
+Use the `just_one` option to delete a single record:
+
+```{r}
+test$remove('{"Sepal_Length" : {"$lte" : 5}}', just_one = TRUE)
+test$count()
+```
+
+To delete all records in the collection (but not the collection itself):
+
+```{r}
+test$remove('{}')
+test$count()
+```
+
+The `drop()` operator will delete an entire collection. This includes all data, as well as metadata such as collection indices.
+
+```{r}
+test$drop()
+```
+
+
+## Update / Upsert
+
+To modify existing records, use the `update()` operator:
+
+```{r}
+subjects$find()
+subjects$update('{"name":"jerry"}', '{"$set":{"age": 31}}')
+subjects$find()
+```
+
+By default, the update() method updates a single document. To update multiple documents, use the multi option in the update() method. 
+
+```{r}
+subjects$update('{}', '{"$set":{"has_age": false}}', multiple = TRUE)
+subjects$update('{"age" : {"$gte" : 0}}', '{"$set":{"has_age": true}}', multiple = TRUE)
+subjects$find()
+```
+
+If no document matches the update condition, the default behavior of the update method is to do nothing. By specifying the upsert option to true, the update operation either updates matching document(s) or inserts a new document if no matching document exists. 
+
+```{r}
+subjects$update('{"name":"erik"}', '{"$set":{"age": 29}}', upsert = TRUE)
+subjects$find()
+```
+

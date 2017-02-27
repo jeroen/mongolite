@@ -1,0 +1,9 @@
+bookdown::gitbook:
+  css: style.css
+  config:
+    toc:
+      before: |
+        <li><a href="./">Mongolite User Manual</a></li>
+      after: |
+        <li><a href="https://github.com/jeroenooms/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+    edit: https://github.com/rstudio/bookdown-demo/edit/master/%s

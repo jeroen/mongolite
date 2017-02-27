@@ -1,0 +1,182 @@
+# Query Data
+
+This chapter will cover basic techniques for reading data from MongoDB. To exemplify this chapter
+we start by creating a new collection **diamonds** and insert an example dataset from the __ggplot2__ package.
+
+```{r}
+# create collection with example data
+dmd <- mongo("diamonds")
+dmd$insert(ggplot2::diamonds)
+```
+
+The next chapter explains inserting data in more detail. For now let's verify all our data was inserted:
+
+```{r}
+dmd$count() == nrow(ggplot2::diamonds)
+```
+
+Seems good!
+
+## Query syntax
+
+MongoDB uses [JSON based syntax](https://docs.mongodb.com/manual/tutorial/query-documents/) to query documents. The empty query `{}` means: select all data. The same query parameter is used for multiple operations such as `find()`, `iterate()`, `count()`, `remove()` and `update()`. We need to specify the JSON query as a string in R.
+
+
+```{r}
+# Get all records
+dmd$count('{}')
+
+# Read all the data back into R
+alldata <- dmd$find('{}')
+print(alldata)
+```
+
+To query all rows where `cut == "Premium" AND price < 1000` you would run:
+
+```{r}
+premium_diamonds <- dmd$find('{"cut" : "Premium", "price" : { "$lt" : 1000 } }')
+print(premium_diamonds)
+```
+
+We can confirm that we get the same subset in R:
+
+```{r}
+nrow(premium_diamonds)
+nrow(subset(ggplot2::diamonds, cut == "Premium" & price < 1000))
+```
+
+To learn more about mongo data queries, study the 
+[Mongo Query Documents](https://docs.mongodb.com/manual/tutorial/query-documents/) manual.
+
+
+## Filter fields
+
+The `fields` parameter filters specific columns from the output. Let's continue our example above:
+
+```{r}
+test <- dmd$find(
+  query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }', 
+  fields = '{"cut" : true, "clarity" : true}',
+  limit = 5
+)
+print(test)
+```
+
+By default mongo always includes the `id` field. To prevent this we need to explicitly disable it:
+
+```{r}
+test <- dmd$find(
+  query = '{"cut" : "Premium", "price" : { "$lt" : 1000 } }', 
+  fields = '{"cut" : true, "clarity" : true, "_id": false}',
+  limit = 5
+)
+print(test)
+```
+
+The default value for the `field` argument is `'{"_id" : 0}'` i.e. all columns, except for `_id`.
+
+## Sort and limit
+
+The `sort` paramter allows us to order the output, and `limit` restricts the number records that will be returned. For example to return the 7 most expensive __premium__ diamonds in the data we sort by price in descending order:
+
+```{r}
+dmd$find('{"cut" : "Premium"}', sort = '{"price": -1}', limit = 7)
+```
+
+Note that usually you should only sort by fields that have an index set on them. Sorting by unindexed fields can be very slow and the server might reach the memory limits on the server. 
+
+
+## Indexing
+
+By default a collection only has an index for `_id`, which means that selecting or sorting by any other field is relatively slow. 
+
+```{r}
+system.time(dmd$find(sort = '{"price" : 1}', limit = 1))
+```
+
+By adding an index, the field gets presorted and selecting or sorting it is almost immediate:
+
+```{r}
+dmd$index(add = '{"price" : 1}')
+system.time(dmd$find(sort = '{"price" : 1}', limit = 1))
+```
+
+In order to speed up queries involving multiple fields, you need to add a cross-index which intersects both fields:
+
+```{r}
+dmd$index(add = '{"depth" : 1}')
+dmd$index(add = '{"depth" : 1, "price" : 1}')
+```
+
+To remove indices from the collection, use the `name` as listed above:
+
+```{r}
+dmd$index(remove = 'depth_1_price_1')
+dmd$index(remove = 'depth_1')
+```
+
+
+## Iterating
+
+The `find()` method automatically simplifies the collection into a data frame, but sometimes you need more fine-grained control. The `iterate()` method allows you to perform a query, but read the records one-by-one without simplification. 
+
+The iterator has methods `one()`, `batch(n)` which allow you to step through a single or `n` records at the time. When the iterator is exhausted it will return `NULL`. Lets run the same query as above using the iterator interface:
+
+```{r}
+# perform query and return the iterator
+it <- dmd$iterate('{"cut" : "Premium"}', sort = '{"price": -1}', limit = 7)
+
+# read records from  the iterator
+while(!is.null(x <- it$one())){
+  cat(sprintf("Found %.2f carat diamond for $%d\n", x$carat, x$price))
+}
+```
+
+The iterator does not perform any simplification, so each `x` is simply a named list containing the parsed JSON record.
+
+## Select by date
+
+In order to query by timestamp we must make sure dates are in proper **UTC datetime** format. When inserting data via R this means
+the column must be in `POSIXct` type.
+
+```{r}
+# Get some example data
+mydata <- jsonlite::fromJSON("https://api.github.com/repos/jeroenooms/mongolite/issues")
+mydata$created_at <- strptime(mydata$created_at, "%Y-%m-%dT%H:%M:%SZ", 'UTC')
+mydata$closed_at <- strptime(mydata$closed_at, "%Y-%m-%dT%H:%M:%SZ", 'UTC')
+
+# Insert into mongo
+issues <- mongo("issues")
+issues$insert(mydata)
+```
+
+Selecting by date is done via the `"$date"` operator. For example to select dates which were created after January 1st, 2017:
+
+```{r}
+issues$find(
+  query = '{"created_at": { "$gte" : { "$date" : "2017-01-01T00:00:00Z" }}}',
+  fields = '{"created_at" : true, "user.login" : true, "title":true, "_id": false}'
+)
+```
+
+Note that confusingly, what R calls a *Date* is not a timestamp but rather a string which only contains the date (Y-M-D) part of a timestamp. This type cannot be queried in MongoDB.
+
+See the MongoDB Extended JSON [manual](https://docs.mongodb.com/manual/reference/mongodb-extended-json/#date) for details.
+
+
+## Select by ID
+
+Each record inserted into MongoDB is automatically assigned an `"_id"` value. 
+
+```{r}
+issues$find(fields= '{"created_at":true, "_id":true}', limit = 10)
+```
+
+Use the `{"$oid"}` operator (similar to `ObjectId()` in mongo) to select a record by it's ID, for example:
+
+```r
+issues$find(query = '{"_id" : {"$oid":"58a83a6aba7cb2070210433e"}}')
+```
+
+See the MongoDB Extended JSON [manual](https://docs.mongodb.com/manual/reference/mongodb-extended-json/#oid) for syntax details.
+

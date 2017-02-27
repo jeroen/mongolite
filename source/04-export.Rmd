@@ -1,0 +1,81 @@
+# Import / Export
+
+The `import()` and `export()` methods are used to read / write collection dumps via a connection, such as a file, socket or URL. 
+
+## JSON
+
+The default format for is newline delimited JSON lines, i.e. one line for each record (aka [NDJSON](http://ndjson.org/))
+
+```{r}
+subjects$export(stdout())
+```
+
+Usually we will export to a file:
+
+```{r}
+dmd$export(file("dump.json"))
+```
+
+Let's test this by removing the entire collection, and then importing it back from the file:
+
+```{r}
+dmd$drop()
+dmd$count()
+dmd$import(file("dump.json"))
+dmd$count()
+```
+
+## Via jsonlite
+
+The `jsonlite` package also allows for importing/exporting the NDJSON format directly in R via the `stream_in` and `stream_out` methods:
+
+```{r}
+mydata <- jsonlite::stream_in(file("dump.json"), verbose = FALSE)
+print(mydata)
+```
+
+This is a convenient way to exchange data in a way with R users that might not have MongoDB. Similarly `jsonlite` allows for exporting data in a way that is easy to import in Mongo:
+
+```{r}
+jsonlite::stream_out(mtcars, file("mtcars.json"), verbose = FALSE)
+mt <- mongo("mtcars")
+mt$import(file("mtcars.json"))
+mt$find()
+```
+
+## Streaming
+
+Both `mongolite` and `jsonlite` also allow for importing NDJSON data from a HTTP stream:
+
+```{r}
+flt <- mongo("flights")
+flt$import(gzcon(curl::curl("https://jeroenooms.github.io/data/nycflights13.json.gz")))
+flt$count()
+```
+
+The same operation in `jsonlite` would be:
+
+```{r}
+flights <- jsonlite::stream_in(
+  gzcon(curl::curl("https://jeroenooms.github.io/data/nycflights13.json.gz")), verbose = FALSE)
+nrow(flights)
+```
+
+## BSON
+
+MongoDB internally stores data in [BSON](http://bsonspec.org/spec.html) format, which is a binary version of JSON. Use the `bson` parameter to dump a collection directly in BSON format:
+
+```{r}
+flt$export(file("flights.bson"), bson = TRUE)
+```
+
+Same to read it back:
+
+```{r}
+flt$drop()
+flt$import(file("flights.bson"), bson = TRUE)
+flt$find(limit = 5)
+```
+
+Using BSON to import/export is faster than JSON, but the resulting file can only be read by MongoDB.  
+
