@@ -26,7 +26,8 @@ The collection can be interfaced using the methods described below.
 }
 \description{
 Connect to a MongoDB collection. Returns a \link{mongo} connection object with
-methods listed below.
+methods listed below. The \href{https://jeroenooms.github.io/mongolite/}{mongolite user manual}
+is the best place to get started.
 }
 \section{Methods}{
 
@@ -119,5 +120,7 @@ dmd$drop()
 }
 }
 \references{
+\href{https://jeroenooms.github.io/mongolite/}{Mongolite User Manual}
+
 Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 }
