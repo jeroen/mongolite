@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html >
+
+<head>
+
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Mongolite User Manual</title>
+  <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
+  <meta name="generator" content="bookdown 0.3.9 and GitBook 2.6.7">
+
+  <meta property="og:title" content="Mongolite User Manual" />
+  <meta property="og:type" content="book" />
+  
+  
+  <meta property="og:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  <meta name="github-repo" content="jeroenooms/mongobook" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Mongolite User Manual" />
+  
+  <meta name="twitter:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  
+  
+<link rel="prev" href="manipulate-data.html">
+<link rel="next" href="calculation.html">
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><a href="./">Mongolite User Manual</a></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Getting Started</a><ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#requirements-linux-mac"><i class="fa fa-check"></i><b>1.1</b> Requirements (Linux / Mac)</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#install-mongolite-in-r"><i class="fa fa-check"></i><b>1.2</b> Install mongolite in R</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#run-local-mongod"><i class="fa fa-check"></i><b>1.3</b> Run local mongod</a></li>
+<li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#testing-with-ssl"><i class="fa fa-check"></i><b>1.4</b> Testing with SSL</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html"><i class="fa fa-check"></i><b>2</b> Connecting to MongoDB</a><ul>
+<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a></li>
+<li class="chapter" data-level="2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#authentication"><i class="fa fa-check"></i><b>2.2</b> Authentication</a><ul>
+<li class="chapter" data-level="2.2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ldap"><i class="fa fa-check"></i><b>2.2.1</b> LDAP</a></li>
+<li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
+<li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
+</ul></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.3</b> SSL options</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.4</b> Replica Options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.5</b> Global options</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
+<li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
+<li class="chapter" data-level="3.2" data-path="query-data.html"><a href="query-data.html#filter-fields"><i class="fa fa-check"></i><b>3.2</b> Filter fields</a></li>
+<li class="chapter" data-level="3.3" data-path="query-data.html"><a href="query-data.html#sort-and-limit"><i class="fa fa-check"></i><b>3.3</b> Sort and limit</a></li>
+<li class="chapter" data-level="3.4" data-path="query-data.html"><a href="query-data.html#indexing"><i class="fa fa-check"></i><b>3.4</b> Indexing</a></li>
+<li class="chapter" data-level="3.5" data-path="query-data.html"><a href="query-data.html#iterating"><i class="fa fa-check"></i><b>3.5</b> Iterating</a></li>
+<li class="chapter" data-level="3.6" data-path="query-data.html"><a href="query-data.html#select-by-date"><i class="fa fa-check"></i><b>3.6</b> Select by date</a></li>
+<li class="chapter" data-level="3.7" data-path="query-data.html"><a href="query-data.html#select-by-id"><i class="fa fa-check"></i><b>3.7</b> Select by ID</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="manipulate-data.html"><a href="manipulate-data.html"><i class="fa fa-check"></i><b>4</b> Manipulate Data</a><ul>
+<li class="chapter" data-level="4.1" data-path="manipulate-data.html"><a href="manipulate-data.html#insert"><i class="fa fa-check"></i><b>4.1</b> Insert</a></li>
+<li class="chapter" data-level="4.2" data-path="manipulate-data.html"><a href="manipulate-data.html#remove"><i class="fa fa-check"></i><b>4.2</b> Remove</a></li>
+<li class="chapter" data-level="4.3" data-path="manipulate-data.html"><a href="manipulate-data.html#update-upsert"><i class="fa fa-check"></i><b>4.3</b> Update / Upsert</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="import-export.html"><a href="import-export.html"><i class="fa fa-check"></i><b>5</b> Import / Export</a><ul>
+<li class="chapter" data-level="5.1" data-path="import-export.html"><a href="import-export.html#json"><i class="fa fa-check"></i><b>5.1</b> JSON</a></li>
+<li class="chapter" data-level="5.2" data-path="import-export.html"><a href="import-export.html#via-jsonlite"><i class="fa fa-check"></i><b>5.2</b> Via jsonlite</a></li>
+<li class="chapter" data-level="5.3" data-path="import-export.html"><a href="import-export.html#streaming"><i class="fa fa-check"></i><b>5.3</b> Streaming</a></li>
+<li class="chapter" data-level="5.4" data-path="import-export.html"><a href="import-export.html#bson"><i class="fa fa-check"></i><b>5.4</b> BSON</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
+<li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+</ul></li>
+<li class="divider"></li>
+<li><a href="https://github.com/jeroenooms/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Mongolite User Manual</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="import-export" class="section level1">
+<h1><span class="header-section-number">Chapter 5</span> Import / Export</h1>
+<p>The <code>import()</code> and <code>export()</code> methods are used to read / write collection dumps via a connection, such as a file, socket or URL.</p>
+<div id="json" class="section level2">
+<h2><span class="header-section-number">5.1</span> JSON</h2>
+<p>The default format for is newline delimited JSON lines, i.e. one line for each record (aka <a href="http://ndjson.org/">NDJSON</a>)</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">export</span>(<span class="kw">stdout</span>())</code></pre></div>
+<pre class="outputcode"><code>#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58ac3fc003dc1478b339ccd7&quot; }, &quot;name&quot; : &quot;erik&quot;, &quot;age&quot; : 29 }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58ac3fc0ba7cb2081a0e77e6&quot; }, &quot;name&quot; : &quot;jerry&quot;, &quot;age&quot; : 31, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58ac3fc0ba7cb2081a0e77e7&quot; }, &quot;name&quot; : &quot;anna&quot;, &quot;age&quot; : 23, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58ac3fc0ba7cb2081a0e77e8&quot; }, &quot;name&quot; : &quot;joe&quot;, &quot;has_age&quot; : false }</code></pre>
+<p>Usually we will export to a file:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</code></pre></div>
+<p>Let’s test this by removing the entire collection, and then importing it back from the file:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">drop</span>()
+dmd$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 0</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))
+dmd$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 53940</code></pre>
+</div>
+<div id="via-jsonlite" class="section level2">
+<h2><span class="header-section-number">5.2</span> Via jsonlite</h2>
+<p>The <code>jsonlite</code> package also allows for importing/exporting the NDJSON format directly in R via the <code>stream_in</code> and <code>stream_out</code> methods:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">mydata &lt;-<span class="st"> </span>jsonlite::<span class="kw">stream_in</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
+<span class="kw">print</span>(mydata)</code></pre></div>
+<pre class="outputcode"><code>#&gt;                           $oid carat       cut color clarity depth table price     x     y     z
+#&gt; 1     58ac3fbbba7cb2081a0da47d  0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
+#&gt; 2     58ac3fbbba7cb2081a0da47e  0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
+#&gt; 3     58ac3fbbba7cb2081a0da47f  0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
+#&gt; 4     58ac3fbbba7cb2081a0da480  0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
+#&gt; 5     58ac3fbbba7cb2081a0da481  0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
+#&gt; 6     58ac3fbbba7cb2081a0da482  0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
+#&gt; 7     58ac3fbbba7cb2081a0da483  0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
+#&gt; 8     58ac3fbbba7cb2081a0da484  0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
+#&gt; 9     58ac3fbbba7cb2081a0da485  0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 53931 rows ]</code></pre>
+<p>This is a convenient way to exchange data in a way with R users that might not have MongoDB. Similarly <code>jsonlite</code> allows for exporting data in a way that is easy to import in Mongo:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">jsonlite::<span class="kw">stream_out</span>(mtcars, <span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
+mt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>)
+mt$<span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>))
+mt$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;                      mpg cyl  disp  hp drat    wt  qsec vs am gear carb
+#&gt; Mazda RX4           21.0   6 160.0 110 3.90 2.620 16.46  0  1    4    4
+#&gt; Mazda RX4 Wag       21.0   6 160.0 110 3.90 2.875 17.02  0  1    4    4
+#&gt; Datsun 710          22.8   4 108.0  93 3.85 2.320 18.61  1  1    4    1
+#&gt; Hornet 4 Drive      21.4   6 258.0 110 3.08 3.215 19.44  1  0    3    1
+#&gt; Hornet Sportabout   18.7   8 360.0 175 3.15 3.440 17.02  0  0    3    2
+#&gt; Valiant             18.1   6 225.0 105 2.76 3.460 20.22  1  0    3    1
+#&gt; Duster 360          14.3   8 360.0 245 3.21 3.570 15.84  0  0    3    4
+#&gt; Merc 240D           24.4   4 146.7  62 3.69 3.190 20.00  1  0    4    2
+#&gt; Merc 230            22.8   4 140.8  95 3.92 3.150 22.90  1  0    4    2
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 23 rows ]</code></pre>
+</div>
+<div id="streaming" class="section level2">
+<h2><span class="header-section-number">5.3</span> Streaming</h2>
+<p>Both <code>mongolite</code> and <code>jsonlite</code> also allow for importing NDJSON data from a HTTP stream:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;flights&quot;</span>)
+flt$<span class="kw">import</span>(<span class="kw">gzcon</span>(curl::<span class="kw">curl</span>(<span class="st">&quot;https://jeroenooms.github.io/data/nycflights13.json.gz&quot;</span>)))
+flt$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
+<p>The same operation in <code>jsonlite</code> would be:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flights &lt;-<span class="st"> </span>jsonlite::<span class="kw">stream_in</span>(
+  <span class="kw">gzcon</span>(curl::<span class="kw">curl</span>(<span class="st">&quot;https://jeroenooms.github.io/data/nycflights13.json.gz&quot;</span>)), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
+<span class="kw">nrow</span>(flights)</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
+</div>
+<div id="bson" class="section level2">
+<h2><span class="header-section-number">5.4</span> BSON</h2>
+<p>MongoDB internally stores data in <a href="http://bsonspec.org/spec.html">BSON</a> format, which is a binary version of JSON. Use the <code>bson</code> parameter to dump a collection directly in BSON format:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt$<span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<p>Same to read it back:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt$<span class="kw">drop</span>()
+flt$<span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt$<span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   year month day dep_time dep_delay arr_time arr_delay carrier tailnum flight origin dest air_time distance hour minute
+#&gt; 1 2013     1   1      517         2      830        11      UA  N14228   1545    EWR  IAH      227     1400    5     17
+#&gt; 2 2013     1   1      533         4      850        20      UA  N24211   1714    LGA  IAH      227     1416    5     33
+#&gt; 3 2013     1   1      542         2      923        33      AA  N619AA   1141    JFK  MIA      160     1089    5     42
+#&gt; 4 2013     1   1      544        -1     1004       -18      B6  N804JB    725    JFK  BQN      183     1576    5     44
+#&gt; 5 2013     1   1      554        -6      812       -25      DL  N668DN    461    LGA  ATL      116      762    5     54</code></pre>
+<p>Using BSON to import/export is faster than JSON, but the resulting file can only be read by MongoDB.</p>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="manipulate-data.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="calculation.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script>
+require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"weibo": false,
+"instapper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": "https://github.com/rstudio/bookdown-demo/edit/master/04-export.Rmd",
+"text": "Edit"
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+}
+});
+});
+</script>
+
+</body>
+
+</html>

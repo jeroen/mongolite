@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html >
+
+<head>
+
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Mongolite User Manual</title>
+  <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
+  <meta name="generator" content="bookdown 0.3.9 and GitBook 2.6.7">
+
+  <meta property="og:title" content="Mongolite User Manual" />
+  <meta property="og:type" content="book" />
+  
+  
+  <meta property="og:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  <meta name="github-repo" content="jeroenooms/mongobook" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Mongolite User Manual" />
+  
+  <meta name="twitter:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  
+  
+<link rel="prev" href="query-data.html">
+<link rel="next" href="import-export.html">
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><a href="./">Mongolite User Manual</a></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Getting Started</a><ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#requirements-linux-mac"><i class="fa fa-check"></i><b>1.1</b> Requirements (Linux / Mac)</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#install-mongolite-in-r"><i class="fa fa-check"></i><b>1.2</b> Install mongolite in R</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#run-local-mongod"><i class="fa fa-check"></i><b>1.3</b> Run local mongod</a></li>
+<li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#testing-with-ssl"><i class="fa fa-check"></i><b>1.4</b> Testing with SSL</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html"><i class="fa fa-check"></i><b>2</b> Connecting to MongoDB</a><ul>
+<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a></li>
+<li class="chapter" data-level="2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#authentication"><i class="fa fa-check"></i><b>2.2</b> Authentication</a><ul>
+<li class="chapter" data-level="2.2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ldap"><i class="fa fa-check"></i><b>2.2.1</b> LDAP</a></li>
+<li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
+<li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
+</ul></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.3</b> SSL options</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.4</b> Replica Options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.5</b> Global options</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
+<li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
+<li class="chapter" data-level="3.2" data-path="query-data.html"><a href="query-data.html#filter-fields"><i class="fa fa-check"></i><b>3.2</b> Filter fields</a></li>
+<li class="chapter" data-level="3.3" data-path="query-data.html"><a href="query-data.html#sort-and-limit"><i class="fa fa-check"></i><b>3.3</b> Sort and limit</a></li>
+<li class="chapter" data-level="3.4" data-path="query-data.html"><a href="query-data.html#indexing"><i class="fa fa-check"></i><b>3.4</b> Indexing</a></li>
+<li class="chapter" data-level="3.5" data-path="query-data.html"><a href="query-data.html#iterating"><i class="fa fa-check"></i><b>3.5</b> Iterating</a></li>
+<li class="chapter" data-level="3.6" data-path="query-data.html"><a href="query-data.html#select-by-date"><i class="fa fa-check"></i><b>3.6</b> Select by date</a></li>
+<li class="chapter" data-level="3.7" data-path="query-data.html"><a href="query-data.html#select-by-id"><i class="fa fa-check"></i><b>3.7</b> Select by ID</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="manipulate-data.html"><a href="manipulate-data.html"><i class="fa fa-check"></i><b>4</b> Manipulate Data</a><ul>
+<li class="chapter" data-level="4.1" data-path="manipulate-data.html"><a href="manipulate-data.html#insert"><i class="fa fa-check"></i><b>4.1</b> Insert</a></li>
+<li class="chapter" data-level="4.2" data-path="manipulate-data.html"><a href="manipulate-data.html#remove"><i class="fa fa-check"></i><b>4.2</b> Remove</a></li>
+<li class="chapter" data-level="4.3" data-path="manipulate-data.html"><a href="manipulate-data.html#update-upsert"><i class="fa fa-check"></i><b>4.3</b> Update / Upsert</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="import-export.html"><a href="import-export.html"><i class="fa fa-check"></i><b>5</b> Import / Export</a><ul>
+<li class="chapter" data-level="5.1" data-path="import-export.html"><a href="import-export.html#json"><i class="fa fa-check"></i><b>5.1</b> JSON</a></li>
+<li class="chapter" data-level="5.2" data-path="import-export.html"><a href="import-export.html#via-jsonlite"><i class="fa fa-check"></i><b>5.2</b> Via jsonlite</a></li>
+<li class="chapter" data-level="5.3" data-path="import-export.html"><a href="import-export.html#streaming"><i class="fa fa-check"></i><b>5.3</b> Streaming</a></li>
+<li class="chapter" data-level="5.4" data-path="import-export.html"><a href="import-export.html#bson"><i class="fa fa-check"></i><b>5.4</b> BSON</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
+<li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+</ul></li>
+<li class="divider"></li>
+<li><a href="https://github.com/jeroenooms/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Mongolite User Manual</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="manipulate-data" class="section level1">
+<h1><span class="header-section-number">Chapter 4</span> Manipulate Data</h1>
+<div id="insert" class="section level2">
+<h2><span class="header-section-number">4.1</span> Insert</h2>
+<p>The easiest way to insert data is from an R data frame. The data frame columns will automatically be mapped to keys in the JSON records:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test &lt;-<span class="st"> </span><span class="kw">mongo</span>()
+test$<span class="kw">drop</span>()
+test$<span class="kw">insert</span>(iris)</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 5
+#&gt;  $ nInserted  : num 150
+#&gt;  $ nMatched   : num 0
+#&gt;  $ nRemoved   : num 0
+#&gt;  $ nUpserted  : num 0
+#&gt;  $ writeErrors: list()</code></pre>
+<p>This is basically the inverse from <code>mongo$find()</code> which converts the collection back into a Data Frame:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test$<span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   Sepal_Length Sepal_Width Petal_Length Petal_Width Species
+#&gt; 1          5.1         3.5          1.4         0.2  setosa
+#&gt; 2          4.9         3.0          1.4         0.2  setosa
+#&gt; 3          4.7         3.2          1.3         0.2  setosa
+#&gt; 4          4.6         3.1          1.5         0.2  setosa
+#&gt; 5          5.0         3.6          1.4         0.2  setosa</code></pre>
+<p>Records can also be inserted directly as JSON strings. This requires a character vector where each element is a valid JSON string.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;subjects&quot;</span>)
+str &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&#39;{&quot;name&quot; : &quot;jerry&quot;}&#39;</span> , <span class="st">&#39;{&quot;name&quot;: &quot;anna&quot;, &quot;age&quot; : 23}&#39;</span>, <span class="st">&#39;{&quot;name&quot;: &quot;joe&quot;}&#39;</span>)
+subjects$<span class="kw">insert</span>(str)</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 6
+#&gt;  $ nInserted  : int 3
+#&gt;  $ nMatched   : int 0
+#&gt;  $ nModified  : int 0
+#&gt;  $ nRemoved   : int 0
+#&gt;  $ nUpserted  : int 0
+#&gt;  $ writeErrors: list()</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">fields =</span> <span class="st">&#39;{}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;                        _id  name age
+#&gt; 1 58ac3fc0ba7cb2081a0e77e6 jerry  NA
+#&gt; 2 58ac3fc0ba7cb2081a0e77e7  anna  23
+#&gt; 3 58ac3fc0ba7cb2081a0e77e8   joe  NA</code></pre>
+<p>Obviously you can generate such JSON records dynamically from data via e.g. <code>jsonlite::toJSON</code>.</p>
+</div>
+<div id="remove" class="section level2">
+<h2><span class="header-section-number">4.2</span> Remove</h2>
+<p>The same syntax that we use in <code>find()</code> to select records for reading, can also be used to select records for deleting:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 150</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test$<span class="kw">remove</span>(<span class="st">&#39;{&quot;Species&quot; : &quot;setosa&quot;}&#39;</span>)
+test$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 100</code></pre>
+<p>Use the <code>just_one</code> option to delete a single record:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test$<span class="kw">remove</span>(<span class="st">&#39;{&quot;Sepal_Length&quot; : {&quot;$lte&quot; : 5}}&#39;</span>, <span class="dt">just_one =</span> <span class="ot">TRUE</span>)
+test$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 99</code></pre>
+<p>To delete all records in the collection (but not the collection itself):</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test$<span class="kw">remove</span>(<span class="st">&#39;{}&#39;</span>)
+test$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 0</code></pre>
+<p>The <code>drop()</code> operator will delete an entire collection. This includes all data, as well as metadata such as collection indices.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test$<span class="kw">drop</span>()</code></pre></div>
+</div>
+<div id="update-upsert" class="section level2">
+<h2><span class="header-section-number">4.3</span> Update / Upsert</h2>
+<p>To modify existing records, use the <code>update()</code> operator:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;    name age
+#&gt; 1 jerry  NA
+#&gt; 2  anna  23
+#&gt; 3   joe  NA</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;jerry&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 31}}&#39;</span>)
+subjects$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;    name age
+#&gt; 1 jerry  31
+#&gt; 2  anna  23
+#&gt; 3   joe  NA</code></pre>
+<p>By default, the update() method updates a single document. To update multiple documents, use the multi option in the update() method.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">update</span>(<span class="st">&#39;{}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: false}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)
+subjects$<span class="kw">update</span>(<span class="st">&#39;{&quot;age&quot; : {&quot;$gte&quot; : 0}}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: true}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)
+subjects$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;    name age has_age
+#&gt; 1 jerry  31    TRUE
+#&gt; 2  anna  23    TRUE
+#&gt; 3   joe  NA   FALSE</code></pre>
+<p>If no document matches the update condition, the default behavior of the update method is to do nothing. By specifying the upsert option to true, the update operation either updates matching document(s) or inserts a new document if no matching document exists.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;erik&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 29}}&#39;</span>, <span class="dt">upsert =</span> <span class="ot">TRUE</span>)
+subjects$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;    name age has_age
+#&gt; 1 jerry  31    TRUE
+#&gt; 2  anna  23    TRUE
+#&gt; 3   joe  NA   FALSE
+#&gt; 4  erik  29      NA</code></pre>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="query-data.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="import-export.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script>
+require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"weibo": false,
+"instapper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": "https://github.com/rstudio/bookdown-demo/edit/master/03-insert.Rmd",
+"text": "Edit"
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+}
+});
+});
+</script>
+
+</body>
+
+</html>

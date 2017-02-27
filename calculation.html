@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html >
+
+<head>
+
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Mongolite User Manual</title>
+  <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
+  <meta name="generator" content="bookdown 0.3.9 and GitBook 2.6.7">
+
+  <meta property="og:title" content="Mongolite User Manual" />
+  <meta property="og:type" content="book" />
+  
+  
+  <meta property="og:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  <meta name="github-repo" content="jeroenooms/mongobook" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Mongolite User Manual" />
+  
+  <meta name="twitter:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  
+  
+<link rel="prev" href="import-export.html">
+
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><a href="./">Mongolite User Manual</a></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Getting Started</a><ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#requirements-linux-mac"><i class="fa fa-check"></i><b>1.1</b> Requirements (Linux / Mac)</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#install-mongolite-in-r"><i class="fa fa-check"></i><b>1.2</b> Install mongolite in R</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#run-local-mongod"><i class="fa fa-check"></i><b>1.3</b> Run local mongod</a></li>
+<li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#testing-with-ssl"><i class="fa fa-check"></i><b>1.4</b> Testing with SSL</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html"><i class="fa fa-check"></i><b>2</b> Connecting to MongoDB</a><ul>
+<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a></li>
+<li class="chapter" data-level="2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#authentication"><i class="fa fa-check"></i><b>2.2</b> Authentication</a><ul>
+<li class="chapter" data-level="2.2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ldap"><i class="fa fa-check"></i><b>2.2.1</b> LDAP</a></li>
+<li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
+<li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
+</ul></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.3</b> SSL options</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.4</b> Replica Options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.5</b> Global options</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
+<li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
+<li class="chapter" data-level="3.2" data-path="query-data.html"><a href="query-data.html#filter-fields"><i class="fa fa-check"></i><b>3.2</b> Filter fields</a></li>
+<li class="chapter" data-level="3.3" data-path="query-data.html"><a href="query-data.html#sort-and-limit"><i class="fa fa-check"></i><b>3.3</b> Sort and limit</a></li>
+<li class="chapter" data-level="3.4" data-path="query-data.html"><a href="query-data.html#indexing"><i class="fa fa-check"></i><b>3.4</b> Indexing</a></li>
+<li class="chapter" data-level="3.5" data-path="query-data.html"><a href="query-data.html#iterating"><i class="fa fa-check"></i><b>3.5</b> Iterating</a></li>
+<li class="chapter" data-level="3.6" data-path="query-data.html"><a href="query-data.html#select-by-date"><i class="fa fa-check"></i><b>3.6</b> Select by date</a></li>
+<li class="chapter" data-level="3.7" data-path="query-data.html"><a href="query-data.html#select-by-id"><i class="fa fa-check"></i><b>3.7</b> Select by ID</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="manipulate-data.html"><a href="manipulate-data.html"><i class="fa fa-check"></i><b>4</b> Manipulate Data</a><ul>
+<li class="chapter" data-level="4.1" data-path="manipulate-data.html"><a href="manipulate-data.html#insert"><i class="fa fa-check"></i><b>4.1</b> Insert</a></li>
+<li class="chapter" data-level="4.2" data-path="manipulate-data.html"><a href="manipulate-data.html#remove"><i class="fa fa-check"></i><b>4.2</b> Remove</a></li>
+<li class="chapter" data-level="4.3" data-path="manipulate-data.html"><a href="manipulate-data.html#update-upsert"><i class="fa fa-check"></i><b>4.3</b> Update / Upsert</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="import-export.html"><a href="import-export.html"><i class="fa fa-check"></i><b>5</b> Import / Export</a><ul>
+<li class="chapter" data-level="5.1" data-path="import-export.html"><a href="import-export.html#json"><i class="fa fa-check"></i><b>5.1</b> JSON</a></li>
+<li class="chapter" data-level="5.2" data-path="import-export.html"><a href="import-export.html#via-jsonlite"><i class="fa fa-check"></i><b>5.2</b> Via jsonlite</a></li>
+<li class="chapter" data-level="5.3" data-path="import-export.html"><a href="import-export.html#streaming"><i class="fa fa-check"></i><b>5.3</b> Streaming</a></li>
+<li class="chapter" data-level="5.4" data-path="import-export.html"><a href="import-export.html#bson"><i class="fa fa-check"></i><b>5.4</b> BSON</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
+<li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+</ul></li>
+<li class="divider"></li>
+<li><a href="https://github.com/jeroenooms/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Mongolite User Manual</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="calculation" class="section level1">
+<h1><span class="header-section-number">Chapter 6</span> Calculation</h1>
+<p>MongoDB has two methods for performing in-database calculations: aggregation pipelines and mapreduce. The aggregation pipeline system provides better performance and more coherent interface. However, map-reduce operations provide some flexibility that is not presently available in the aggregation pipeline.</p>
+<div id="aggregate" class="section level2">
+<h2><span class="header-section-number">6.1</span> Aggregate</h2>
+<p>The <code>aggregate</code>() method allows you to run an aggregation <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/">pipeline</a>. For example the pipeline below calculates the total flights per carrier and the average distance:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">stats &lt;-<span class="st"> </span>flt$<span class="kw">aggregate</span>(
+  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,
+  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span>
+)
+<span class="kw">names</span>(stats) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;carrier&quot;</span>, <span class="st">&quot;count&quot;</span>, <span class="st">&quot;average&quot;</span>)
+<span class="kw">print</span>(stats)</code></pre></div>
+<pre class="outputcode"><code>#&gt;    carrier count   average
+#&gt; 1       OO    32  500.8125
+#&gt; 2       F9   685 1620.0000
+#&gt; 3       YV   601  375.0333
+#&gt; 4       EV 54173  562.9917
+#&gt; 5       FL  3260  664.8294
+#&gt; 6       9E 18460  530.2358
+#&gt; 7       AS   714 2402.0000
+#&gt; 8       US 20536  553.4563
+#&gt; 9       MQ 26397  569.5327
+#&gt; 10      UA 58665 1529.1149
+#&gt; 11      DL 48110 1236.9012
+#&gt; 12      B6 54635 1068.6215
+#&gt; 13      VX  5162 2499.4822
+#&gt; 14      WN 12275  996.2691
+#&gt; 15      HA   342 4983.0000
+#&gt; 16      AA 32729 1340.2360</code></pre>
+<p>Let’s make a pretty plot:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(ggplot2)
+<span class="kw">ggplot</span>(<span class="kw">aes</span>(carrier, count), <span class="dt">data =</span> stats) +<span class="st"> </span><span class="kw">geom_col</span>()</code></pre></div>
+<p><img src="mongobook_files/figure-html/figstats-1.png" width="672" /></p>
+<p>Check the <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/#db.collection.aggregate">MongoDB manual</a> for detailed description of the pipeline syntax and supported options.</p>
+</div>
+<div id="mapreduce" class="section level2">
+<h2><span class="header-section-number">6.2</span> Map/Reduce</h2>
+<p>The <code>mapreduce()</code> method allow for running a custom in-database mapreduce job by providing custom <code>map</code> and <code>reduce</code> JavaScript functions. Running JavaScript is slower using the aggregate system, but you can implement fully customized database operations.</p>
+<p>Below is a simple example to do “binning” of distances to create a histogram.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Map-reduce (binning)</span>
+histdata &lt;-<span class="st"> </span>flt$<span class="kw">mapreduce</span>(
+  <span class="dt">map =</span> <span class="st">&quot;function(){emit(Math.floor(this.distance/100)*100, 1)}&quot;</span>, 
+  <span class="dt">reduce =</span> <span class="st">&quot;function(id, counts){return Array.sum(counts)}&quot;</span>
+)
+<span class="kw">names</span>(histdata) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;distance&quot;</span>, <span class="st">&quot;count&quot;</span>)
+<span class="kw">print</span>(histdata)</code></pre></div>
+<pre class="outputcode"><code>#&gt;    distance count
+#&gt; 1         0  1633
+#&gt; 2       100 16017
+#&gt; 3       200 33637
+#&gt; 4       300  7748
+#&gt; 5       400 21182
+#&gt; 6       500 26925
+#&gt; 7       600  7846
+#&gt; 8       700 48904
+#&gt; 9       800  7574
+#&gt; 10      900 18205
+#&gt; 11     1000 49327
+#&gt; 12     1100  6336
+#&gt; 13     1200   332
+#&gt; 14     1300  9084
+#&gt; 15     1400  9313
+#&gt; 16     1500  8773
+#&gt; 17     1600  9220
+#&gt; 18     1700   243
+#&gt; 19     1800   315
+#&gt; 20     1900  2467
+#&gt; 21     2100  4656
+#&gt; 22     2200  5997
+#&gt; 23     2300    19
+#&gt; 24     2400 26052
+#&gt; 25     2500 14256
+#&gt; 26     3300     8
+#&gt; 27     4900   707</code></pre>
+<p>From this data we can create a pretty histogram:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(ggplot2)
+<span class="kw">ggplot</span>(<span class="kw">aes</span>(distance, count), <span class="dt">data =</span> histdata) +<span class="st"> </span><span class="kw">geom_col</span>()</code></pre></div>
+<p><img src="mongobook_files/figure-html/fighist-1.png" width="672" /></p>
+<p>Obviously we could have done binning in R instead, however if we are dealing with loads of data, doing it in database can be much more efficient.</p>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="import-export.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script>
+require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"weibo": false,
+"instapper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": "https://github.com/rstudio/bookdown-demo/edit/master/05-calculation.Rmd",
+"text": "Edit"
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+}
+});
+});
+</script>
+
+</body>
+
+</html>

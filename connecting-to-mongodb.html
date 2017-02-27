@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html >
+
+<head>
+
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Mongolite User Manual</title>
+  <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
+  <meta name="generator" content="bookdown 0.3.9 and GitBook 2.6.7">
+
+  <meta property="og:title" content="Mongolite User Manual" />
+  <meta property="og:type" content="book" />
+  
+  
+  <meta property="og:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  <meta name="github-repo" content="jeroenooms/mongobook" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Mongolite User Manual" />
+  
+  <meta name="twitter:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  
+  
+<link rel="prev" href="index.html">
+<link rel="next" href="query-data.html">
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><a href="./">Mongolite User Manual</a></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Getting Started</a><ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#requirements-linux-mac"><i class="fa fa-check"></i><b>1.1</b> Requirements (Linux / Mac)</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#install-mongolite-in-r"><i class="fa fa-check"></i><b>1.2</b> Install mongolite in R</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#run-local-mongod"><i class="fa fa-check"></i><b>1.3</b> Run local mongod</a></li>
+<li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#testing-with-ssl"><i class="fa fa-check"></i><b>1.4</b> Testing with SSL</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html"><i class="fa fa-check"></i><b>2</b> Connecting to MongoDB</a><ul>
+<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a></li>
+<li class="chapter" data-level="2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#authentication"><i class="fa fa-check"></i><b>2.2</b> Authentication</a><ul>
+<li class="chapter" data-level="2.2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ldap"><i class="fa fa-check"></i><b>2.2.1</b> LDAP</a></li>
+<li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
+<li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
+</ul></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.3</b> SSL options</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.4</b> Replica Options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.5</b> Global options</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
+<li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
+<li class="chapter" data-level="3.2" data-path="query-data.html"><a href="query-data.html#filter-fields"><i class="fa fa-check"></i><b>3.2</b> Filter fields</a></li>
+<li class="chapter" data-level="3.3" data-path="query-data.html"><a href="query-data.html#sort-and-limit"><i class="fa fa-check"></i><b>3.3</b> Sort and limit</a></li>
+<li class="chapter" data-level="3.4" data-path="query-data.html"><a href="query-data.html#indexing"><i class="fa fa-check"></i><b>3.4</b> Indexing</a></li>
+<li class="chapter" data-level="3.5" data-path="query-data.html"><a href="query-data.html#iterating"><i class="fa fa-check"></i><b>3.5</b> Iterating</a></li>
+<li class="chapter" data-level="3.6" data-path="query-data.html"><a href="query-data.html#select-by-date"><i class="fa fa-check"></i><b>3.6</b> Select by date</a></li>
+<li class="chapter" data-level="3.7" data-path="query-data.html"><a href="query-data.html#select-by-id"><i class="fa fa-check"></i><b>3.7</b> Select by ID</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="manipulate-data.html"><a href="manipulate-data.html"><i class="fa fa-check"></i><b>4</b> Manipulate Data</a><ul>
+<li class="chapter" data-level="4.1" data-path="manipulate-data.html"><a href="manipulate-data.html#insert"><i class="fa fa-check"></i><b>4.1</b> Insert</a></li>
+<li class="chapter" data-level="4.2" data-path="manipulate-data.html"><a href="manipulate-data.html#remove"><i class="fa fa-check"></i><b>4.2</b> Remove</a></li>
+<li class="chapter" data-level="4.3" data-path="manipulate-data.html"><a href="manipulate-data.html#update-upsert"><i class="fa fa-check"></i><b>4.3</b> Update / Upsert</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="import-export.html"><a href="import-export.html"><i class="fa fa-check"></i><b>5</b> Import / Export</a><ul>
+<li class="chapter" data-level="5.1" data-path="import-export.html"><a href="import-export.html#json"><i class="fa fa-check"></i><b>5.1</b> JSON</a></li>
+<li class="chapter" data-level="5.2" data-path="import-export.html"><a href="import-export.html#via-jsonlite"><i class="fa fa-check"></i><b>5.2</b> Via jsonlite</a></li>
+<li class="chapter" data-level="5.3" data-path="import-export.html"><a href="import-export.html#streaming"><i class="fa fa-check"></i><b>5.3</b> Streaming</a></li>
+<li class="chapter" data-level="5.4" data-path="import-export.html"><a href="import-export.html#bson"><i class="fa fa-check"></i><b>5.4</b> BSON</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
+<li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+</ul></li>
+<li class="divider"></li>
+<li><a href="https://github.com/jeroenooms/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Mongolite User Manual</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="connecting-to-mongodb" class="section level1">
+<h1><span class="header-section-number">Chapter 2</span> Connecting to MongoDB</h1>
+<div id="mongo-uri-format" class="section level2">
+<h2><span class="header-section-number">2.1</span> Mongo URI Format</h2>
+<p>The <code>mongo()</code> function initiates a connection object to a MongoDB server. For example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(mongolite)
+m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test&quot;</span>)</code></pre></div>
+<p>To get an overview of available methods, simply print the object to the terminal.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(m)</code></pre></div>
+<pre class="outputcode"><code>#&gt; &lt;Mongo collection&gt; &#39;mtcars&#39; 
+#&gt;  $aggregate(pipeline = &quot;{}&quot;, options = &quot;{\&quot;allowDiskUse\&quot;:true}&quot;, handler = NULL, pagesize = 1000) 
+#&gt;  $count(query = &quot;{}&quot;) 
+#&gt;  $distinct(key, query = &quot;{}&quot;) 
+#&gt;  $drop() 
+#&gt;  $export(con = stdout(), bson = FALSE) 
+#&gt;  $find(query = &quot;{}&quot;, fields = &quot;{\&quot;_id\&quot;:0}&quot;, sort = &quot;{}&quot;, skip = 0, limit = 0, handler = NULL, pagesize = 1000) 
+#&gt;  $import(con, bson = FALSE) 
+#&gt;  $index(add = NULL, remove = NULL) 
+#&gt;  $info() 
+#&gt;  $insert(data, pagesize = 1000, ...) 
+#&gt;  $iterate(query = &quot;{}&quot;, fields = &quot;{\&quot;_id\&quot;:0}&quot;, sort = &quot;{}&quot;, skip = 0, limit = 0) 
+#&gt;  $mapreduce(map, reduce, query = &quot;{}&quot;, sort = &quot;{}&quot;, limit = 0, out = NULL, scope = NULL) 
+#&gt;  $remove(query, just_one = FALSE) 
+#&gt;  $rename(name, db = NULL) 
+#&gt;  $update(query, update = &quot;{\&quot;$set\&quot;:{}}&quot;, upsert = FALSE, multiple = FALSE)</code></pre>
+<p>The R manual page for the <code>mongo()</code> function gives some brief descriptions as well.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">?mongo</code></pre></div>
+<p>The manual page tells us that <code>mongo()</code> supports the following arguments:</p>
+<ul>
+<li><code>collection</code>: name of the collection to connect to. Defaults to <code>&quot;test&quot;</code>.</li>
+<li><code>db</code>: name of the database to connect to. Defaults to <code>&quot;test&quot;</code>.</li>
+<li><code>url</code>: address of the MongoDB server in standard <a href="https://docs.mongodb.com/manual/reference/connection-string/">URI Format</a>.</li>
+<li><code>verbose</code>: if <code>TRUE</code>, emits some extra output</li>
+<li><code>options</code>: additinoal connection options such as SSL keys/certs.</li>
+</ul>
+<p>The <code>url</code> parameter contains a special URI format which defines the server address and additional connection options.</p>
+<pre><code>mongodb://[username:password@]host1[:port1][,host2[:port2],...[/[database][?options]]</code></pre>
+<p>The <a href="https://docs.mongodb.com/manual/reference/connection-string/">Mongo Connection String Manual</a> gives an overview of the connection string syntax and options. Below the most important options for using mongolite.</p>
+</div>
+<div id="authentication" class="section level2">
+<h2><span class="header-section-number">2.2</span> Authentication</h2>
+<p>MongoDB supports several authentication modes.</p>
+<div id="ldap" class="section level3">
+<h3><span class="header-section-number">2.2.1</span> LDAP</h3>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">USER =<span class="st"> &quot;drivers-team&quot;</span>
+PASS =<span class="st"> &quot;mongor0x$xgen&quot;</span>
+HOST =<span class="st"> &quot;ldaptest.10gen.cc&quot;</span>
+
+<span class="co"># Using plain-text</span>
+URI =<span class="st"> </span><span class="kw">sprintf</span>(<span class="st">&quot;mongodb://%s:%s@%s/ldap?authMechanism=PLAIN&quot;</span>, USER, PASS, HOST)
+m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> URI)
+m$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;   ldap authenticated
+#&gt; 1 TRUE          yeah</code></pre>
+<p>However it is recommended to use SSL instead of plain text when authenticating with a username/password:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Or over SSL</span>
+m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="kw">paste0</span>(URI, <span class="st">&quot;&amp;ssl=true&quot;</span>), <span class="dt">options =</span> 
+             <span class="kw">ssl_options</span>(<span class="dt">ca =</span> <span class="st">&quot;auth/ca.crt&quot;</span>, <span class="dt">allow_invalid_hostname =</span> <span class="ot">TRUE</span>))
+m$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;   ldap authenticated
+#&gt; 1 TRUE          yeah</code></pre>
+</div>
+<div id="x509" class="section level3">
+<h3><span class="header-section-number">2.2.2</span> X509</h3>
+<p>Let’s check if our server supports SSL:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">certs &lt;-<span class="st"> </span>openssl::<span class="kw">download_ssl_cert</span>(<span class="st">&#39;ldaptest.10gen.cc&#39;</span>, <span class="dv">27017</span>)
+<span class="kw">print</span>(certs)</code></pre></div>
+<pre class="outputcode"><code>#&gt; [[1]]
+#&gt; [x509 certificate] server
+#&gt; md5: 4a0dd30351ec284c7c491d015ba291fc
+#&gt; sha1: 536a8b9d3a63242ca0a0fbcdb3b02571f4a0a0ff
+#&gt; 
+#&gt; [[2]]
+#&gt; [x509 certificate] My Cert Authority
+#&gt; md5: f40b6ab1a6e8f91d1a7238179a1b0872
+#&gt; sha1: ca1d8d60a85e085e902b0fa8236680b960270f4f</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">str</span>(<span class="kw">as.list</span>(certs[[<span class="dv">1</span>]]))</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 8
+#&gt;  $ subject    : chr &quot;CN=server,OU=Kernel,O=10Gen,L=New York City,ST=New York,C=US&quot;
+#&gt;  $ issuer     : chr &quot;emailAddress=root@lazarus,CN=My Cert Authority,OU=Kernel,O=10Gen,L=New York City,ST=New York,C=US&quot;
+#&gt;  $ algorithm  : chr &quot;sha1WithRSAEncryption&quot;
+#&gt;  $ signature  : raw [1:128] 9b b1 fa fe ...
+#&gt;  $ validity   : chr [1:2] &quot;Dec  5 13:25:40 2013 GMT&quot; &quot;Apr 21 13:25:40 2041 GMT&quot;
+#&gt;  $ self_signed: logi FALSE
+#&gt;  $ alt_names  : NULL
+#&gt;  $ pubkey     :List of 5
+#&gt;   ..$ type       : chr &quot;rsa&quot;
+#&gt;   ..$ size       : int 1024
+#&gt;   ..$ ssh        : chr &quot;ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCud5oj/RnMwVl56jcR8EJIFarA7nrI8CW1opTCuIH934539jzd6g ...&quot;
+#&gt;   ..$ fingerprint:Classes &#39;hash&#39;, &#39;md5&#39;  raw [1:16] 1d 24 e9 04 ...
+#&gt;   ..$ data       :List of 2
+#&gt;   .. ..$ e:Class &#39;bignum&#39;  raw [1:3] 01 00 01
+#&gt;   .. ..$ n:Class &#39;bignum&#39;  raw [1:129] 00 ae 77 9a ...</code></pre>
+<p>To use X509 authentication the Mongo URI needs <code>ssl=true&amp;authMechanism=MONGODB-X509</code>:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Using X509 SSL auth</span>
+HOST &lt;-<span class="st"> &quot;ldaptest.10gen.cc&quot;</span>
+USER &lt;-<span class="st"> &quot;CN=client,OU=kerneluser,O=10Gen,L=New York City,ST=New York,C=US&quot;</span>
+URI &lt;-<span class="st"> </span><span class="kw">sprintf</span>(<span class="st">&quot;mongodb://%s@%s/x509?ssl=true&amp;authMechanism=MONGODB-X509&quot;</span>, USER, HOST)
+OPTS &lt;-<span class="st"> </span><span class="kw">ssl_options</span>(<span class="dt">cert =</span> <span class="st">&quot;auth/client.pem&quot;</span>, <span class="dt">key =</span> <span class="st">&quot;auth/key.pem&quot;</span>, <span class="dt">ca =</span> <span class="st">&quot;auth/ca.crt&quot;</span>, <span class="dt">allow_invalid_hostname =</span> <span class="ot">TRUE</span>)
+m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> URI, <span class="dt">options =</span> OPTS)
+m$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;   x509 authenticated
+#&gt; 1 TRUE          yeah</code></pre>
+</div>
+<div id="kerberos" class="section level3">
+<h3><span class="header-section-number">2.2.3</span> Kerberos</h3>
+<p><em><strong>Note</strong>: Windows uses <code>SSPI</code> for Kerberos authentication. This section does not apply</em>.</p>
+<p>Kerberos authentication on Linux requires installation of a Kerberos client. On OS-X Kerberos is already installed by default. On Ubuntu/Debian we need:</p>
+<pre><code>sudo apt-get install krb5-user libsasl2-modules-gssapi-mit</code></pre>
+<p>Next, create or edit <code>/etc/krbs5.conf</code> and add our server under <code>[realms]</code> for example:</p>
+<pre><code>[realms]
+  LDAPTEST.10GEN.CC = {
+    kdc = ldaptest.10gen.cc
+    admin_server = ldaptest.10gen.cc
+  }</code></pre>
+<p>In a terminal run the following (only have to do this once)</p>
+<pre><code>kinit drivers@LDAPTEST.10GEN.CC
+klist</code></pre>
+<p>We should now be able to connect in R:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">HOST &lt;-<span class="st"> &quot;ldaptest.10gen.cc&quot;</span>
+USER &lt;-<span class="st"> &quot;drivers%40LDAPTEST.10GEN.CC&quot;</span>
+URI &lt;-<span class="st"> </span><span class="kw">sprintf</span>(<span class="st">&quot;mongodb://%s@%s/kerberos?authMechanism=GSSAPI&quot;</span>, USER, HOST)
+m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> URI)
+m$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;   kerberos authenticated
+#&gt; 1     TRUE          yeah</code></pre>
+</div>
+</div>
+<div id="ssl-options" class="section level2">
+<h2><span class="header-section-number">2.3</span> SSL options</h2>
+<p>For security reasons, SSL options can not be configured in the URI but have to be set manually via the <code>options</code> parameter. The <code>ssl_options</code> function shows the default values:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">ssl_options</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 6
+#&gt;  $ pem_file              : NULL
+#&gt;  $ ca_file               : NULL
+#&gt;  $ ca_dir                : NULL
+#&gt;  $ crl_file              : NULL
+#&gt;  $ allow_invalid_hostname: logi FALSE
+#&gt;  $ weak_cert_validation  : logi FALSE</code></pre>
+<p>You can use this function to specify connection SSL options:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost?ssl=true&quot;</span>, 
+  <span class="dt">options =</span> <span class="kw">ssl_options</span>(<span class="dt">cert =</span> <span class="st">&quot;~/client.crt&quot;</span>, <span class="dt">key =</span> <span class="st">&quot;~/id_rsa.pem&quot;</span>))</code></pre></div>
+<p>The MongoDB <a href="https://docs.mongodb.com/manual/tutorial/configure-ssl-clients/">SSL client manual</a> has more detailed descriptions on the various options.</p>
+</div>
+<div id="replica-options" class="section level2">
+<h2><span class="header-section-number">2.4</span> Replica Options</h2>
+<p>The URI accepts a few special keys when connecting to a replicaset. The <a href="https://docs.mongodb.com/manual/reference/connection-string/">connection-string manual</a> is the canonical source for all parameters. Most users should stick with the defaults here, only specify these if you know what you are doing.</p>
+<p>The <strong>Read Preference</strong> paremeter specifies if the client should connect to the primary node (default) or a secondary node in the replica set.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://host.example.com/?readPreference=secondary&quot;</span>)
+m$<span class="kw">insert</span>(mtcars)
+m$<span class="kw">find</span>()</code></pre></div>
+<p>The <strong>Write Concern</strong> parameter is used to specify the level of acknowledgement that the write operation has propagated to a number of server nodes. The url string parameter is the letter <code>w</code>.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://host.example.com/?w=2&quot;</span>)</code></pre></div>
+<p>Note that specifying this parameter to 2 on a server that is not a replicaset will result in an error when trying to write:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?w=2&quot;</span>)
+m$<span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot; : &quot;bar&quot;}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt; Error: cannot use &#39;w&#39; &gt; 1 when a host is not replicated</code></pre>
+<p>Finally, <strong>Read Concern</strong> allows clients to choose a level of isolation for their reads from replica sets. The default value <code>local</code> returns the instance’s most recent data, but provides no guarantee that the data has been written to a majority of the replica set members (i.e. may be rolled back).</p>
+<p>On the other hand, if we specify <code>majority</code> the server will only return data that has been propagated to the majority of nodes. In the case of our local single-node server this is never the case.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?readConcernLevel=majority&quot;</span>)
+m$<span class="kw">drop</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; Error: ns not found</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m$<span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot;: 123}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 6
+#&gt;  $ nInserted  : int 1
+#&gt;  $ nMatched   : int 0
+#&gt;  $ nModified  : int 0
+#&gt;  $ nRemoved   : int 0
+#&gt;  $ nUpserted  : int 0
+#&gt;  $ writeErrors: list()</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m$<span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot;: 456}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 6
+#&gt;  $ nInserted  : int 1
+#&gt;  $ nMatched   : int 0
+#&gt;  $ nModified  : int 0
+#&gt;  $ nRemoved   : int 0
+#&gt;  $ nUpserted  : int 0
+#&gt;  $ writeErrors: list()</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; Error: Majority read concern requested, but server was not started with --enableMajorityReadConcern.</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; data frame with 0 columns and 0 rows</code></pre>
+<p>We see that that server does not return any data that meets the majority level. If we create a new connection with level <code>local</code> we get to see our data:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m2 &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?readConcernLevel=local&quot;</span>)
+m2$<span class="kw">count</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 2</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">m2$<span class="kw">find</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt;   foo
+#&gt; 1 123
+#&gt; 2 456</code></pre>
+</div>
+<div id="global-options" class="section level2">
+<h2><span class="header-section-number">2.5</span> Global options</h2>
+<p>Finally the <code>mongo_options</code> method allows for setting global client options that span across connections. Currently two options are supported:</p>
+<ul>
+<li><code>log_level</code> set the mongo <a href="http://mongoc.org/libmongoc/current/logging.html">log level</a>, e.g. for printing debugging information.</li>
+<li><code>bigint_as_char</code> set to <code>TRUE</code> to parse int64 numbers as strings rather than doubles (R does not support large integers natively)</li>
+</ul>
+<p>The default values are:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">mongo_options</span>()</code></pre></div>
+<pre class="outputcode"><code>#&gt; $log_level
+#&gt; [1] &quot;INFO&quot;
+#&gt; 
+#&gt; $bigint_as_char
+#&gt; [1] FALSE</code></pre>
+<p>See the manual page for <code>?mongo_options</code> for more details.</p>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="index.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="query-data.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script>
+require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"weibo": false,
+"instapper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": "https://github.com/rstudio/bookdown-demo/edit/master/01-connecting.Rmd",
+"text": "Edit"
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+}
+});
+});
+</script>
+
+</body>
+
+</html>

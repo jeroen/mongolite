@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html >
+
+<head>
+
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Mongolite User Manual</title>
+  <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
+  <meta name="generator" content="bookdown 0.3.9 and GitBook 2.6.7">
+
+  <meta property="og:title" content="Mongolite User Manual" />
+  <meta property="og:type" content="book" />
+  
+  
+  <meta property="og:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  <meta name="github-repo" content="jeroenooms/mongobook" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Mongolite User Manual" />
+  
+  <meta name="twitter:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  
+  
+<link rel="prev" href="connecting-to-mongodb.html">
+<link rel="next" href="manipulate-data.html">
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><a href="./">Mongolite User Manual</a></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Getting Started</a><ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#requirements-linux-mac"><i class="fa fa-check"></i><b>1.1</b> Requirements (Linux / Mac)</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#install-mongolite-in-r"><i class="fa fa-check"></i><b>1.2</b> Install mongolite in R</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#run-local-mongod"><i class="fa fa-check"></i><b>1.3</b> Run local mongod</a></li>
+<li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#testing-with-ssl"><i class="fa fa-check"></i><b>1.4</b> Testing with SSL</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html"><i class="fa fa-check"></i><b>2</b> Connecting to MongoDB</a><ul>
+<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a></li>
+<li class="chapter" data-level="2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#authentication"><i class="fa fa-check"></i><b>2.2</b> Authentication</a><ul>
+<li class="chapter" data-level="2.2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ldap"><i class="fa fa-check"></i><b>2.2.1</b> LDAP</a></li>
+<li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
+<li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
+</ul></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.3</b> SSL options</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.4</b> Replica Options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.5</b> Global options</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
+<li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
+<li class="chapter" data-level="3.2" data-path="query-data.html"><a href="query-data.html#filter-fields"><i class="fa fa-check"></i><b>3.2</b> Filter fields</a></li>
+<li class="chapter" data-level="3.3" data-path="query-data.html"><a href="query-data.html#sort-and-limit"><i class="fa fa-check"></i><b>3.3</b> Sort and limit</a></li>
+<li class="chapter" data-level="3.4" data-path="query-data.html"><a href="query-data.html#indexing"><i class="fa fa-check"></i><b>3.4</b> Indexing</a></li>
+<li class="chapter" data-level="3.5" data-path="query-data.html"><a href="query-data.html#iterating"><i class="fa fa-check"></i><b>3.5</b> Iterating</a></li>
+<li class="chapter" data-level="3.6" data-path="query-data.html"><a href="query-data.html#select-by-date"><i class="fa fa-check"></i><b>3.6</b> Select by date</a></li>
+<li class="chapter" data-level="3.7" data-path="query-data.html"><a href="query-data.html#select-by-id"><i class="fa fa-check"></i><b>3.7</b> Select by ID</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="manipulate-data.html"><a href="manipulate-data.html"><i class="fa fa-check"></i><b>4</b> Manipulate Data</a><ul>
+<li class="chapter" data-level="4.1" data-path="manipulate-data.html"><a href="manipulate-data.html#insert"><i class="fa fa-check"></i><b>4.1</b> Insert</a></li>
+<li class="chapter" data-level="4.2" data-path="manipulate-data.html"><a href="manipulate-data.html#remove"><i class="fa fa-check"></i><b>4.2</b> Remove</a></li>
+<li class="chapter" data-level="4.3" data-path="manipulate-data.html"><a href="manipulate-data.html#update-upsert"><i class="fa fa-check"></i><b>4.3</b> Update / Upsert</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="import-export.html"><a href="import-export.html"><i class="fa fa-check"></i><b>5</b> Import / Export</a><ul>
+<li class="chapter" data-level="5.1" data-path="import-export.html"><a href="import-export.html#json"><i class="fa fa-check"></i><b>5.1</b> JSON</a></li>
+<li class="chapter" data-level="5.2" data-path="import-export.html"><a href="import-export.html#via-jsonlite"><i class="fa fa-check"></i><b>5.2</b> Via jsonlite</a></li>
+<li class="chapter" data-level="5.3" data-path="import-export.html"><a href="import-export.html#streaming"><i class="fa fa-check"></i><b>5.3</b> Streaming</a></li>
+<li class="chapter" data-level="5.4" data-path="import-export.html"><a href="import-export.html#bson"><i class="fa fa-check"></i><b>5.4</b> BSON</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
+<li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+</ul></li>
+<li class="divider"></li>
+<li><a href="https://github.com/jeroenooms/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Mongolite User Manual</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="query-data" class="section level1">
+<h1><span class="header-section-number">Chapter 3</span> Query Data</h1>
+<p>This chapter will cover basic techniques for reading data from MongoDB. To exemplify this chapter we start by creating a new collection <strong>diamonds</strong> and insert an example dataset from the <strong>ggplot2</strong> package.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># create collection with example data</span>
+dmd &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;diamonds&quot;</span>)
+dmd$<span class="kw">insert</span>(ggplot2::diamonds)</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 5
+#&gt;  $ nInserted  : num 53940
+#&gt;  $ nMatched   : num 0
+#&gt;  $ nRemoved   : num 0
+#&gt;  $ nUpserted  : num 0
+#&gt;  $ writeErrors: list()</code></pre>
+<p>The next chapter explains inserting data in more detail. For now let’s verify all our data was inserted:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">count</span>() ==<span class="st"> </span><span class="kw">nrow</span>(ggplot2::diamonds)</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] TRUE</code></pre>
+<p>Seems good!</p>
+<div id="query-syntax" class="section level2">
+<h2><span class="header-section-number">3.1</span> Query syntax</h2>
+<p>MongoDB uses <a href="https://docs.mongodb.com/manual/tutorial/query-documents/">JSON based syntax</a> to query documents. The empty query <code>{}</code> means: select all data. The same query parameter is used for multiple operations such as <code>find()</code>, <code>iterate()</code>, <code>count()</code>, <code>remove()</code> and <code>update()</code>. We need to specify the JSON query as a string in R.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Get all records</span>
+dmd$<span class="kw">count</span>(<span class="st">&#39;{}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 53940</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Read all the data back into R</span>
+alldata &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(<span class="st">&#39;{}&#39;</span>)
+<span class="kw">print</span>(alldata)</code></pre></div>
+<pre class="outputcode"><code>#&gt;       carat       cut color clarity depth table price     x     y     z
+#&gt; 1      0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
+#&gt; 2      0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
+#&gt; 3      0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
+#&gt; 4      0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
+#&gt; 5      0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
+#&gt; 6      0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
+#&gt; 7      0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
+#&gt; 8      0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
+#&gt; 9      0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
+#&gt; 10     0.23 Very Good     H     VS1  59.4  61.0   338  4.00  4.05  2.39
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 53930 rows ]</code></pre>
+<p>To query all rows where <code>cut == &quot;Premium&quot; AND price &lt; 1000</code> you would run:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">premium_diamonds &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>)
+<span class="kw">print</span>(premium_diamonds)</code></pre></div>
+<pre class="outputcode"><code>#&gt;      carat     cut color clarity depth table price    x    y    z
+#&gt; 1     0.21 Premium     E     SI1  59.8  61.0   326 3.89 3.84 2.31
+#&gt; 2     0.29 Premium     I     VS2  62.4  58.0   334 4.20 4.23 2.63
+#&gt; 3     0.22 Premium     F     SI1  60.4  61.0   342 3.88 3.84 2.33
+#&gt; 4     0.20 Premium     E     SI2  60.2  62.0   345 3.79 3.75 2.27
+#&gt; 5     0.32 Premium     E      I1  60.9  58.0   345 4.38 4.42 2.68
+#&gt; 6     0.24 Premium     I     VS1  62.5  57.0   355 3.97 3.94 2.47
+#&gt; 7     0.29 Premium     F     SI1  62.4  58.0   403 4.24 4.26 2.65
+#&gt; 8     0.22 Premium     E     VS2  61.6  58.0   404 3.93 3.89 2.41
+#&gt; 9     0.22 Premium     D     VS2  59.3  62.0   404 3.91 3.88 2.31
+#&gt; 10    0.30 Premium     J     SI2  59.3  61.0   405 4.43 4.38 2.61
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 3190 rows ]</code></pre>
+<p>We can confirm that we get the same subset in R:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">nrow</span>(premium_diamonds)</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 3200</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">nrow</span>(<span class="kw">subset</span>(ggplot2::diamonds, cut ==<span class="st"> &quot;Premium&quot;</span> &amp;<span class="st"> </span>price &lt;<span class="st"> </span><span class="dv">1000</span>))</code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 3200</code></pre>
+<p>To learn more about mongo data queries, study the <a href="https://docs.mongodb.com/manual/tutorial/query-documents/">Mongo Query Documents</a> manual.</p>
+</div>
+<div id="filter-fields" class="section level2">
+<h2><span class="header-section-number">3.2</span> Filter fields</h2>
+<p>The <code>fields</code> parameter filters specific columns from the output. Let’s continue our example above:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(
+  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, 
+  <span class="dt">fields =</span> <span class="st">&#39;{&quot;cut&quot; : true, &quot;clarity&quot; : true}&#39;</span>,
+  <span class="dt">limit =</span> <span class="dv">5</span>
+)
+<span class="kw">print</span>(test)</code></pre></div>
+<pre class="outputcode"><code>#&gt;                        _id     cut clarity
+#&gt; 1 58ac3fbbba7cb2081a0da47e Premium     SI1
+#&gt; 2 58ac3fbbba7cb2081a0da480 Premium     VS2
+#&gt; 3 58ac3fbbba7cb2081a0da489 Premium     SI1
+#&gt; 4 58ac3fbbba7cb2081a0da48b Premium     SI2
+#&gt; 5 58ac3fbbba7cb2081a0da48c Premium      I1</code></pre>
+<p>By default mongo always includes the <code>id</code> field. To prevent this we need to explicitly disable it:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(
+  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, 
+  <span class="dt">fields =</span> <span class="st">&#39;{&quot;cut&quot; : true, &quot;clarity&quot; : true, &quot;_id&quot;: false}&#39;</span>,
+  <span class="dt">limit =</span> <span class="dv">5</span>
+)
+<span class="kw">print</span>(test)</code></pre></div>
+<pre class="outputcode"><code>#&gt;       cut clarity
+#&gt; 1 Premium     SI1
+#&gt; 2 Premium     VS2
+#&gt; 3 Premium     SI1
+#&gt; 4 Premium     SI2
+#&gt; 5 Premium      I1</code></pre>
+<p>The default value for the <code>field</code> argument is <code>'{&quot;_id&quot; : 0}'</code> i.e. all columns, except for <code>_id</code>.</p>
+</div>
+<div id="sort-and-limit" class="section level2">
+<h2><span class="header-section-number">3.3</span> Sort and limit</h2>
+<p>The <code>sort</code> paramter allows us to order the output, and <code>limit</code> restricts the number records that will be returned. For example to return the 7 most expensive <strong>premium</strong> diamonds in the data we sort by price in descending order:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;}&#39;</span>, <span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot;: -1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">7</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   carat     cut color clarity depth table price    x    y    z
+#&gt; 1  2.29 Premium     I     VS2  60.8    60 18823 8.50 8.47 5.16
+#&gt; 2  2.29 Premium     I     SI1  61.8    59 18797 8.52 8.45 5.24
+#&gt; 3  2.04 Premium     H     SI1  58.1    60 18795 8.37 8.28 4.84
+#&gt; 4  2.00 Premium     I     VS1  60.8    59 18795 8.13 8.02 4.91
+#&gt; 5  1.71 Premium     F     VS2  62.3    59 18791 7.57 7.53 4.70
+#&gt; 6  2.05 Premium     F     SI2  60.2    59 18784 8.28 8.33 5.00
+#&gt; 7  2.55 Premium     I     VS1  61.8    62 18766 8.70 8.65 5.36</code></pre>
+<p>Note that usually you should only sort by fields that have an index set on them. Sorting by unindexed fields can be very slow and the server might reach the memory limits on the server.</p>
+</div>
+<div id="indexing" class="section level2">
+<h2><span class="header-section-number">3.4</span> Indexing</h2>
+<p>By default a collection only has an index for <code>_id</code>, which means that selecting or sorting by any other field is relatively slow.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">system.time</span>(dmd$<span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</code></pre></div>
+<pre class="outputcode"><code>#&gt;    user  system elapsed 
+#&gt;   0.001   0.001   0.151</code></pre>
+<p>By adding an index, the field gets presorted and selecting or sorting it is almost immediate:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
+#&gt; 1 2       1        NA    _id_ test.diamonds
+#&gt; 2 2      NA         1 price_1 test.diamonds</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">system.time</span>(dmd$<span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</code></pre></div>
+<pre class="outputcode"><code>#&gt;    user  system elapsed 
+#&gt;   0.002   0.000   0.003</code></pre>
+<p>In order to speed up queries involving multiple fields, you need to add a cross-index which intersects both fields:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   v key._id key.price key.depth    name            ns
+#&gt; 1 2       1        NA        NA    _id_ test.diamonds
+#&gt; 2 2      NA         1        NA price_1 test.diamonds
+#&gt; 3 2      NA        NA         1 depth_1 test.diamonds</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1, &quot;price&quot; : 1}&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   v key._id key.price key.depth            name            ns
+#&gt; 1 2       1        NA        NA            _id_ test.diamonds
+#&gt; 2 2      NA         1        NA         price_1 test.diamonds
+#&gt; 3 2      NA        NA         1         depth_1 test.diamonds
+#&gt; 4 2      NA         1         1 depth_1_price_1 test.diamonds</code></pre>
+<p>To remove indices from the collection, use the <code>name</code> as listed above:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">remove =</span> <span class="st">&#39;depth_1_price_1&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   v key._id key.price key.depth    name            ns
+#&gt; 1 2       1        NA        NA    _id_ test.diamonds
+#&gt; 2 2      NA         1        NA price_1 test.diamonds
+#&gt; 3 2      NA        NA         1 depth_1 test.diamonds</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">remove =</span> <span class="st">&#39;depth_1&#39;</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
+#&gt; 1 2       1        NA    _id_ test.diamonds
+#&gt; 2 2      NA         1 price_1 test.diamonds</code></pre>
+</div>
+<div id="iterating" class="section level2">
+<h2><span class="header-section-number">3.5</span> Iterating</h2>
+<p>The <code>find()</code> method automatically simplifies the collection into a data frame, but sometimes you need more fine-grained control. The <code>iterate()</code> method allows you to perform a query, but read the records one-by-one without simplification.</p>
+<p>The iterator has methods <code>one()</code>, <code>batch(n)</code> which allow you to step through a single or <code>n</code> records at the time. When the iterator is exhausted it will return <code>NULL</code>. Lets run the same query as above using the iterator interface:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># perform query and return the iterator</span>
+it &lt;-<span class="st"> </span>dmd$<span class="kw">iterate</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;}&#39;</span>, <span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot;: -1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">7</span>)
+
+<span class="co"># read records from  the iterator</span>
+while(!<span class="kw">is.null</span>(x &lt;-<span class="st"> </span>it$<span class="kw">one</span>())){
+  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot;Found %.2f carat diamond for $%d</span><span class="ch">\n</span><span class="st">&quot;</span>, x$carat, x$price))
+}</code></pre></div>
+<pre class="outputcode"><code>#&gt; Found 2.29 carat diamond for $18823
+#&gt; Found 2.29 carat diamond for $18797
+#&gt; Found 2.00 carat diamond for $18795
+#&gt; Found 2.04 carat diamond for $18795
+#&gt; Found 1.71 carat diamond for $18791
+#&gt; Found 2.05 carat diamond for $18784
+#&gt; Found 2.55 carat diamond for $18766</code></pre>
+<p>The iterator does not perform any simplification, so each <code>x</code> is simply a named list containing the parsed JSON record.</p>
+</div>
+<div id="select-by-date" class="section level2">
+<h2><span class="header-section-number">3.6</span> Select by date</h2>
+<p>In order to query by timestamp we must make sure dates are in proper <strong>UTC datetime</strong> format. When inserting data via R this means the column must be in <code>POSIXct</code> type.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Get some example data</span>
+mydata &lt;-<span class="st"> </span>jsonlite::<span class="kw">fromJSON</span>(<span class="st">&quot;https://api.github.com/repos/jeroenooms/mongolite/issues&quot;</span>)
+mydata$created_at &lt;-<span class="st"> </span><span class="kw">strptime</span>(mydata$created_at, <span class="st">&quot;%Y-%m-%dT%H:%M:%SZ&quot;</span>, <span class="st">&#39;UTC&#39;</span>)
+mydata$closed_at &lt;-<span class="st"> </span><span class="kw">strptime</span>(mydata$closed_at, <span class="st">&quot;%Y-%m-%dT%H:%M:%SZ&quot;</span>, <span class="st">&#39;UTC&#39;</span>)
+
+<span class="co"># Insert into mongo</span>
+issues &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;issues&quot;</span>)
+issues$<span class="kw">insert</span>(mydata)</code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 5
+#&gt;  $ nInserted  : num 28
+#&gt;  $ nMatched   : num 0
+#&gt;  $ nRemoved   : num 0
+#&gt;  $ nUpserted  : num 0
+#&gt;  $ writeErrors: list()</code></pre>
+<p>Selecting by date is done via the <code>&quot;$date&quot;</code> operator. For example to select dates which were created after January 1st, 2017:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">issues$<span class="kw">find</span>(
+  <span class="dt">query =</span> <span class="st">&#39;{&quot;created_at&quot;: { &quot;$gte&quot; : { &quot;$date&quot; : &quot;2017-01-01T00:00:00Z&quot; }}}&#39;</span>,
+  <span class="dt">fields =</span> <span class="st">&#39;{&quot;created_at&quot; : true, &quot;user.login&quot; : true, &quot;title&quot;:true, &quot;_id&quot;: false}&#39;</span>
+)</code></pre></div>
+<pre class="outputcode"><code>#&gt;                                            title      login created_at
+#&gt; 1 iterate()$batch() returns timestamp as integer petroswork 1485966091</code></pre>
+<p>Note that confusingly, what R calls a <em>Date</em> is not a timestamp but rather a string which only contains the date (Y-M-D) part of a timestamp. This type cannot be queried in MongoDB.</p>
+<p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#date">manual</a> for details.</p>
+</div>
+<div id="select-by-id" class="section level2">
+<h2><span class="header-section-number">3.7</span> Select by ID</h2>
+<p>Each record inserted into MongoDB is automatically assigned an <code>&quot;_id&quot;</code> value.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">issues$<span class="kw">find</span>(<span class="dt">fields=</span> <span class="st">&#39;{&quot;created_at&quot;:true, &quot;_id&quot;:true}&#39;</span>, <span class="dt">limit =</span> <span class="dv">10</span>)</code></pre></div>
+<pre class="outputcode"><code>#&gt;                         _id created_at
+#&gt; 1  58ac3fbfba7cb2081a0e7732 1485966091
+#&gt; 2  58ac3fbfba7cb2081a0e7733 1482331814
+#&gt; 3  58ac3fbfba7cb2081a0e7734 1481529791
+#&gt; 4  58ac3fbfba7cb2081a0e7735 1481107610
+#&gt; 5  58ac3fbfba7cb2081a0e7736 1480642213
+#&gt; 6  58ac3fbfba7cb2081a0e7737 1480550527
+#&gt; 7  58ac3fbfba7cb2081a0e7738 1480521457
+#&gt; 8  58ac3fbfba7cb2081a0e7739 1479918696
+#&gt; 9  58ac3fbfba7cb2081a0e773a 1479908009
+#&gt; 10 58ac3fbfba7cb2081a0e773b 1477044877</code></pre>
+<p>Use the <code>{&quot;$oid&quot;}</code> operator (similar to <code>ObjectId()</code> in mongo) to select a record by it’s ID, for example:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">issues$<span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{&quot;_id&quot; : {&quot;$oid&quot;:&quot;58a83a6aba7cb2070210433e&quot;}}&#39;</span>)</code></pre></div>
+<p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#oid">manual</a> for syntax details.</p>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="connecting-to-mongodb.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="manipulate-data.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script>
+require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"weibo": false,
+"instapper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": "https://github.com/rstudio/bookdown-demo/edit/master/02-queries.Rmd",
+"text": "Edit"
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+}
+});
+});
+</script>
+
+</body>
+
+</html>
