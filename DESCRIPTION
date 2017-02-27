@@ -10,7 +10,6 @@ Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen@berkeley.edu", role = c("aut", "cre")),
     person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver")
   )
-Maintainer: Jeroen Ooms <jeroen.ooms@stat.ucla.edu>
 Imports:
     jsonlite (>= 1.3),
     openssl (>= 0.9.4)
