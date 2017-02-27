@@ -4,7 +4,7 @@ Title: Fast and Simple MongoDB Client for R
 Description: High-performance MongoDB client based on 'libmongoc' and 'jsonlite'.
     Includes support for aggregation, indexing, map-reduce, streaming, encryption,
     enterprise authentication. The online user manual provdes an overview of the 
-    available methods in the package: <https://jeroenooms.github.io/mongolite/>.
+    available methods in the package: <https://jeroenooms.github.io/mongolite/>
 Version: 1.0
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen@berkeley.edu", role = c("aut", "cre")),
