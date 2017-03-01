@@ -114,9 +114,14 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
 <li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
 </ul></li>
-<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.3</b> SSL options</a></li>
-<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.4</b> Replica Options</a></li>
-<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.5</b> Global options</a></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssh-tunnel"><i class="fa fa-check"></i><b>2.3</b> SSH Tunnel</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.4</b> SSL options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.5</b> Replica Options</a><ul>
+<li class="chapter" data-level="2.5.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#read-preference"><i class="fa fa-check"></i><b>2.5.1</b> Read Preference</a></li>
+<li class="chapter" data-level="2.5.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#write-concern"><i class="fa fa-check"></i><b>2.5.2</b> Write Concern</a></li>
+<li class="chapter" data-level="2.5.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#read-concern"><i class="fa fa-check"></i><b>2.5.3</b> Read Concern</a></li>
+</ul></li>
+<li class="chapter" data-level="2.6" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.6</b> Global options</a></li>
 </ul></li>
 <li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
 <li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
@@ -197,9 +202,9 @@ subjects$<span class="kw">insert</span>(str)</code></pre></div>
 #&gt;  $ writeErrors: list()</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">fields =</span> <span class="st">&#39;{}&#39;</span>)</code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id  name age
-#&gt; 1 58ac3fc0ba7cb2081a0e77e6 jerry  NA
-#&gt; 2 58ac3fc0ba7cb2081a0e77e7  anna  23
-#&gt; 3 58ac3fc0ba7cb2081a0e77e8   joe  NA</code></pre>
+#&gt; 1 58b6e333ba7cb22e9524ac50 jerry  NA
+#&gt; 2 58b6e333ba7cb22e9524ac51  anna  23
+#&gt; 3 58b6e333ba7cb22e9524ac52   joe  NA</code></pre>
 <p>Obviously you can generate such JSON records dynamically from data via e.g. <code>jsonlite::toJSON</code>.</p>
 </div>
 <div id="remove" class="section level2">

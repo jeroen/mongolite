@@ -114,9 +114,14 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
 <li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
 </ul></li>
-<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.3</b> SSL options</a></li>
-<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.4</b> Replica Options</a></li>
-<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.5</b> Global options</a></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssh-tunnel"><i class="fa fa-check"></i><b>2.3</b> SSH Tunnel</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.4</b> SSL options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.5</b> Replica Options</a><ul>
+<li class="chapter" data-level="2.5.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#read-preference"><i class="fa fa-check"></i><b>2.5.1</b> Read Preference</a></li>
+<li class="chapter" data-level="2.5.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#write-concern"><i class="fa fa-check"></i><b>2.5.2</b> Write Concern</a></li>
+<li class="chapter" data-level="2.5.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#read-concern"><i class="fa fa-check"></i><b>2.5.3</b> Read Concern</a></li>
+</ul></li>
+<li class="chapter" data-level="2.6" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.6</b> Global options</a></li>
 </ul></li>
 <li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
 <li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
@@ -231,11 +236,11 @@ alldata &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(<span cla
 )
 <span class="kw">print</span>(test)</code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id     cut clarity
-#&gt; 1 58ac3fbbba7cb2081a0da47e Premium     SI1
-#&gt; 2 58ac3fbbba7cb2081a0da480 Premium     VS2
-#&gt; 3 58ac3fbbba7cb2081a0da489 Premium     SI1
-#&gt; 4 58ac3fbbba7cb2081a0da48b Premium     SI2
-#&gt; 5 58ac3fbbba7cb2081a0da48c Premium      I1</code></pre>
+#&gt; 1 58b6e32dba7cb22e9523d8fb Premium     SI1
+#&gt; 2 58b6e32dba7cb22e9523d8fd Premium     VS2
+#&gt; 3 58b6e32dba7cb22e9523d906 Premium     SI1
+#&gt; 4 58b6e32dba7cb22e9523d908 Premium     SI2
+#&gt; 5 58b6e32dba7cb22e9523d909 Premium      I1</code></pre>
 <p>By default mongo always includes the <code>id</code> field. To prevent this we need to explicitly disable it:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(
   <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, 
@@ -270,7 +275,7 @@ alldata &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(<span cla
 <p>By default a collection only has an index for <code>_id</code>, which means that selecting or sorting by any other field is relatively slow.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">system.time</span>(dmd$<span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.001   0.001   0.151</code></pre>
+#&gt;   0.003   0.001   0.157</code></pre>
 <p>By adding an index, the field gets presorted and selecting or sorting it is almost immediate:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>)</code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
@@ -334,7 +339,7 @@ mydata$closed_at &lt;-<span class="st"> </span><span class="kw">strptime</span>(
 issues &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;issues&quot;</span>)
 issues$<span class="kw">insert</span>(mydata)</code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 5
-#&gt;  $ nInserted  : num 28
+#&gt;  $ nInserted  : num 9
 #&gt;  $ nMatched   : num 0
 #&gt;  $ nRemoved   : num 0
 #&gt;  $ nUpserted  : num 0
@@ -344,8 +349,8 @@ issues$<span class="kw">insert</span>(mydata)</code></pre></div>
   <span class="dt">query =</span> <span class="st">&#39;{&quot;created_at&quot;: { &quot;$gte&quot; : { &quot;$date&quot; : &quot;2017-01-01T00:00:00Z&quot; }}}&#39;</span>,
   <span class="dt">fields =</span> <span class="st">&#39;{&quot;created_at&quot; : true, &quot;user.login&quot; : true, &quot;title&quot;:true, &quot;_id&quot;: false}&#39;</span>
 )</code></pre></div>
-<pre class="outputcode"><code>#&gt;                                            title      login created_at
-#&gt; 1 iterate()$batch() returns timestamp as integer petroswork 1485966091</code></pre>
+<pre class="outputcode"><code>#&gt;            title      login created_at
+#&gt; 1 Simplify dates jeroenooms 1488214306</code></pre>
 <p>Note that confusingly, what R calls a <em>Date</em> is not a timestamp but rather a string which only contains the date (Y-M-D) part of a timestamp. This type cannot be queried in MongoDB.</p>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#date">manual</a> for details.</p>
 </div>
@@ -353,17 +358,16 @@ issues$<span class="kw">insert</span>(mydata)</code></pre></div>
 <h2><span class="header-section-number">3.7</span> Select by ID</h2>
 <p>Each record inserted into MongoDB is automatically assigned an <code>&quot;_id&quot;</code> value.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">issues$<span class="kw">find</span>(<span class="dt">fields=</span> <span class="st">&#39;{&quot;created_at&quot;:true, &quot;_id&quot;:true}&#39;</span>, <span class="dt">limit =</span> <span class="dv">10</span>)</code></pre></div>
-<pre class="outputcode"><code>#&gt;                         _id created_at
-#&gt; 1  58ac3fbfba7cb2081a0e7732 1485966091
-#&gt; 2  58ac3fbfba7cb2081a0e7733 1482331814
-#&gt; 3  58ac3fbfba7cb2081a0e7734 1481529791
-#&gt; 4  58ac3fbfba7cb2081a0e7735 1481107610
-#&gt; 5  58ac3fbfba7cb2081a0e7736 1480642213
-#&gt; 6  58ac3fbfba7cb2081a0e7737 1480550527
-#&gt; 7  58ac3fbfba7cb2081a0e7738 1480521457
-#&gt; 8  58ac3fbfba7cb2081a0e7739 1479918696
-#&gt; 9  58ac3fbfba7cb2081a0e773a 1479908009
-#&gt; 10 58ac3fbfba7cb2081a0e773b 1477044877</code></pre>
+<pre class="outputcode"><code>#&gt;                        _id created_at
+#&gt; 1 58b6e333ba7cb22e9524abaf 1488214306
+#&gt; 2 58b6e333ba7cb22e9524abb0 1482331814
+#&gt; 3 58b6e333ba7cb22e9524abb1 1473432217
+#&gt; 4 58b6e333ba7cb22e9524abb2 1471991562
+#&gt; 5 58b6e333ba7cb22e9524abb3 1466094279
+#&gt; 6 58b6e333ba7cb22e9524abb4 1462450923
+#&gt; 7 58b6e333ba7cb22e9524abb5 1439313015
+#&gt; 8 58b6e333ba7cb22e9524abb6 1430538700
+#&gt; 9 58b6e333ba7cb22e9524abb7 1430101791</code></pre>
 <p>Use the <code>{&quot;$oid&quot;}</code> operator (similar to <code>ObjectId()</code> in mongo) to select a record by it’s ID, for example:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">issues$<span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{&quot;_id&quot; : {&quot;$oid&quot;:&quot;58a83a6aba7cb2070210433e&quot;}}&#39;</span>)</code></pre></div>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#oid">manual</a> for syntax details.</p>
