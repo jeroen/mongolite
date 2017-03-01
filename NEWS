@@ -1,3 +1,13 @@
+1.0
+ - New mongo bookdown docs at https://jeroenooms.github.io/mongolite
+ - Update mongo-c-driver to upstream 1.6.0
+ - Improve enterprise authentication (see docs above)
+ - Windows: build with SSPI instead of SASL
+ - Added 'allow_invalid_hostname' parameter to ssl_options()
+ - Option 'bigint_as_char' to parse int64 into string instead of double
+ - New function mongo_options to get/set global options
+ - Function mongo_log_level is removed (use mongo_options instead)
+
 0.9.2
  - Upgrade mongo-c-driver to upstream 1.5.1
 
