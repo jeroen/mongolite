@@ -138,26 +138,26 @@ To connect to MongoDB via an SSH tunnel, you need to setup the tunnel separately
 con <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
 ```
 
-Assume we want to tunnel through `dev.opencpu.org` which runs an SSH server on the standard port 22 with username `jeroen`. To initiate a from `localhost:9999` to `ds043942.mongolab.com:43942` via the tunnel server `dev.opencpu.org:22` open a terminal and run:
+Assume we want to tunnel through `dev.opencpu.org` which runs an SSH server on the standard port 22 with username `jeroen`. To initiate a tunnel from `localhost:9999` to `ds043942.mongolab.com:43942` via the ssh server `dev.opencpu.org:22`, open a terminal and run:
 
 ```
 ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -vN -p22
 ```
 
-Some important flags:
+Some relevant `ssh` flags:
 
  - `-v` (optional) show verbose status output
  - `-f` run the tunnel server in the background. Use `pkill ssh` to kill.
  - `-p22` connect to ssh server on port 22 (default)
- - `-i /some/path/id_rsa` to set a custom private key to connect
+ - `-i/some/path/id_rsa` authenticate with ssh using a private key
 
-It is also possible to run this command directly from R:
+Check `man ssh` for more ssh options It is also possible to run this command directly from R:
 
 ```{r}
 system("ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -fN -p22")
 ```
 
-Now once tunnel has been established, we can connect to the the ssh client on the port we specified. In our example we run the ssh client on our local host, so we connect via:
+Once tunnel has been established, we can connect to our our ssh client which will tunnel traffic to our MongoDB server. In our example we run the ssh client on our localhost port 9999:
 
 ```{r}
 con <- mongo("mtcars", url = "mongodb://readwrite:test@localhost:9999/jeroen_test")

@@ -236,11 +236,11 @@ alldata &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(<span cla
 )
 <span class="kw">print</span>(test)</code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id     cut clarity
-#&gt; 1 58b6e32dba7cb22e9523d8fb Premium     SI1
-#&gt; 2 58b6e32dba7cb22e9523d8fd Premium     VS2
-#&gt; 3 58b6e32dba7cb22e9523d906 Premium     SI1
-#&gt; 4 58b6e32dba7cb22e9523d908 Premium     SI2
-#&gt; 5 58b6e32dba7cb22e9523d909 Premium      I1</code></pre>
+#&gt; 1 58b6e507ba7cb22f2a0e8c9b Premium     SI1
+#&gt; 2 58b6e507ba7cb22f2a0e8c9d Premium     VS2
+#&gt; 3 58b6e507ba7cb22f2a0e8ca6 Premium     SI1
+#&gt; 4 58b6e507ba7cb22f2a0e8ca8 Premium     SI2
+#&gt; 5 58b6e507ba7cb22f2a0e8ca9 Premium      I1</code></pre>
 <p>By default mongo always includes the <code>id</code> field. To prevent this we need to explicitly disable it:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">test &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(
   <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, 
@@ -275,7 +275,7 @@ alldata &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(<span cla
 <p>By default a collection only has an index for <code>_id</code>, which means that selecting or sorting by any other field is relatively slow.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">system.time</span>(dmd$<span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.003   0.001   0.157</code></pre>
+#&gt;   0.003   0.000   0.363</code></pre>
 <p>By adding an index, the field gets presorted and selecting or sorting it is almost immediate:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>)</code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
@@ -283,7 +283,7 @@ alldata &lt;-<span class="st"> </span>dmd$<span class="kw">find</span>(<span cla
 #&gt; 2 2      NA         1 price_1 test.diamonds</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">system.time</span>(dmd$<span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.002   0.000   0.003</code></pre>
+#&gt;   0.003   0.000   0.006</code></pre>
 <p>In order to speed up queries involving multiple fields, you need to add a cross-index which intersects both fields:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1}&#39;</span>)</code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price key.depth    name            ns
@@ -359,15 +359,15 @@ issues$<span class="kw">insert</span>(mydata)</code></pre></div>
 <p>Each record inserted into MongoDB is automatically assigned an <code>&quot;_id&quot;</code> value.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">issues$<span class="kw">find</span>(<span class="dt">fields=</span> <span class="st">&#39;{&quot;created_at&quot;:true, &quot;_id&quot;:true}&#39;</span>, <span class="dt">limit =</span> <span class="dv">10</span>)</code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id created_at
-#&gt; 1 58b6e333ba7cb22e9524abaf 1488214306
-#&gt; 2 58b6e333ba7cb22e9524abb0 1482331814
-#&gt; 3 58b6e333ba7cb22e9524abb1 1473432217
-#&gt; 4 58b6e333ba7cb22e9524abb2 1471991562
-#&gt; 5 58b6e333ba7cb22e9524abb3 1466094279
-#&gt; 6 58b6e333ba7cb22e9524abb4 1462450923
-#&gt; 7 58b6e333ba7cb22e9524abb5 1439313015
-#&gt; 8 58b6e333ba7cb22e9524abb6 1430538700
-#&gt; 9 58b6e333ba7cb22e9524abb7 1430101791</code></pre>
+#&gt; 1 58b6e510ba7cb22f2a0f5f4f 1488214306
+#&gt; 2 58b6e510ba7cb22f2a0f5f50 1482331814
+#&gt; 3 58b6e510ba7cb22f2a0f5f51 1473432217
+#&gt; 4 58b6e510ba7cb22f2a0f5f52 1471991562
+#&gt; 5 58b6e510ba7cb22f2a0f5f53 1466094279
+#&gt; 6 58b6e510ba7cb22f2a0f5f54 1462450923
+#&gt; 7 58b6e510ba7cb22f2a0f5f55 1439313015
+#&gt; 8 58b6e510ba7cb22f2a0f5f56 1430538700
+#&gt; 9 58b6e510ba7cb22f2a0f5f57 1430101791</code></pre>
 <p>Use the <code>{&quot;$oid&quot;}</code> operator (similar to <code>ObjectId()</code> in mongo) to select a record by it’s ID, for example:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">issues$<span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{&quot;_id&quot; : {&quot;$oid&quot;:&quot;58a83a6aba7cb2070210433e&quot;}}&#39;</span>)</code></pre></div>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#oid">manual</a> for syntax details.</p>

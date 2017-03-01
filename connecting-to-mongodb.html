@@ -266,18 +266,18 @@ m$<span class="kw">find</span>()</code></pre></div>
 <h2><span class="header-section-number">2.3</span> SSH Tunnel</h2>
 <p>To connect to MongoDB via an SSH tunnel, you need to setup the tunnel separately with an SSH client. For example the mongolite manual contains this example:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">con &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test&quot;</span>)</code></pre></div>
-<p>Assume we want to tunnel through <code>dev.opencpu.org</code> which runs an SSH server on the standard port 22 with username <code>jeroen</code>. To initiate a from <code>localhost:9999</code> to <code>ds043942.mongolab.com:43942</code> via the tunnel server <code>dev.opencpu.org:22</code> open a terminal and run:</p>
+<p>Assume we want to tunnel through <code>dev.opencpu.org</code> which runs an SSH server on the standard port 22 with username <code>jeroen</code>. To initiate a tunnel from <code>localhost:9999</code> to <code>ds043942.mongolab.com:43942</code> via the ssh server <code>dev.opencpu.org:22</code>, open a terminal and run:</p>
 <pre><code>ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -vN -p22</code></pre>
-<p>Some important flags:</p>
+<p>Some relevant <code>ssh</code> flags:</p>
 <ul>
 <li><code>-v</code> (optional) show verbose status output</li>
 <li><code>-f</code> run the tunnel server in the background. Use <code>pkill ssh</code> to kill.</li>
 <li><code>-p22</code> connect to ssh server on port 22 (default)</li>
-<li><code>-i /some/path/id_rsa</code> to set a custom private key to connect</li>
+<li><code>-i/some/path/id_rsa</code> authenticate with ssh using a private key</li>
 </ul>
-<p>It is also possible to run this command directly from R:</p>
+<p>Check <code>man ssh</code> for more ssh options It is also possible to run this command directly from R:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">system</span>(<span class="st">&quot;ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -fN -p22&quot;</span>)</code></pre></div>
-<p>Now once tunnel has been established, we can connect to the the ssh client on the port we specified. In our example we run the ssh client on our local host, so we connect via:</p>
+<p>Once tunnel has been established, we can connect to our our ssh client which will tunnel traffic to our MongoDB server. In our example we run the ssh client on our localhost port 9999:</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">con &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@localhost:9999/jeroen_test&quot;</span>)
 con$<span class="kw">insert</span>(mtcars)</code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 5
