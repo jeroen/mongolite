@@ -113,5 +113,10 @@ fi
 # Write to Makevars
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" Makevars.in > Makevars
 
+# Prevent compiler warning about empty unit
+if [[ "$OSTYPE" != "linux"* ]]; then
+  sed -i.bak 's#mongoc/mongoc-linux-distro-scanner.o##' Makevars
+fi
+
 # Success
 exit 0

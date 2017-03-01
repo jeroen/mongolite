@@ -11,6 +11,7 @@
 ^src/mlfeatures\.h$
 ^src/features\.mk$
 ^src/Makevars$
+^src/Makevars.bak$
 ^appveyor\.yml$
 ^tests/testthat/specifications/(?!source).*$
 ^tests/testthat/specifications/source/(?!bson-).*$
