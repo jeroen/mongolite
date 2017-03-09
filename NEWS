@@ -1,4 +1,5 @@
 1.1
+ - Update mongo-c-driver to upstream 1.6.1
  - Fix "-Wempty-translation-unit" compiler warning on OSX
 
 1.0
