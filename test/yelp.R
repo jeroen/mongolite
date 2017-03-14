@@ -7,14 +7,14 @@ library(curl)
 
 # Collection with yelp 'users'
 user <- mongo("user", db = "yelp")
-user$import(gzcon(curl("https://jeroenooms.github.io/data/yelp_training_set_user.json.gz")))
+user$import(gzcon(curl("https://jeroen.github.io/data/yelp_training_set_user.json.gz")))
 user$count()
 str(sample <- user$find(limit=10))
 View(sample)
 
 # Collection with yelp 'businesses'
 business <- mongo("business", db = "yelp")
-business$import(gzcon(curl("https://jeroenooms.github.io/data/yelp_training_set_business.json.gz")))
+business$import(gzcon(curl("https://jeroen.github.io/data/yelp_training_set_business.json.gz")))
 business$count()
 str(sample <- business$find(limit=10))
 View(sample)
@@ -22,13 +22,13 @@ View(sample)
 # Collection with 'checkins'
 # NB: weird (non-tidy) format: See https://www.kaggle.com/c/yelp-recsys-2013/data
 checkin <- mongo("checkin", db = "yelp")
-checkin$import(gzcon(curl("https://jeroenooms.github.io/data/yelp_training_set_checkin.json.gz")))
+checkin$import(gzcon(curl("https://jeroen.github.io/data/yelp_training_set_checkin.json.gz")))
 checkin$count()
 str(sample <- checkin$find(limit=10))
 
 # Collection with 'reviews' (80MB download)
 review <- mongo("review", db = "yelp")
-review$import(gzcon(curl("https://jeroenooms.github.io/data/yelp_training_set_review.json.gz")))
+review$import(gzcon(curl("https://jeroen.github.io/data/yelp_training_set_review.json.gz")))
 review$count()
 str(sample <- review$find(limit=10))
 View(sample)

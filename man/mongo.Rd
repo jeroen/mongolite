@@ -26,7 +26,7 @@ The collection can be interfaced using the methods described below.
 }
 \description{
 Connect to a MongoDB collection. Returns a \link{mongo} connection object with
-methods listed below. The \href{https://jeroenooms.github.io/mongolite/}{mongolite user manual}
+methods listed below. The \href{https://jeroen.github.io/mongolite/}{mongolite user manual}
 is the best place to get started.
 }
 \section{Methods}{
@@ -112,7 +112,7 @@ m$drop()
 
 # Import from jsonlines stream from connection
 dmd <- mongo("diamonds")
-dmd$import(url("http://jeroenooms.github.io/data/diamonds.json"))
+dmd$import(url("http://jeroen.github.io/data/diamonds.json"))
 dmd$count()
 
 # Export
@@ -120,7 +120,7 @@ dmd$drop()
 }
 }
 \references{
-\href{https://jeroenooms.github.io/mongolite/}{Mongolite User Manual}
+\href{https://jeroen.github.io/mongolite/}{Mongolite User Manual}
 
 Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 }

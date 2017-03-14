@@ -1,12 +1,12 @@
 #' MongoDB client
 #'
 #' Connect to a MongoDB collection. Returns a [mongo] connection object with
-#' methods listed below. The [mongolite user manual](https://jeroenooms.github.io/mongolite/)
+#' methods listed below. The [mongolite user manual](https://jeroen.github.io/mongolite/)
 #' is the best place to get started.
 #'
 #' @export
 #' @aliases mongolite
-#' @references [Mongolite User Manual](https://jeroenooms.github.io/mongolite/)
+#' @references [Mongolite User Manual](https://jeroen.github.io/mongolite/)
 #' @param url address of the mongodb server in mongo connection string
 #' [URI format](http://docs.mongodb.org/manual/reference/connection-string)
 #' @param db name of database
@@ -76,7 +76,7 @@
 #'
 #' # Import from jsonlines stream from connection
 #' dmd <- mongo("diamonds")
-#' dmd$import(url("http://jeroenooms.github.io/data/diamonds.json"))
+#' dmd$import(url("http://jeroen.github.io/data/diamonds.json"))
 #' dmd$count()
 #'
 #' # Export
