@@ -3,7 +3,7 @@
  - Fix "-Wempty-translation-unit" compiler warning on OSX
 
 1.0
- - New mongo bookdown docs at https://jeroenooms.github.io/mongolite
+ - New mongo bookdown docs at https://jeroen.github.io/mongolite
  - Update mongo-c-driver to upstream 1.6.0
  - Add basic decimal 128 support (coerce to double)
  - Improve enterprise authentication for LDAP, X509 and Kerberos

@@ -2,13 +2,13 @@
 
 ##### *Fast and Simple MongoDB Client for R*
 
-[![Build Status](https://travis-ci.org/jeroenooms/mongolite.svg?branch=master)](https://travis-ci.org/jeroenooms/mongolite)
-[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/jeroenooms/mongolite?branch=master&svg=true)](https://ci.appveyor.com/project/jeroenooms/mongolite)
-[![Coverage Status](https://codecov.io/github/jeroenooms/mongolite/coverage.svg?branch=master)](https://codecov.io/github/jeroenooms/mongolite?branch=master)
+[![Build Status](https://travis-ci.org/jeroen/mongolite.svg?branch=master)](https://travis-ci.org/jeroen/mongolite)
+[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/jeroen/mongolite?branch=master&svg=true)](https://ci.appveyor.com/project/jeroenooms/mongolite)
+[![Coverage Status](https://codecov.io/github/jeroen/mongolite/coverage.svg?branch=master)](https://codecov.io/github/jeroen/mongolite?branch=master)
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/mongolite)](http://cran.r-project.org/package=mongolite)
 [![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/mongolite)](http://cran.r-project.org/web/packages/mongolite/index.html)
 [![Research software impact](http://depsy.org/api/package/cran/mongolite/badge.svg)](http://depsy.org/package/r/mongolite)
-[![Github Stars](https://img.shields.io/github/stars/jeroenooms/mongolite.svg?style=social&label=Github)](https://github.com/jeroenooms/mongolite)
+[![Github Stars](https://img.shields.io/github/stars/jeroen/mongolite.svg?style=social&label=Github)](https://github.com/jeroen/mongolite)
 
 > High-level, high-performance MongoDB client based on libmongoc and
   jsonlite. Includes support for aggregation, indexing, map-reduce, streaming,
@@ -20,7 +20,7 @@
 About the R package:
 
  - Vignette: [Getting started with MongoDB in R](https://cran.r-project.org/web/packages/mongolite/vignettes/intro.html)
- - Presentation: [UseR 2015 slides](http://jeroenooms.github.io/mongo-slides)
+ - Presentation: [UseR 2015 slides](http://jeroen.github.io/mongo-slides)
 
 ## Hello World
 
