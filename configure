@@ -45,7 +45,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   if [ $(command -v brew) ]; then
     BREWDIR=$(brew --prefix)
   else
-    BREWDIR="/tmp/homebrew"
+    BREWDIR="$TMPDIR/homebrew"
     rm -Rf $BREWDIR
     mkdir -p $BREWDIR
     echo "Auto-brewing $PKG_BREW_NAME in $BREWDIR..."
