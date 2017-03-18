@@ -1,6 +1,7 @@
 1.1
  - Update mongo-c-driver to upstream 1.6.1
  - Fix "-Wempty-translation-unit" compiler warning on OSX
+ - Extract autobrew script
 
 1.0
  - New mongo bookdown docs at https://jeroen.github.io/mongolite
