@@ -177,6 +177,8 @@
 #  undef MONGOC_HAVE_SOCKLEN
 #endif
 
+#define MONGOC_SOCKET_ARG2 struct sockaddr
+#define MONGOC_SOCKET_ARG3 socklen_t
 
 /*
  * Define to support experimental future mongoc features
