@@ -13,12 +13,17 @@ matrix:
       dist: trusty
       env: R_CODECOV=true
       r_check_args: '--use-valgrind'
+      r: devel
     - os: osx
-      osx_image: xcode8
+      osx_image: xcode8.2
       brew_packages: openssl
       latex: false
     - os: osx
-      osx_image: beta-xcode6.1
+      osx_image: beta-xcode7.3
+      disable_homebrew: true
+      latex: false
+    - os: osx
+      osx_image: beta-xcode6.4
       disable_homebrew: true
       latex: false
 
@@ -31,7 +36,6 @@ addons:
     - valgrind
 
 r_github_packages:
-  - jeroenooms/jsonlite
   - jimhester/covr
 
 warnings_are_errors: true
