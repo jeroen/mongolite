@@ -131,7 +131,8 @@ SEXP ConvertDate(bson_iter_t* iter){
   SEXP classes = PROTECT(allocVector(STRSXP, 2));
   SET_STRING_ELT(classes, 0, mkChar("POSIXct"));
   SET_STRING_ELT(classes, 1, mkChar("POSIXt"));
-  SEXP out = PROTECT(ScalarReal(bson_iter_date_time(iter) / 1000));
+  //use 1000.0 to force cast to double!
+  SEXP out = PROTECT(ScalarReal(bson_iter_date_time(iter) / 1000.0));
   setAttrib(out, R_ClassSymbol, classes);
   UNPROTECT(2);
   return out;
