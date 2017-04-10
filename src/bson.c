@@ -71,7 +71,8 @@ SEXP ConvertValue(bson_iter_t* iter){
   } else if(BSON_ITER_HOLDS_INT64(iter)){
     if(bigint_as_char){
       char buf[32];
-      snprintf(buf, 32, "%lld", bson_iter_int64(iter));
+      long long int x = bson_iter_int64(iter); //cross platform size
+      snprintf(buf, 32, "%lld", x);
       return mkString(buf);
     } else {
       return ScalarReal((double) bson_iter_int64(iter));
