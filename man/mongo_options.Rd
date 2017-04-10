@@ -4,12 +4,15 @@
 \alias{mongo_options}
 \title{Mongo Options}
 \usage{
-mongo_options(log_level = NULL, bigint_as_char = NULL)
+mongo_options(log_level = NULL, bigint_as_char = NULL,
+  date_as_char = NULL)
 }
 \arguments{
 \item{log_level}{integer between 0 and 6 or \code{NULL} to leave unchanged.}
 
 \item{bigint_as_char}{logical: parse int64 as strings instead of double.}
+
+\item{date_as_char}{logical: parse UTC datetime as strings instead of POSIXct.}
 }
 \description{
 Get and set global client options. Calling with \code{NULL} parameters returns current

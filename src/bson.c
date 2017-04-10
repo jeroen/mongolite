@@ -2,6 +2,7 @@
 
 //globals
 static int bigint_as_char = 0;
+static int date_as_char = 0;
 
 SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter);
 SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter);
@@ -15,6 +16,12 @@ SEXP R_bigint_as_char(SEXP x){
   if(Rf_isLogical(x))
     bigint_as_char = asLogical(x);
   return ScalarLogical(bigint_as_char);
+}
+
+SEXP R_date_as_char(SEXP x){
+  if(Rf_isLogical(x))
+    date_as_char = asLogical(x);
+  return ScalarLogical(date_as_char);
 }
 
 SEXP R_json_to_bson(SEXP json){
@@ -128,6 +135,16 @@ SEXP ConvertDate(bson_iter_t* iter){
 */
 
 SEXP ConvertDate(bson_iter_t* iter){
+  if(date_as_char) {
+    int64_t epoch = bson_iter_date_time(iter);
+    int ms = epoch % 1000;
+    time_t secs = epoch / 1000; //coerce int64 to int32
+    struct tm * time = gmtime(&secs);
+    char tmbuf[64], buf[64];
+    strftime(tmbuf, sizeof tmbuf, "%Y-%m-%dT%H:%M:%S", time);
+    snprintf(buf, sizeof buf, "%s.%03dZ", tmbuf, ms);
+    return mkString(buf);
+  }
   SEXP classes = PROTECT(allocVector(STRSXP, 2));
   SET_STRING_ELT(classes, 0, mkChar("POSIXct"));
   SET_STRING_ELT(classes, 1, mkChar("POSIXt"));

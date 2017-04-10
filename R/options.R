@@ -21,16 +21,23 @@
 #' @export
 #' @param log_level integer between 0 and 6 or `NULL` to leave unchanged.
 #' @param bigint_as_char logical: parse int64 as strings instead of double.
-mongo_options <- function(log_level = NULL, bigint_as_char = NULL){
-  list(
+#' @param date_as_char logical: parse UTC datetime as strings instead of POSIXct.
+mongo_options <- function(log_level = NULL, bigint_as_char = NULL, date_as_char = NULL){
+  list (
     log_level = mongo_log_level(log_level),
-    bigint_as_char = mongo_bigint_as_char(bigint_as_char)
+    bigint_as_char = mongo_bigint_as_char(bigint_as_char),
+    date_as_char = mongo_date_as_char(date_as_char)
   )
 }
 
 #' @useDynLib mongolite R_bigint_as_char
 mongo_bigint_as_char <- function(x = NULL){
   .Call(R_bigint_as_char, x)
+}
+
+#' @useDynLib mongolite R_date_as_char
+mongo_date_as_char <- function(x = NULL){
+  .Call(R_date_as_char, x)
 }
 
 #' @useDynLib mongolite R_mongo_log_level
