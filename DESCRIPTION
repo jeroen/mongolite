@@ -14,7 +14,8 @@ Imports:
     jsonlite (>= 1.4),
     openssl (>= 0.9.4)
 License: Apache License 2.0
-URL: https://jeroen.github.io/mongolite/
+URL: https://github.com/jeroen/mongolite/ (devel) 
+    https://jeroen.github.io/mongolite/ (manual)
 BugReports: https://github.com/jeroen/mongolite/issues
 SystemRequirements: OpenSSL, Cyrus SASL (aka libsasl2)
 RoxygenNote: 6.0.1
