@@ -1,3 +1,6 @@
+1.2.1
+ - Support "stop_on_error" parameter for bulk inserts
+
 1.2
  - Update mongo-c-driver to upstream 1.6.2
  - Update jsonlite requirement to 1.4 (fixes bug in reading dates)
