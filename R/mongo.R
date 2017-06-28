@@ -160,7 +160,7 @@ mongo_object <- function(col, client, verbose, orig){
         }
          mongo_collection_insert_page(col, data, stop_on_error)
       } else if(inherits(data, "bson")){
-        mongo_collection_insert_bson(col, data)
+        mongo_collection_insert_bson(col, data, stop_on_error)
       } else {
         stop("Argument 'data' must be a data frame, named list, or character vector with json strings")
       }
