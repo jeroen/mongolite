@@ -49,7 +49,7 @@ Both `mongolite` and `jsonlite` also allow for importing NDJSON data from a HTTP
 
 ```{r}
 flt <- mongo("flights")
-flt$import(gzcon(curl::curl("https://jeroenooms.github.io/data/nycflights13.json.gz")))
+flt$import(gzcon(curl::curl("https://jeroen.github.io/data/nycflights13.json.gz")))
 flt$count()
 ```
 
@@ -57,7 +57,7 @@ The same operation in `jsonlite` would be:
 
 ```{r}
 flights <- jsonlite::stream_in(
-  gzcon(curl::curl("https://jeroenooms.github.io/data/nycflights13.json.gz")), verbose = FALSE)
+  gzcon(curl::curl("https://jeroen.github.io/data/nycflights13.json.gz")), verbose = FALSE)
 nrow(flights)
 ```
 
