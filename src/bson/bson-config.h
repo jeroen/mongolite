@@ -19,7 +19,9 @@
 #define BSON_HAVE_STRNLEN 1
 #define BSON_HAVE_ATOMIC_32_ADD_AND_FETCH 1
 #define BSON_HAVE_ATOMIC_64_ADD_AND_FETCH 1
+#if !defined (__FreeBSD__) && !defined (__OpenBSD__)
 #define BSON_HAVE_SYSCALL_TID 1
+#endif
 #endif
 
 /* Fix for snow leopard */
