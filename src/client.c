@@ -67,3 +67,13 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
 
   return client2r(client);
 }
+
+SEXP R_mongo_client_close(SEXP ptr_client) {
+  mongoc_client_t *client = r2client(ptr_client);
+  mongoc_client_destroy (client);
+  mongoc_cleanup ();
+  SEXP result = PROTECT(allocVector(REALSXP, 1));
+  REAL(result)[0] = 1.0;
+  UNPROTECT(1);
+  return result;
+}

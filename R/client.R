@@ -27,6 +27,11 @@ mongo_client_new <- function(uri = "mongodb://127.0.0.1", pem_file = NULL, pem_p
   .Call(R_mongo_client_new, uri, pem_file, pem_pwd, ca_file, ca_dir, crl_file, allow_invalid_hostname, weak_cert_validation)
 }
 
+#' @useDynLib mongolite R_mongo_client_close
+mongo_client_close <- function(client){
+  .Call(R_mongo_client_close, client)
+}
+
 #' @useDynLib mongolite R_mongo_client_server_status
 mongo_client_server_status <- function(client){
   .Call(R_mongo_client_server_status, client)

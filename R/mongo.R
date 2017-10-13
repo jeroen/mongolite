@@ -104,6 +104,10 @@
 mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
   client <- do.call(mongo_client_new, c(list(uri = url), options))
 
+  connect_to_db_and_coll(client, url, db, collection, verbose, options)
+}
+
+connect_to_db_and_coll <- function(client, url, db, collection, verbose, options) {
   # workaround for missing 'mongoc_client_get_default_database'
   if(missing(db) || is.null(db)){
     url_db <- mongo_get_default_database(client)
@@ -143,6 +147,14 @@ mongo_object <- function(col, client, verbose, orig){
 
   # The reference object
   self <- local({
+    use <- function(collection, database = orig$db){
+      connect_to_db_and_coll(client, orig$url, database, collection, verbose, orig$options)
+    }
+
+    close <- function(){
+      mongo_client_close(client)
+    }
+
     insert <- function(data, pagesize = 1000, ...){
       check_col()
       if(is.data.frame(data)){
@@ -158,7 +170,7 @@ mongo_object <- function(col, client, verbose, orig){
           el <- paste(which(!is_valid), collapse = ", ")
           stop("Argument 'data' contains strings that are not JSON objects at elements: ", el)
         }
-         mongo_collection_insert_page(col, data)
+        mongo_collection_insert_page(col, data)
       } else if(inherits(data, "bson")){
         mongo_collection_insert_bson(col, data)
       } else {
