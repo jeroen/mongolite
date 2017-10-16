@@ -74,6 +74,9 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
   lockEnvironment(self, TRUE)
 
   connect_to_db_and_coll <- function(db, collection) {
+    
+    t0 <- as.numeric(Sys.time())*1000
+    
     # workaround for missing 'mongoc_client_get_default_database'
     if(missing(db) || is.null(db)){
       url_db <- mongo_get_default_database(client)
@@ -91,8 +94,11 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
     )
     if(length(options$pem_file) && file.exists(options$pem_file))
       attr(orig, "pemdata") <- readLines(options$pem_file)
-    print(self)
-    mongo_object(col, self, verbose, options)
+
+    res <- mongo_object(col, self, verbose, options)
+    msg <- sprintf("opened collection %s in db %s in %f milliseconds", collection, db, as.numeric(Sys.time())*1000 - t0)
+    print(msg)
+    res
   }
 
   structure(self, class=c("mongo_client", "jeroen", class(self)))
@@ -200,7 +206,7 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
 #'   \item{\code{rename(name, db = NULL)}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
 #' }
-{
+mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
   mongoclient <- mongo_client(url, verbose, options)
 
   mongoclient$use(collection, db)
