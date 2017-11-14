@@ -29,9 +29,10 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o \
 	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o \
 	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o mongoc/mongoc-cluster-cyrus.o \
-	mongoc/mongoc-compression.o mongoc/mongoc-cyrus.o mongoc/mongoc-write-command-legacy.o
+	mongoc/mongoc-compression.o mongoc/mongoc-cyrus.o mongoc/mongoc-write-command-legacy.o \
+	mongoc/mongoc-linux-distro-scanner.o
 
-PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson @libs@ -lz
+PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson @libs@ -lresolv -lz
 STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
 
 # For development only
@@ -45,4 +46,4 @@ $(STATLIB): $(LIBBSON) $(LIBMONGOC)
 	$(AR) rcs mongoc/libstatmongoc.a $(LIBMONGOC)
 
 clean:
-	rm -f $(SHLIB) $(STATLIB)
+	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)
