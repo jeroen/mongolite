@@ -6,7 +6,7 @@
 .DS_Store
 .Rproj.user
 .Rhistory
-src/*.a
+src/*/*.a
 src/*.o
 src/Makevars
 src/Makevars.bak

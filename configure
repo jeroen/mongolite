@@ -26,7 +26,7 @@ PKG_LIBS="-lssl -lcrypto $SASL_LIBS"
 # Use pkg-config if available
 if [ $(command -v pkg-config) ]; then
   PKGCONFIG_CFLAGS="$(pkg-config --cflags ${PKG_CONFIG_NAME})"
-  PKGCONFIG_LIBS="$SASL_LIBS $(pkg-config --libs ${PKG_CONFIG_NAME})"
+  PKGCONFIG_LIBS="$(pkg-config --libs ${PKG_CONFIG_NAME})"
 fi
 
 # Note that cflags may be empty in case of success
@@ -36,8 +36,8 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
   PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
 elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
   echo "Found pkg-config cflags and libs!"
-  PKG_CFLAGS=${PKGCONFIG_CFLAGS}
-  PKG_LIBS=${PKGCONFIG_LIBS}
+  PKG_CFLAGS="${PKGCONFIG_CFLAGS}"
+  PKG_LIBS="${SASL_LIBS} ${PKGCONFIG_LIBS}"
 fi
 
 # OpenSSL on OSX 10.11 is deprecated but currently keg-only in brew (not linked)
