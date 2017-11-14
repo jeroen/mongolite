@@ -28,12 +28,6 @@
 bool
 _mongoc_cluster_auth_node_sasl (mongoc_cluster_t *cluster,
                                 mongoc_stream_t *stream,
-                                const char *hostname,
+                                mongoc_server_description_t *sd,
                                 bson_error_t *error);
-bool
-_mongoc_cluster_get_canonicalized_name (mongoc_cluster_t *cluster,    /* IN */
-                                        mongoc_stream_t *node_stream, /* IN */
-                                        char *name,                   /* OUT */
-                                        size_t namelen,               /* IN */
-                                        bson_error_t *error);         /* OUT */
 #endif /* MONGOC_CLUSTER_SASL_PRIVATE_H */

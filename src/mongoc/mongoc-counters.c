@@ -17,7 +17,6 @@
 
 #include <bson.h>
 
-#include <assert.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,7 +45,7 @@ typedef struct {
 #pragma pack()
 
 
-BSON_STATIC_ASSERT (sizeof (mongoc_counter_info_t) == 128);
+BSON_STATIC_ASSERT2 (counter_info_t, sizeof (mongoc_counter_info_t) == 128);
 
 
 #pragma pack(1)
@@ -61,7 +60,7 @@ typedef struct {
 #pragma pack()
 
 
-BSON_STATIC_ASSERT (sizeof (mongoc_counters_t) == 64);
+BSON_STATIC_ASSERT2 (counters_t, sizeof (mongoc_counters_t) == 64);
 
 static void *gCounterFallback = NULL;
 
@@ -167,6 +166,9 @@ mongoc_counters_alloc (size_t size)
    pid = getpid ();
    bson_snprintf (name, sizeof name, "/mongoc-%u", pid);
 
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
    if (-1 == (fd = shm_open (name,
                              O_CREAT | O_EXCL | O_RDWR,
                              S_IRUSR | S_IWUSR | O_NOFOLLOW))) {

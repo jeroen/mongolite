@@ -106,13 +106,12 @@
 # undef BSON_HAVE_SNPRINTF
 #endif
 
-
 /*
- * Define to 1 if you have _set_output_format (VS2013 and older).
+ * Define to 1 if you have gmtime_r available on your platform.
  */
-#define BSON_NEEDS_SET_OUTPUT_FORMAT 0
-#if BSON_NEEDS_SET_OUTPUT_FORMAT != 1
-# undef BSON_NEEDS_SET_OUTPUT_FORMAT
+#define BSON_HAVE_GMTIME_R 1
+#if BSON_HAVE_GMTIME_R != 1
+# undef BSON_HAVE_GMTIME_R
 #endif
 
 /*
@@ -121,24 +120,6 @@
 #define BSON_HAVE_TIMESPEC 1
 #if BSON_HAVE_TIMESPEC != 1
 # undef BSON_HAVE_TIMESPEC
-#endif
-
-
-/*
-* Define to 1 if _Decimal128 (BID format) is available on your platform.
-*/
-#define BSON_HAVE_DECIMAL128 0
-#if BSON_HAVE_DECIMAL128 != 1
-# undef BSON_HAVE_DECIMAL128
-#endif
-
-
-/*
-* Define to 1 to support experimental future BSON or MongoDB features.
-*/
-#define BSON_EXPERIMENTAL_FEATURES 0
-#if BSON_EXPERIMENTAL_FEATURES != 1
-# undef BSON_EXPERIMENTAL_FEATURES
 #endif
 
 #endif /* BSON_CONFIG_H */
