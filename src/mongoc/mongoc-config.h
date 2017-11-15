@@ -218,7 +218,10 @@
  * have thread-unsafe res_search(). It's unset if we have the preferred
  * res_nsearch().
  */
+
+#if !defined (__FreeBSD__) && !defined (__OpenBSD__)
 #define MONGOC_HAVE_RES_SEARCH 1
+#endif
 
 #if MONGOC_HAVE_RES_SEARCH != 1
 #  undef MONGOC_HAVE_RES_SEARCH
