@@ -57,6 +57,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   PKG_CFLAGS="$PKG_CFLAGS -Wno-deprecated-declarations"
 fi
 
+# Linux needs libresolv
+if [ $(uname) = "Linux" ]; then
+  PKG_LIBS="$PKG_LIBS -lresolv"
+fi
+
 # For debugging
 echo "Using PKG_CFLAGS=$PKG_CFLAGS"
 echo "Using PKG_LIBS=$PKG_LIBS"
