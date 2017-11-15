@@ -58,7 +58,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 # Linux needs libresolv
-if [ $(uname) = "Linux" ]; then
+if [ $(uname) = "Linux" ] || [ $(uname) = "SunOS" ]; then
   PKG_LIBS="$PKG_LIBS -lresolv"
 fi
 
