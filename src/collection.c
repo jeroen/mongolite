@@ -94,7 +94,7 @@ SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_er
   bson_error_t err;
   bson_t *b;
   bson_t reply;
-  mongoc_bulk_operation_t *bulk = mongoc_collection_create_bulk_operation (r2col(ptr_col), ordered, NULL);
+  mongoc_bulk_operation_t *bulk = mongoc_collection_create_bulk_operation_with_opts (r2col(ptr_col), NULL);
   for(int i = 0; i < length(json_vec); i++){
     b = bson_new_from_json ((uint8_t*)translateCharUTF8(asChar(STRING_ELT(json_vec, i))), -1, &err);
     if(!b){
@@ -128,11 +128,16 @@ SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_er
 
 SEXP R_mongo_collection_create_index(SEXP ptr_col, SEXP ptr_bson) {
   mongoc_collection_t *col = r2col(ptr_col);
-  bson_t *b = r2bson(ptr_bson);
-  const mongoc_index_opt_t *options = mongoc_index_opt_get_default();
+  bson_t *keys = r2bson(ptr_bson);
+  const char * collection_name = mongoc_collection_get_name(col);
+  char * index_name = mongoc_collection_keys_to_index_string (keys);
   bson_error_t err;
 
-  if(!mongoc_collection_create_index(col, b, options, &err))
+  //From: https://s3.amazonaws.com/mciuploads/mongo-c-driver/docs/latest/create-indexes.html
+  bson_t * command = BCON_NEW ("createIndexes", BCON_UTF8 (collection_name), "indexes",
+    "[", "{", "key", BCON_DOCUMENT (keys), "name", BCON_UTF8 (index_name), "}", "]");
+
+  if(!mongoc_collection_write_command_with_opts(col, command, NULL, NULL, &err))
     stop(err.message);
 
   return ScalarLogical(1);
@@ -201,8 +206,8 @@ SEXP R_mongo_collection_find_indexes(SEXP ptr_col) {
   mongoc_collection_t *col = r2col(ptr_col);
   bson_error_t err;
 
-  mongoc_cursor_t *c = mongoc_collection_find_indexes (col, &err);
-  if(!c)
+  mongoc_cursor_t *c = mongoc_collection_find_indexes_with_opts (col, NULL);
+  if(mongoc_cursor_error(c, &err))
     stop(err.message);
 
   return cursor2r(c);
