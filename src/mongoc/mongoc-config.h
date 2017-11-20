@@ -123,12 +123,12 @@
 /*
  * Use ASN1_STRING_get0_data () rather than the deprecated ASN1_STRING_data
  */
-#define MONGOC_HAVE_ASN1_STRING_GET0_DATA 0
-
-#if MONGOC_HAVE_ASN1_STRING_GET0_DATA != 1
-#  undef MONGOC_HAVE_ASN1_STRING_GET0_DATA
+#ifdef MONGOC_ENABLE_SSL_OPENSSL
+#include <openssl/opensslv.h>
+#if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100001L
+#define MONGOC_HAVE_ASN1_STRING_GET0_DATA 1
 #endif
-
+#endif
 
 /*
  * MONGOC_ENABLE_SASL is set from configure to determine if we are
