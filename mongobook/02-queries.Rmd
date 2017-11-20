@@ -141,7 +141,8 @@ the column must be in `POSIXct` type.
 
 ```{r}
 # Get some example data
-mydata <- jsonlite::fromJSON("https://api.github.com/repos/jeroenooms/mongolite/issues")
+mydata <- jsonlite::fromJSON("https://api.github.com/repos/jeroen/mongolite/issues")
+mydata$title <- paste0(substr(mydata$title, 1, 40), "...")
 mydata$created_at <- strptime(mydata$created_at, "%Y-%m-%dT%H:%M:%SZ", 'UTC')
 mydata$closed_at <- strptime(mydata$closed_at, "%Y-%m-%dT%H:%M:%SZ", 'UTC')
 

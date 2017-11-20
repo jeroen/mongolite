@@ -190,10 +190,10 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 <h2><span class="header-section-number">5.1</span> JSON</h2>
 <p>The default format for is newline delimited JSON lines, i.e. one line for each record (aka <a href="http://ndjson.org/">NDJSON</a>)</p>
 <pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects<span class="op">$</span><span class="kw">export</span>(<span class="kw">stdout</span>())</div></code></pre>
-<pre class="outputcode"><code>#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb266909002566d50758&quot; }, &quot;name&quot; : &quot;erik&quot;, &quot;age&quot; : 29 }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb26ba7cb2ee99059ef2&quot; }, &quot;name&quot; : &quot;jerry&quot;, &quot;age&quot; : 31, &quot;has_age&quot; : true }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb26ba7cb2ee99059ef3&quot; }, &quot;name&quot; : &quot;anna&quot;, &quot;age&quot; : 23, &quot;has_age&quot; : true }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb26ba7cb2ee99059ef4&quot; }, &quot;name&quot; : &quot;joe&quot;, &quot;has_age&quot; : false }</code></pre>
+<pre class="outputcode"><code>#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12f39c6909002566d585ed&quot; }, &quot;name&quot; : &quot;erik&quot;, &quot;age&quot; : 29 }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12f39cba7cb2f2df6f7312&quot; }, &quot;name&quot; : &quot;jerry&quot;, &quot;age&quot; : 31, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12f39cba7cb2f2df6f7313&quot; }, &quot;name&quot; : &quot;anna&quot;, &quot;age&quot; : 23, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12f39cba7cb2f2df6f7314&quot; }, &quot;name&quot; : &quot;joe&quot;, &quot;has_age&quot; : false }</code></pre>
 <p>Usually we will export to a file:</p>
 <pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">dmd<span class="op">$</span><span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</div></code></pre>
 <p>Let’s test this by removing the entire collection, and then importing it back from the file:</p>
@@ -210,15 +210,15 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 <pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">mydata &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">stream_in</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</div>
 <div class="sourceLine" id="2" href="#2" data-line-number="2"><span class="kw">print</span>(mydata)</div></code></pre>
 <pre class="outputcode"><code>#&gt;                           $oid carat       cut color clarity depth table price     x     y     z
-#&gt; 1     5a12eb21ba7cb2ee9904cb8a  0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
-#&gt; 2     5a12eb21ba7cb2ee9904cb8b  0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
-#&gt; 3     5a12eb21ba7cb2ee9904cb8c  0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
-#&gt; 4     5a12eb21ba7cb2ee9904cb8d  0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
-#&gt; 5     5a12eb21ba7cb2ee9904cb8e  0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
-#&gt; 6     5a12eb21ba7cb2ee9904cb8f  0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
-#&gt; 7     5a12eb21ba7cb2ee9904cb90  0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
-#&gt; 8     5a12eb21ba7cb2ee9904cb91  0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
-#&gt; 9     5a12eb21ba7cb2ee9904cb92  0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
+#&gt; 1     5a12f397ba7cb2f2df6e9faa  0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
+#&gt; 2     5a12f397ba7cb2f2df6e9fab  0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
+#&gt; 3     5a12f397ba7cb2f2df6e9fac  0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
+#&gt; 4     5a12f397ba7cb2f2df6e9fad  0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
+#&gt; 5     5a12f397ba7cb2f2df6e9fae  0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
+#&gt; 6     5a12f397ba7cb2f2df6e9faf  0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
+#&gt; 7     5a12f397ba7cb2f2df6e9fb0  0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
+#&gt; 8     5a12f397ba7cb2f2df6e9fb1  0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
+#&gt; 9     5a12f397ba7cb2f2df6e9fb2  0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
 #&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 53931 rows ]</code></pre>
 <p>This is a convenient way to exchange data in a way with R users that might not have MongoDB. Similarly <code>jsonlite</code> allows for exporting data in a way that is easy to import in Mongo:</p>
 <pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">jsonlite<span class="op">::</span><span class="kw">stream_out</span>(mtcars, <span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</div>
