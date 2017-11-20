@@ -5,7 +5,7 @@ site: bookdown::bookdown_site
 output: bookdown::gitbook
 output_dir: "docs"
 link-citations: yes
-github-repo: jeroenooms/mongobook
+github-repo: jeroen/mongolite
 description: "A brief introduction to MongoDB and mongolite for R users"
 ---
 
@@ -57,7 +57,7 @@ Alternatively you can install the development version, which contains the latest
 
 ```{r eval=FALSE}
 # installs development version of 'mongolite'
-devtools::install_github("jeroenooms/mongolite")
+devtools::install_github("jeroen/mongolite")
 ```
 
 Note that Windows users need to install the [Rtools](https://cran.r-project.org/bin/windows/Rtools/) toolchain in order to compile from source. This is not needed for the CRAN version above.
