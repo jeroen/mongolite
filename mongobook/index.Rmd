@@ -101,7 +101,7 @@ Because this certificate has not been signed with a CA, you need to set `weak_ce
 to connect:
 
 ```r
-m <- mongo(url = "mongodb://localhost?ssl=true", options = ssl_options(weak_cert_validation = T))
+m <- mongo(url = "mongodb://localhost/?ssl=true", options = ssl_options(weak_cert_validation = T))
 ```
 
 Obviously in production you need to get your cert signed by a CA instead.
