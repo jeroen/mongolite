@@ -7,14 +7,14 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>Mongolite User Manual</title>
   <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
-  <meta name="generator" content="bookdown 0.3.9 and GitBook 2.6.7">
+  <meta name="generator" content="bookdown 0.5.10 and GitBook 2.6.7">
 
   <meta property="og:title" content="Mongolite User Manual" />
   <meta property="og:type" content="book" />
   
   
   <meta property="og:description" content="A brief introduction to MongoDB and mongolite for R users" />
-  <meta name="github-repo" content="jeroenooms/mongobook" />
+  <meta name="github-repo" content="jeroen/mongolite" />
 
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Mongolite User Manual" />
@@ -48,41 +48,57 @@
 
 
 <style type="text/css">
-div.sourceCode { overflow-x: auto; }
-table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
-  margin: 0; padding: 0; vertical-align: baseline; border: none; }
-table.sourceCode { width: 100%; line-height: 100%; }
-td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
-td.sourceCode { padding-left: 5px; }
-code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
-code > span.dt { color: #902000; } /* DataType */
-code > span.dv { color: #40a070; } /* DecVal */
-code > span.bn { color: #40a070; } /* BaseN */
-code > span.fl { color: #40a070; } /* Float */
-code > span.ch { color: #4070a0; } /* Char */
-code > span.st { color: #4070a0; } /* String */
-code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
-code > span.ot { color: #007020; } /* Other */
-code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
-code > span.fu { color: #06287e; } /* Function */
-code > span.er { color: #ff0000; font-weight: bold; } /* Error */
-code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
-code > span.cn { color: #880000; } /* Constant */
-code > span.sc { color: #4070a0; } /* SpecialChar */
-code > span.vs { color: #4070a0; } /* VerbatimString */
-code > span.ss { color: #bb6688; } /* SpecialString */
-code > span.im { } /* Import */
-code > span.va { color: #19177c; } /* Variable */
-code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-code > span.op { color: #666666; } /* Operator */
-code > span.bu { } /* BuiltIn */
-code > span.ex { } /* Extension */
-code > span.pp { color: #bc7a00; } /* Preprocessor */
-code > span.at { color: #7d9029; } /* Attribute */
-code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
-code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
-code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+div.sourceLine, a.sourceLine { display: inline-block; min-height: 1.25em; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; }
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+div.sourceLine, a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource div.sourceLine, .numberSource a.sourceLine
+  { position: relative; }
+pre.numberSource div.sourceLine::before, .numberSource a.sourceLine::before
+  { content: attr(data-line-number);
+    position: absolute; left: -5em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em; }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; color: #aaaaaa;  padding-left: 4px; }
+@media screen {
+a.sourceLine::before { text-decoration: underline; color = initial; }
+}
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.bn { color: #40a070; } /* BaseN */
+code span.fl { color: #40a070; } /* Float */
+code span.ch { color: #4070a0; } /* Char */
+code span.st { color: #4070a0; } /* String */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.ot { color: #007020; } /* Other */
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.fu { color: #06287e; } /* Function */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code span.cn { color: #880000; } /* Constant */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.im { } /* Import */
+code span.va { color: #19177c; } /* Variable */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.op { color: #666666; } /* Operator */
+code span.bu { } /* BuiltIn */
+code span.ex { } /* Extension */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.at { color: #7d9029; } /* Attribute */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
 </style>
 
 <link rel="stylesheet" href="style.css" type="text/css" />
@@ -148,7 +164,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
 </ul></li>
 <li class="divider"></li>
-<li><a href="https://github.com/jeroenooms/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
 
 </ul>
 
@@ -173,42 +189,42 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <div id="json" class="section level2">
 <h2><span class="header-section-number">5.1</span> JSON</h2>
 <p>The default format for is newline delimited JSON lines, i.e. one line for each record (aka <a href="http://ndjson.org/">NDJSON</a>)</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">subjects$<span class="kw">export</span>(<span class="kw">stdout</span>())</code></pre></div>
-<pre class="outputcode"><code>#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58b6e51194ace8fe44f58147&quot; }, &quot;name&quot; : &quot;erik&quot;, &quot;age&quot; : 29 }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58b6e511ba7cb22f2a0f5ff0&quot; }, &quot;name&quot; : &quot;jerry&quot;, &quot;age&quot; : 31, &quot;has_age&quot; : true }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58b6e511ba7cb22f2a0f5ff1&quot; }, &quot;name&quot; : &quot;anna&quot;, &quot;age&quot; : 23, &quot;has_age&quot; : true }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;58b6e511ba7cb22f2a0f5ff2&quot; }, &quot;name&quot; : &quot;joe&quot;, &quot;has_age&quot; : false }</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects<span class="op">$</span><span class="kw">export</span>(<span class="kw">stdout</span>())</div></code></pre>
+<pre class="outputcode"><code>#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb266909002566d50758&quot; }, &quot;name&quot; : &quot;erik&quot;, &quot;age&quot; : 29 }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb26ba7cb2ee99059ef2&quot; }, &quot;name&quot; : &quot;jerry&quot;, &quot;age&quot; : 31, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb26ba7cb2ee99059ef3&quot; }, &quot;name&quot; : &quot;anna&quot;, &quot;age&quot; : 23, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a12eb26ba7cb2ee99059ef4&quot; }, &quot;name&quot; : &quot;joe&quot;, &quot;has_age&quot; : false }</code></pre>
 <p>Usually we will export to a file:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">dmd<span class="op">$</span><span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</div></code></pre>
 <p>Let’s test this by removing the entire collection, and then importing it back from the file:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">drop</span>()
-dmd$<span class="kw">count</span>()</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">dmd<span class="op">$</span><span class="kw">drop</span>()</div>
+<div class="sourceLine" id="2" href="#2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>()</div></code></pre>
 <pre class="outputcode"><code>#&gt; [1] 0</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dmd$<span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))
-dmd$<span class="kw">count</span>()</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">dmd<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</div>
+<div class="sourceLine" id="2" href="#2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>()</div></code></pre>
 <pre class="outputcode"><code>#&gt; [1] 53940</code></pre>
 </div>
 <div id="via-jsonlite" class="section level2">
 <h2><span class="header-section-number">5.2</span> Via jsonlite</h2>
 <p>The <code>jsonlite</code> package also allows for importing/exporting the NDJSON format directly in R via the <code>stream_in</code> and <code>stream_out</code> methods:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">mydata &lt;-<span class="st"> </span>jsonlite::<span class="kw">stream_in</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
-<span class="kw">print</span>(mydata)</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">mydata &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">stream_in</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</div>
+<div class="sourceLine" id="2" href="#2" data-line-number="2"><span class="kw">print</span>(mydata)</div></code></pre>
 <pre class="outputcode"><code>#&gt;                           $oid carat       cut color clarity depth table price     x     y     z
-#&gt; 1     58b6e507ba7cb22f2a0e8c9a  0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
-#&gt; 2     58b6e507ba7cb22f2a0e8c9b  0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
-#&gt; 3     58b6e507ba7cb22f2a0e8c9c  0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
-#&gt; 4     58b6e507ba7cb22f2a0e8c9d  0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
-#&gt; 5     58b6e507ba7cb22f2a0e8c9e  0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
-#&gt; 6     58b6e507ba7cb22f2a0e8c9f  0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
-#&gt; 7     58b6e507ba7cb22f2a0e8ca0  0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
-#&gt; 8     58b6e507ba7cb22f2a0e8ca1  0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
-#&gt; 9     58b6e507ba7cb22f2a0e8ca2  0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
+#&gt; 1     5a12eb21ba7cb2ee9904cb8a  0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
+#&gt; 2     5a12eb21ba7cb2ee9904cb8b  0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
+#&gt; 3     5a12eb21ba7cb2ee9904cb8c  0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
+#&gt; 4     5a12eb21ba7cb2ee9904cb8d  0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
+#&gt; 5     5a12eb21ba7cb2ee9904cb8e  0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
+#&gt; 6     5a12eb21ba7cb2ee9904cb8f  0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
+#&gt; 7     5a12eb21ba7cb2ee9904cb90  0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
+#&gt; 8     5a12eb21ba7cb2ee9904cb91  0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
+#&gt; 9     5a12eb21ba7cb2ee9904cb92  0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
 #&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 53931 rows ]</code></pre>
 <p>This is a convenient way to exchange data in a way with R users that might not have MongoDB. Similarly <code>jsonlite</code> allows for exporting data in a way that is easy to import in Mongo:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">jsonlite::<span class="kw">stream_out</span>(mtcars, <span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
-mt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>)
-mt$<span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>))
-mt$<span class="kw">find</span>()</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">jsonlite<span class="op">::</span><span class="kw">stream_out</span>(mtcars, <span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</div>
+<div class="sourceLine" id="2" href="#2" data-line-number="2">mt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>)</div>
+<div class="sourceLine" id="3" href="#3" data-line-number="3">mt<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>))</div>
+<div class="sourceLine" id="4" href="#4" data-line-number="4">mt<span class="op">$</span><span class="kw">find</span>()</div></code></pre>
 <pre class="outputcode"><code>#&gt;                      mpg cyl  disp  hp drat    wt  qsec vs am gear carb
 #&gt; Mazda RX4           21.0   6 160.0 110 3.90 2.620 16.46  0  1    4    4
 #&gt; Mazda RX4 Wag       21.0   6 160.0 110 3.90 2.875 17.02  0  1    4    4
@@ -224,25 +240,25 @@ mt$<span class="kw">find</span>()</code></pre></div>
 <div id="streaming" class="section level2">
 <h2><span class="header-section-number">5.3</span> Streaming</h2>
 <p>Both <code>mongolite</code> and <code>jsonlite</code> also allow for importing NDJSON data from a HTTP stream:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;flights&quot;</span>)
-flt$<span class="kw">import</span>(<span class="kw">gzcon</span>(curl::<span class="kw">curl</span>(<span class="st">&quot;https://jeroenooms.github.io/data/nycflights13.json.gz&quot;</span>)))
-flt$<span class="kw">count</span>()</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">flt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;flights&quot;</span>)</div>
+<div class="sourceLine" id="2" href="#2" data-line-number="2">flt<span class="op">$</span><span class="kw">import</span>(<span class="kw">gzcon</span>(curl<span class="op">::</span><span class="kw">curl</span>(<span class="st">&quot;https://jeroen.github.io/data/nycflights13.json.gz&quot;</span>)))</div>
+<div class="sourceLine" id="3" href="#3" data-line-number="3">flt<span class="op">$</span><span class="kw">count</span>()</div></code></pre>
 <pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
 <p>The same operation in <code>jsonlite</code> would be:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flights &lt;-<span class="st"> </span>jsonlite::<span class="kw">stream_in</span>(
-  <span class="kw">gzcon</span>(curl::<span class="kw">curl</span>(<span class="st">&quot;https://jeroenooms.github.io/data/nycflights13.json.gz&quot;</span>)), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)
-<span class="kw">nrow</span>(flights)</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">flights &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">stream_in</span>(</div>
+<div class="sourceLine" id="2" href="#2" data-line-number="2">  <span class="kw">gzcon</span>(curl<span class="op">::</span><span class="kw">curl</span>(<span class="st">&quot;https://jeroen.github.io/data/nycflights13.json.gz&quot;</span>)), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</div>
+<div class="sourceLine" id="3" href="#3" data-line-number="3"><span class="kw">nrow</span>(flights)</div></code></pre>
 <pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
 </div>
 <div id="bson" class="section level2">
 <h2><span class="header-section-number">5.4</span> BSON</h2>
 <p>MongoDB internally stores data in <a href="http://bsonspec.org/spec.html">BSON</a> format, which is a binary version of JSON. Use the <code>bson</code> parameter to dump a collection directly in BSON format:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt$<span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">flt<span class="op">$</span><span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</div></code></pre>
 <p>Same to read it back:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt$<span class="kw">drop</span>()
-flt$<span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">flt<span class="op">$</span><span class="kw">drop</span>()</div>
+<div class="sourceLine" id="2" href="#2" data-line-number="2">flt<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</div></code></pre>
 <pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">flt$<span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</code></pre></div>
+<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">flt<span class="op">$</span><span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</div></code></pre>
 <pre class="outputcode"><code>#&gt;   year month day dep_time dep_delay arr_time arr_delay carrier tailnum flight origin dest air_time distance hour minute
 #&gt; 1 2013     1   1      517         2      830        11      UA  N14228   1545    EWR  IAH      227     1400    5     17
 #&gt; 2 2013     1   1      533         4      850        20      UA  N24211   1714    LGA  IAH      227     1416    5     33
@@ -270,7 +286,7 @@ flt$<span class="kw">import</span>(<span class="kw">file</span>(<span class="st"
 <script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
 <script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
 <script>
-require(["gitbook"], function(gitbook) {
+gitbook.require(["gitbook"], function(gitbook) {
 gitbook.start({
 "sharing": {
 "github": false,
@@ -288,7 +304,7 @@ gitbook.start({
 "size": 2
 },
 "edit": {
-"link": "https://github.com/rstudio/bookdown-demo/edit/master/04-export.Rmd",
+"link": "https://github.com/jeroen/mongolite/edit/gh-pages/mongobook04-export.Rmd",
 "text": "Edit"
 },
 "download": null,
