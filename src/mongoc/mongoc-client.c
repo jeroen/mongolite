@@ -28,6 +28,8 @@
 #if defined(MONGOC_HAVE_RES_NSEARCH) || defined(MONGOC_HAVE_RES_SEARCH)
 #include <arpa/nameser.h>
 #include <resolv.h>
+#include <bson-string.h>
+
 #endif
 #endif
 
@@ -281,23 +283,40 @@ txt_callback (const char *service,
               mongoc_uri_t *uri,
               bson_error_t *error)
 {
-   char txt[256];
-   uint16_t size;
+   char s[256];
+   const uint8_t *data;
+   bson_string_t *txt;
+   uint16_t pos, total;
+   uint8_t len;
+   bool r = false;
 
-   size = (uint16_t) ns_rr_rdlen (*rr);
-   if (size < 1 || size > 255) {
-      DNS_ERROR ("Invalid TXT record size %hu for \"%s\"", size, service);
+   total = (uint16_t) ns_rr_rdlen (*rr);
+   if (total < 1 || total > 255) {
+      DNS_ERROR ("Invalid TXT record size %hu for \"%s\"", total, service);
    }
 
-   bson_strncpy (txt, (const char *) ns_rr_rdata (*rr) + 1, (size_t) size);
+   /* a TXT record has one or more strings, each up to 255 chars, each is
+    * prefixed by its length as 1 byte. thus endianness doesn't matter. */
+   txt = bson_string_new (NULL);
+   pos = 0;
+   data = ns_rr_rdata (*rr);
+
+   while (pos < total) {
+      memcpy (&len, data + pos, sizeof (uint8_t));
+      pos++;
+      bson_strncpy (s, (const char *) (data + pos), (size_t) len + 1);
+      bson_string_append (txt, s);
+      pos += len;
+   }
 
    /* Initial DNS Seedlist Discovery Spec: "Client MUST use options specified in
     * the Connection String to override options provided through TXT records."
-    * so do NOT override existing options with TXT options. */
-   return mongoc_uri_parse_options (uri, txt, false /* override */, error);
+    * So, do NOT override existing options with TXT options. */
+   r = mongoc_uri_parse_options (uri, txt->str, false /* override */, error);
+   bson_string_free (txt, true);
 
 done:
-   return false;
+   return r;
 }
 
 /*
@@ -1476,6 +1495,68 @@ mongoc_client_command (mongoc_client_t *client,
 
 
 static bool
+_mongoc_client_retryable_write_command_with_stream (
+   mongoc_client_t *client,
+   mongoc_cmd_parts_t *parts,
+   mongoc_server_stream_t *server_stream,
+   bson_t *reply,
+   bson_error_t *error)
+{
+   mongoc_server_stream_t *retry_server_stream = NULL;
+   bson_iter_t txn_number_iter;
+   bool is_retryable = true;
+   bool ret;
+
+   ENTRY;
+
+   BSON_ASSERT (parts->is_retryable_write);
+
+   /* increment the transaction number for the first attempt of each retryable
+    * write command */
+   BSON_ASSERT (bson_iter_init_find (
+      &txn_number_iter, parts->assembled.command, "txnNumber"));
+   bson_iter_overwrite_int64 (
+      &txn_number_iter, ++parts->assembled.session->server_session->txn_number);
+
+retry:
+   ret = mongoc_cluster_run_command_monitored (
+      &client->cluster, &parts->assembled, reply, error);
+
+   /* If a retryable error is encountered and the write is retryable, select
+    * a new writable stream and retry. If server selection fails or the selected
+    * server does not support retryable writes, fall through and allow the
+    * original error to be reported. */
+   if (!ret && is_retryable &&
+       (error->domain == MONGOC_ERROR_STREAM ||
+        mongoc_cluster_is_not_master_error (error))) {
+      bson_error_t ignored_error;
+
+      /* each write command may be retried at most once */
+      is_retryable = false;
+
+      if (retry_server_stream) {
+         mongoc_server_stream_cleanup (retry_server_stream);
+      }
+
+      retry_server_stream =
+         mongoc_cluster_stream_for_writes (&client->cluster, &ignored_error);
+
+      if (retry_server_stream && retry_server_stream->sd->max_wire_version >=
+                                    WIRE_VERSION_RETRY_WRITES) {
+         parts->assembled.server_stream = retry_server_stream;
+         GOTO (retry);
+      }
+   }
+
+   if (retry_server_stream) {
+      mongoc_server_stream_cleanup (retry_server_stream);
+   }
+
+   RETURN (ret);
+}
+
+
+static bool
 _mongoc_client_command_with_stream (mongoc_client_t *client,
                                     mongoc_cmd_parts_t *parts,
                                     mongoc_server_stream_t *server_stream,
@@ -1489,6 +1570,11 @@ _mongoc_client_command_with_stream (mongoc_client_t *client,
       _mongoc_bson_init_if_set (reply);
       return false;
    };
+
+   if (parts->is_retryable_write) {
+      RETURN (_mongoc_client_retryable_write_command_with_stream (
+         client, parts, server_stream, reply, error));
+   }
 
    RETURN (mongoc_cluster_run_command_monitored (
       &client->cluster, &parts->assembled, reply, error));
@@ -2546,8 +2632,7 @@ void
 _mongoc_client_push_server_session (mongoc_client_t *client,
                                     mongoc_server_session_t *server_session)
 {
-   return _mongoc_topology_push_server_session (client->topology,
-                                                server_session);
+   _mongoc_topology_push_server_session (client->topology, server_session);
 }
 
 /*

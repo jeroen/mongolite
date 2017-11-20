@@ -17,6 +17,7 @@
 #include <bson.h>
 
 #include "mongoc-client-private.h"
+#include "mongoc-client-session-private.h"
 #include "mongoc-error.h"
 #include "mongoc-trace-private.h"
 #include "mongoc-write-command-private.h"
@@ -124,8 +125,15 @@ _mongoc_write_command_update_append (mongoc_write_command_t *command,
    BSON_APPEND_DOCUMENT (&document, "q", selector);
    BSON_APPEND_DOCUMENT (&document, "u", update);
    if (opts) {
+      bson_iter_t iter;
+
       bson_concat (&document, opts);
       command->flags.has_collation |= bson_has_field (opts, "collation");
+
+      if (bson_iter_init_find (&iter, opts, "multi") &&
+          bson_iter_as_bool (&iter)) {
+         command->flags.has_multi_write = true;
+      }
    }
 
    _mongoc_buffer_append (
@@ -155,8 +163,15 @@ _mongoc_write_command_delete_append (mongoc_write_command_t *command,
    bson_init (&document);
    BSON_APPEND_DOCUMENT (&document, "q", selector);
    if (opts) {
+      bson_iter_t iter;
+
       bson_concat (&document, opts);
       command->flags.has_collation |= bson_has_field (opts, "collation");
+
+      if (bson_iter_init_find (&iter, opts, "limit") &&
+          bson_iter_as_int64 (&iter) != 1) {
+         command->flags.has_multi_write = true;
+      }
    }
 
    _mongoc_buffer_append (
@@ -395,6 +410,7 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
    bool ship_it = false;
    int document_count = 0;
    int32_t len;
+   mongoc_server_stream_t *retry_server_stream = NULL;
 
    ENTRY;
 
@@ -421,6 +437,13 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
    parts.is_write_command = true;
    parts.assembled.is_acknowledged =
       mongoc_write_concern_is_acknowledged (write_concern);
+
+   /* Write commands that include multi-document operations are not retryable.
+    * Set this explicitly so that mongoc_cmd_parts_assemble does not need to
+    * inspect the command body later. */
+   parts.allow_txn_number = command->flags.has_multi_write
+                               ? MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_NO
+                               : MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_YES;
 
    bson_iter_init (&iter, &command->cmd_opts);
    if (!mongoc_cmd_parts_append_opts (
@@ -482,18 +505,58 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
       }
 
       if (ship_it) {
+         bool is_retryable = parts.is_retryable_write;
+
          /* Seek past the document offset we have already sent */
          parts.assembled.payload = command->payload.data + payload_total_offset;
          /* Only send the documents up to this size */
          parts.assembled.payload_size = payload_batch_size;
          parts.assembled.payload_identifier = gCommandFields[command->type];
 
+         /* increment the transaction number for the first attempt of each
+          * retryable write command */
+         if (is_retryable) {
+            bson_iter_t txn_number_iter;
+            BSON_ASSERT (bson_iter_init_find (
+               &txn_number_iter, parts.assembled.command, "txnNumber"));
+            bson_iter_overwrite_int64 (
+               &txn_number_iter,
+               ++parts.assembled.session->server_session->txn_number);
+         }
+      retry:
          ret = mongoc_cluster_run_command_monitored (
             &client->cluster, &parts.assembled, &reply, error);
 
          /* Add this batch size so we skip these documents next time */
          payload_total_offset += payload_batch_size;
          payload_batch_size = 0;
+
+         /* If a retryable error is encountered and the write is retryable,
+          * select a new writable stream and retry. If server selection fails or
+          * the selected server does not support retryable writes, fall through
+          * and allow the original error to be reported. */
+         if (!ret && is_retryable &&
+             (error->domain == MONGOC_ERROR_STREAM ||
+              mongoc_cluster_is_not_master_error (error))) {
+            bson_error_t ignored_error;
+
+            /* each write command may be retried at most once */
+            is_retryable = false;
+
+            if (retry_server_stream) {
+               mongoc_server_stream_cleanup (retry_server_stream);
+            }
+
+            retry_server_stream = mongoc_cluster_stream_for_writes (
+               &client->cluster, &ignored_error);
+
+            if (retry_server_stream &&
+                retry_server_stream->sd->max_wire_version >=
+                   WIRE_VERSION_RETRY_WRITES) {
+               parts.assembled.server_stream = retry_server_stream;
+               GOTO (retry);
+            }
+         }
 
          if (!ret) {
             result->failed = true;
@@ -514,6 +577,15 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
 
    bson_destroy (&cmd);
    mongoc_cmd_parts_cleanup (&parts);
+
+   if (retry_server_stream) {
+      mongoc_server_stream_cleanup (retry_server_stream);
+   }
+
+   if (ret) {
+      /* if a retry succeeded, clear the initial error */
+      memset (&result->error, 0, sizeof (bson_error_t));
+   }
 
    EXIT;
 }

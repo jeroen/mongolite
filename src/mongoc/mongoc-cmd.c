@@ -36,6 +36,9 @@ mongoc_cmd_parts_init (mongoc_cmd_parts_t *parts,
    parts->read_prefs = NULL;
    parts->is_write_command = false;
    parts->prohibit_lsid = false;
+   parts->allow_txn_number = MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_UNKNOWN;
+   parts->is_retryable_write = false;
+   parts->has_implicit_session = false;
    parts->client = client;
    bson_init (&parts->read_concern_document);
    bson_init (&parts->extra);
@@ -441,6 +444,79 @@ _largest_cluster_time (const bson_t *a, const bson_t *b)
    return b;
 }
 
+
+/* Check if the command should allow a transaction number if that has not
+ * already been determined.
+ *
+ * This should only return true for write commands that are always retryable for
+ * the server stream's wire version.
+ *
+ * The basic write commands (i.e. insert, update, delete) are intentionally
+ * excluded here. While insert is always retryable, update and delete are only
+ * retryable if they include no multi-document writes. Since it would be costly
+ * to inspect the command document here, the bulk operation API explicitly sets
+ * allow_txn_number for us. This means that insert, update, and delete are not
+ * retryable if executed via mongoc_client_write_command_with_opts(); however,
+ * documentation already instructs users not to use that for basic writes.
+ */
+static bool
+_allow_txn_number (const mongoc_cmd_parts_t *parts,
+                   const mongoc_server_stream_t *server_stream)
+{
+   /* There is no reason to call this function if allow_txn_number is set */
+   BSON_ASSERT (parts->allow_txn_number ==
+                MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_UNKNOWN);
+
+   if (!parts->is_write_command) {
+      return false;
+   }
+
+   if (server_stream->sd->max_wire_version < WIRE_VERSION_RETRY_WRITES) {
+      return false;
+   }
+
+   if (!strcasecmp (parts->assembled.command_name, "findandmodify")) {
+      return true;
+   }
+
+   return false;
+}
+
+
+/* Check if the write command should support retryable behavior. */
+static bool
+_is_retryable_write (const mongoc_cmd_parts_t *parts,
+                     const mongoc_server_stream_t *server_stream)
+{
+   if (!parts->assembled.session) {
+      return false;
+   }
+
+   if (!parts->is_write_command) {
+      return false;
+   }
+
+   if (parts->allow_txn_number != MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_YES) {
+      return false;
+   }
+
+   if (server_stream->sd->max_wire_version < WIRE_VERSION_RETRY_WRITES) {
+      return false;
+   }
+
+   if (server_stream->sd->type == MONGOC_SERVER_STANDALONE) {
+      return false;
+   }
+
+   if (!mongoc_uri_get_option_as_bool (
+          parts->client->uri, MONGOC_URI_RETRYWRITES, false)) {
+      return false;
+   }
+
+   return true;
+}
+
+
 /*
  *--------------------------------------------------------------------------
  *
@@ -468,7 +544,6 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
 {
    mongoc_server_description_type_t server_type;
    mongoc_client_session_t *cs;
-   mongoc_server_session_t *server_session;
    const bson_t *cluster_time = NULL;
    bson_t child;
    mongoc_read_prefs_t *prefs = NULL;
@@ -529,6 +604,17 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
          _mongoc_cmd_parts_ensure_copied (parts);
       }
 
+      /* If an explicit session was not provided and lsid is not prohibited,
+       * attempt to create an implicit session (ignoring any errors). */
+      if (!cs && !parts->prohibit_lsid) {
+         cs = mongoc_client_start_session (parts->client, NULL, NULL);
+
+         if (cs) {
+            parts->assembled.session = cs;
+            parts->has_implicit_session = true;
+         }
+      }
+
       if (cs) {
          _mongoc_cmd_parts_ensure_copied (parts);
          bson_append_document (&parts->assembled_body,
@@ -538,17 +624,23 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
 
          cs->server_session->last_used_usec = bson_get_monotonic_time ();
          cluster_time = mongoc_client_session_get_cluster_time (cs);
-      } else if (!parts->prohibit_lsid) {
-         /* try to use implicit session, but ignore errors */
-         server_session =
-            _mongoc_client_pop_server_session (parts->client, NULL);
+      }
 
-         if (server_session) {
-            bson_append_document (
-               &parts->assembled_body, "lsid", 4, &server_session->lsid);
-            server_session->last_used_usec = bson_get_monotonic_time ();
-            _mongoc_client_push_server_session (parts->client, server_session);
-         }
+      /* Ensure we know if the write command allows a transaction number */
+      if (parts->is_write_command &&
+          parts->allow_txn_number ==
+             MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_UNKNOWN) {
+         parts->allow_txn_number = _allow_txn_number (parts, server_stream)
+                                      ? MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_YES
+                                      : MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_NO;
+      }
+
+      /* Determine if the command is a retryable. If so, append txnNumber now
+       * for future use and mark the command as such. */
+      if (_is_retryable_write (parts, server_stream)) {
+         _mongoc_cmd_parts_ensure_copied (parts);
+         bson_append_int64 (&parts->assembled_body, "txnNumber", 9, 0);
+         parts->is_retryable_write = true;
       }
 
       if (!bson_empty (&server_stream->cluster_time)) {
@@ -563,6 +655,9 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
       }
 
       if (!is_get_more) {
+         /* This condition should never trigger for an implicit client session.
+          * Even though the causal consistency option may default to true, an
+          * implicit client session will have no previous operation time. */
          if (cs && mongoc_session_opts_get_causal_consistency (&cs->opts) &&
              cs->operation_timestamp) {
             _mongoc_cmd_parts_ensure_copied (parts);
@@ -616,6 +711,10 @@ mongoc_cmd_parts_cleanup (mongoc_cmd_parts_t *parts)
    bson_destroy (&parts->read_concern_document);
    bson_destroy (&parts->extra);
    bson_destroy (&parts->assembled_body);
+
+   if (parts->has_implicit_session) {
+      mongoc_client_session_destroy (parts->assembled.session);
+   }
 }
 
 bool
