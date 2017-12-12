@@ -52,6 +52,7 @@
 #else
 #define BSON_OS 1
 #define BSON_HAVE_CLOCK_GETTIME 1
+#define BSON_HAVE_RAND_R 1
 #endif
 
 /*
@@ -122,11 +123,6 @@
 #define BSON_HAVE_TIMESPEC 1
 #if BSON_HAVE_TIMESPEC != 1
 # undef BSON_HAVE_TIMESPEC
-#endif
-
-#define BSON_HAVE_RAND_R 1
-#if BSON_HAVE_RAND_R != 1
-# undef BSON_HAVE_RAND_R
 #endif
 
 #endif /* BSON_CONFIG_H */
