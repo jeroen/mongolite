@@ -124,4 +124,9 @@
 # undef BSON_HAVE_TIMESPEC
 #endif
 
+#define BSON_HAVE_RAND_R 1
+#if BSON_HAVE_RAND_R != 1
+# undef BSON_HAVE_RAND_R
+#endif
+
 #endif /* BSON_CONFIG_H */
