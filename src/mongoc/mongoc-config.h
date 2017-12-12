@@ -121,6 +121,16 @@
 
 
 /*
+ * Use ASN1_STRING_get0_data () rather than the deprecated ASN1_STRING_data
+ */
+#ifdef MONGOC_ENABLE_SSL_OPENSSL
+#include <openssl/opensslv.h>
+#if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100001L
+#define MONGOC_HAVE_ASN1_STRING_GET0_DATA 1
+#endif
+#endif
+
+/*
  * MONGOC_ENABLE_SASL is set from configure to determine if we are
  * compiled with SASL support.
  */
@@ -142,6 +152,17 @@
 #else
 #define MONGOC_ENABLE_SASL_CYRUS 1
 #endif
+
+/*
+ * MONGOC_ENABLE_SASL_GSSAPI is set from configure to determine if we are
+ * compiled with GSSAPI support.
+ */
+#define MONGOC_ENABLE_SASL_GSSAPI 0
+
+#if MONGOC_ENABLE_SASL_GSSAPI != 1
+#  undef MONGOC_ENABLE_SASL_GSSAPI
+#endif
+
 
 /*
  * MONGOC_HAVE_WEAK_SYMBOLS is set from configure to determine if the
@@ -177,16 +198,56 @@
 #  undef MONGOC_HAVE_SOCKLEN
 #endif
 
+
+
+/*
+ * MONGOC_HAVE_DNSAPI is set from configure to determine if we should use the
+ * Windows dnsapi for SRV record lookups.
+ */
+
+#ifdef _WIN32
+#define MONGOC_HAVE_DNSAPI 1
+#endif
+#if MONGOC_HAVE_DNSAPI != 1
+#  undef MONGOC_HAVE_DNSAPI
+#endif
+
+
+/*
+ * MONGOC_HAVE_RES_SEARCH is set from configure to determine if we
+ * have thread-unsafe res_search(). It's unset if we have the preferred
+ * res_nsearch().
+ */
+
+#if !defined (__FreeBSD__) && !defined (__OpenBSD__)
+#define MONGOC_HAVE_RES_SEARCH 1
+#endif
+
+#if MONGOC_HAVE_RES_SEARCH != 1
+#  undef MONGOC_HAVE_RES_SEARCH
+#endif
+
 #define MONGOC_SOCKET_ARG2 struct sockaddr
 #define MONGOC_SOCKET_ARG3 socklen_t
 
 /*
- * Define to support experimental future mongoc features
+ * Enable wire protocol compression negotiation
+ *
  */
-#define MONGOC_EXPERIMENTAL_FEATURES 0
+#define MONGOC_ENABLE_COMPRESSION 1
 
-#if MONGOC_EXPERIMENTAL_FEATURES != 1
-#  undef MONGOC_EXPERIMENTAL_FEATURES
+#if MONGOC_ENABLE_COMPRESSION != 1
+#  undef MONGOC_ENABLE_COMPRESSION
+#endif
+
+/*
+ * Set if we have zlib compression support
+ *
+ */
+#define MONGOC_ENABLE_COMPRESSION_ZLIB 1
+
+#if MONGOC_ENABLE_COMPRESSION_ZLIB != 1
+#  undef MONGOC_ENABLE_COMPRESSION_ZLIB
 #endif
 
 #endif /* MONGOC_CONFIG_H */

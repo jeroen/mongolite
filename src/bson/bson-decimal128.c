@@ -16,7 +16,6 @@
  */
 
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -99,7 +98,7 @@ _bson_uint128_divide1B (_bson_uint128_t value,     /* IN */
    }
 
    *quotient = value;
-   *rem = _rem;
+   *rem = (uint32_t) _rem;
 }
 
 
@@ -265,7 +264,7 @@ bson_decimal128_to_string (const bson_decimal128_t *dec, /* IN  */
          *(str_out++) = '.';
       }
 
-      for (i = 0; i < significand_digits; i++) {
+      for (i = 0; i < significand_digits && (str_out - str) < 36; i++) {
          *(str_out++) = *(significand_read++) + '0';
       }
       /* Exponent */
@@ -274,7 +273,7 @@ bson_decimal128_to_string (const bson_decimal128_t *dec, /* IN  */
    } else {
       /* Regular format with no decimal place */
       if (exponent >= 0) {
-         for (i = 0; i < significand_digits; i++) {
+         for (i = 0; i < significand_digits && (str_out - str) < 36; i++) {
             *(str_out++) = *(significand_read++) + '0';
          }
          *str_out = '\0';
@@ -282,7 +281,9 @@ bson_decimal128_to_string (const bson_decimal128_t *dec, /* IN  */
          int32_t radix_position = significand_digits + exponent;
 
          if (radix_position > 0) { /* non-zero digits before radix */
-            for (i = 0; i < radix_position; i++) {
+            for (i = 0;
+                 i < radix_position && (str_out - str) < BSON_DECIMAL128_STRING;
+                 i++) {
                *(str_out++) = *(significand_read++) + '0';
             }
          } else { /* leading zero before radix point */
@@ -294,7 +295,9 @@ bson_decimal128_to_string (const bson_decimal128_t *dec, /* IN  */
             *(str_out++) = '0';
          }
 
-         for (i = 0; i < significand_digits - BSON_MAX (radix_position - 1, 0);
+         for (i = 0;
+              (i < significand_digits - BSON_MAX (radix_position - 1, 0)) &&
+              (str_out - str) < BSON_DECIMAL128_STRING;
               i++) {
             *(str_out++) = *(significand_read++) + '0';
          }
@@ -678,7 +681,7 @@ bson_decimal128_from_string (const char *string,     /* IN */
       significand_high = 0;
       significand_low = 0;
    } else if (last_digit - first_digit < 17) {
-      int d_idx = first_digit;
+      size_t d_idx = first_digit;
       significand_low = digits[d_idx++];
 
       for (; d_idx <= last_digit; d_idx++) {
@@ -687,7 +690,7 @@ bson_decimal128_from_string (const char *string,     /* IN */
          significand_high = 0;
       }
    } else {
-      int d_idx = first_digit;
+      size_t d_idx = first_digit;
       significand_high = digits[d_idx++];
 
       for (; d_idx <= last_digit - 17; d_idx++) {

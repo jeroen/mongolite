@@ -37,7 +37,8 @@ SEXP R_mongo_restore(SEXP con, SEXP ptr_col, SEXP verb) {
   bson_t reply;
 
   while(!done) {
-    bulk = mongoc_collection_create_bulk_operation (col, true, NULL);
+    //note: default opts uses {ordered:true}
+    bulk = mongoc_collection_create_bulk_operation_with_opts(col, NULL);
     for(i = 0; i < 1000; i++){
       if(!(b = bson_reader_read (reader, &done)))
         break;

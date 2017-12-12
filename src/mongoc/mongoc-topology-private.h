@@ -17,12 +17,12 @@
 #ifndef MONGOC_TOPOLOGY_PRIVATE_H
 #define MONGOC_TOPOLOGY_PRIVATE_H
 
-#include "mongoc-read-prefs-private.h"
 #include "mongoc-topology-scanner-private.h"
 #include "mongoc-server-description-private.h"
 #include "mongoc-topology-description-private.h"
 #include "mongoc-thread-private.h"
 #include "mongoc-uri.h"
+#include "mongoc-client-session-private.h"
 
 #define MONGOC_TOPOLOGY_MIN_HEARTBEAT_FREQUENCY_MS 500
 #define MONGOC_TOPOLOGY_SOCKET_CHECK_INTERVAL_MS 5000
@@ -60,6 +60,8 @@ typedef struct _mongoc_topology_t {
    bool shutdown_requested;
    bool single_threaded;
    bool stale;
+
+   mongoc_server_session_t *session_pool;
 } mongoc_topology_t;
 
 mongoc_topology_t *
@@ -120,4 +122,20 @@ _mongoc_topology_start_background_scanner (mongoc_topology_t *topology);
 
 bool
 _mongoc_topology_set_appname (mongoc_topology_t *topology, const char *appname);
+
+void
+_mongoc_topology_update_cluster_time (mongoc_topology_t *topology,
+                                      const bson_t *reply);
+
+mongoc_server_session_t *
+_mongoc_topology_pop_server_session (mongoc_topology_t *topology,
+                                     bson_error_t *error);
+
+void
+_mongoc_topology_push_server_session (mongoc_topology_t *topology,
+                                      mongoc_server_session_t *server_session);
+
+void
+_mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd);
+
 #endif

@@ -50,6 +50,11 @@ _mongoc_buffer_init (mongoc_buffer_t *buffer,
                      void *realloc_data);
 
 bool
+_mongoc_buffer_append (mongoc_buffer_t *buffer,
+                       const uint8_t *data,
+                       size_t data_size);
+
+bool
 _mongoc_buffer_append_from_stream (mongoc_buffer_t *buffer,
                                    mongoc_stream_t *stream,
                                    size_t size,
@@ -60,8 +65,7 @@ ssize_t
 _mongoc_buffer_try_append_from_stream (mongoc_buffer_t *buffer,
                                        mongoc_stream_t *stream,
                                        size_t size,
-                                       int32_t timeout_msec,
-                                       bson_error_t *error);
+                                       int32_t timeout_msec);
 
 ssize_t
 _mongoc_buffer_fill (mongoc_buffer_t *buffer,

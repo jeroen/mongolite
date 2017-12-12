@@ -206,6 +206,9 @@ bson_utf8_validate (const char *utf8, /* IN */
             continue;
          } else if (c == 0) {
             /* Two-byte representation for NULL. */
+            if (!allow_null) {
+               return false;
+            }
             continue;
          }
          return false;
@@ -286,7 +289,6 @@ bson_utf8_escape_for_json (const char *utf8, /* IN */
       switch (c) {
       case '\\':
       case '"':
-      case '/':
          bson_string_append_c (str, '\\');
          bson_string_append_unichar (str, c);
          break;
@@ -307,7 +309,7 @@ bson_utf8_escape_for_json (const char *utf8, /* IN */
          break;
       default:
          if (c < ' ') {
-            bson_string_append_printf (str, "\\u%04u", (unsigned) c);
+            bson_string_append_printf (str, "\\u%04x", (unsigned) c);
          } else {
             bson_string_append_unichar (str, c);
          }

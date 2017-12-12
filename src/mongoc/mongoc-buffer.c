@@ -124,6 +124,46 @@ _mongoc_buffer_clear (mongoc_buffer_t *buffer, bool zero)
 }
 
 
+bool
+_mongoc_buffer_append (mongoc_buffer_t *buffer,
+                       const uint8_t *data,
+                       size_t data_size)
+{
+   uint8_t *buf;
+
+   ENTRY;
+
+   BSON_ASSERT (buffer);
+   BSON_ASSERT (data_size);
+
+   BSON_ASSERT (buffer->datalen);
+   BSON_ASSERT ((buffer->datalen + data_size) < INT_MAX);
+
+   if (!SPACE_FOR (buffer, data_size)) {
+      if (buffer->len) {
+         memmove (&buffer->data[0], &buffer->data[buffer->off], buffer->len);
+      }
+      buffer->off = 0;
+      if (!SPACE_FOR (buffer, data_size)) {
+         buffer->datalen =
+            bson_next_power_of_two (data_size + buffer->len + buffer->off);
+         buffer->data = (uint8_t *) buffer->realloc_func (
+            buffer->data, buffer->datalen, NULL);
+      }
+   }
+
+   buf = &buffer->data[buffer->off + buffer->len];
+
+   BSON_ASSERT ((buffer->off + buffer->len + data_size) <= buffer->datalen);
+
+   memcpy (buf, data, data_size);
+
+   buffer->len += data_size;
+
+   RETURN (true);
+}
+
+
 /**
  * mongoc_buffer_append_from_stream:
  * @buffer; A mongoc_buffer_t.
@@ -277,20 +317,18 @@ _mongoc_buffer_fill (mongoc_buffer_t *buffer,
  * @stream: The stream to read from.
  * @size: The number of bytes to read.
  * @timeout_msec: The number of milliseconds to wait or -1 for the default
- * @error: A location for a bson_error_t, or NULL.
  *
  * Reads from stream @size bytes and stores them in @buffer. This can be used
  * in conjunction with reading RPCs from a stream. You read from the stream
  * into this buffer and then scatter the buffer into the RPC.
  *
- * Returns: bytes read if successful; otherwise -1 and @error is set.
+ * Returns: bytes read if successful; otherwise 0 or -1.
  */
 ssize_t
 _mongoc_buffer_try_append_from_stream (mongoc_buffer_t *buffer,
                                        mongoc_stream_t *stream,
                                        size_t size,
-                                       int32_t timeout_msec,
-                                       bson_error_t *error)
+                                       int32_t timeout_msec)
 {
    uint8_t *buf;
    ssize_t ret;
