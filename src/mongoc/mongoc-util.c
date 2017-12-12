@@ -119,6 +119,25 @@ _mongoc_get_command_name (const bson_t *command)
    return name;
 }
 
+
+const char *
+_mongoc_get_documents_field_name (const char *command_name)
+{
+   if (!strcmp (command_name, "insert")) {
+      return "documents";
+   }
+
+   if (!strcmp (command_name, "update")) {
+      return "updates";
+   }
+
+   if (!strcmp (command_name, "delete")) {
+      return "deletes";
+   }
+
+   return NULL;
+}
+
 bool
 _mongoc_lookup_bool (const bson_t *bson, const char *key, bool default_value)
 {
@@ -284,7 +303,7 @@ _mongoc_validate_new_document (const bson_t *doc, bson_error_t *error)
       bson_set_error (error,
                       MONGOC_ERROR_COMMAND,
                       MONGOC_ERROR_COMMAND_INVALID_ARG,
-                      "document to insert contains invalid key: %s",
+                      "invalid document for insert: %s",
                       validate_err.message);
       return false;
    }
@@ -302,7 +321,7 @@ _mongoc_validate_replace (const bson_t *doc, bson_error_t *error)
       bson_set_error (error,
                       MONGOC_ERROR_COMMAND,
                       MONGOC_ERROR_COMMAND_INVALID_ARG,
-                      "replacement document contains invalid key: %s",
+                      "invalid argument for replace: %s",
                       validate_err.message);
       return false;
    }
@@ -325,7 +344,7 @@ _mongoc_validate_update (const bson_t *update, bson_error_t *error)
       bson_set_error (error,
                       MONGOC_ERROR_COMMAND,
                       MONGOC_ERROR_COMMAND_INVALID_ARG,
-                      "update document contains invalid key: %s",
+                      "invalid argument for update: %s",
                       validate_err.message);
       return false;
    }

@@ -42,25 +42,6 @@
 #define MONGOC_LOG_DOMAIN "collection"
 
 
-#define _BSON_APPEND_WRITE_CONCERN(_bson, _write_concern)                      \
-   do {                                                                        \
-      const bson_t *write_concern_bson;                                        \
-      mongoc_write_concern_t *write_concern_copy = NULL;                       \
-      if (_write_concern->frozen) {                                            \
-         write_concern_bson = _mongoc_write_concern_get_bson (_write_concern); \
-      } else {                                                                 \
-         /* _mongoc_write_concern_get_bson will freeze the write_concern */    \
-         write_concern_copy = mongoc_write_concern_copy (_write_concern);      \
-         write_concern_bson =                                                  \
-            _mongoc_write_concern_get_bson (write_concern_copy);               \
-      }                                                                        \
-      BSON_APPEND_DOCUMENT (_bson, "writeConcern", write_concern_bson);        \
-      if (write_concern_copy) {                                                \
-         mongoc_write_concern_destroy (write_concern_copy);                    \
-      }                                                                        \
-   } while (0);
-
-
 static mongoc_cursor_t *
 _mongoc_collection_cursor_new (mongoc_collection_t *collection,
                                mongoc_query_flags_t flags,
@@ -2958,13 +2939,17 @@ mongoc_collection_find_and_modify_with_opts (
          }
 
          if (mongoc_write_concern_is_acknowledged (collection->write_concern)) {
-            _BSON_APPEND_WRITE_CONCERN (&command, collection->write_concern);
+            BSON_APPEND_DOCUMENT (
+               &command,
+               "writeConcern",
+               _mongoc_write_concern_get_bson (collection->write_concern));
          }
       }
    }
 
    mongoc_cmd_parts_init (
       &parts, collection->client, collection->db, MONGOC_QUERY_NONE, &command);
+   parts.is_read_command = true;
    parts.is_write_command = true;
 
    if (bson_iter_init (&iter, &opts->extra)) {
@@ -3005,8 +2990,9 @@ retry:
     * a new writable stream and retry. If server selection fails or the selected
     * server does not support retryable writes, fall through and allow the
     * original error to be reported. */
-   if (!ret && is_retryable && (error->domain == MONGOC_ERROR_STREAM ||
-                                mongoc_cluster_is_not_master_error (error))) {
+   if (!ret && is_retryable &&
+       (error->domain == MONGOC_ERROR_STREAM ||
+        mongoc_cluster_is_not_master_error (error))) {
       bson_error_t ignored_error;
 
       /* each write command may be retried at most once */
@@ -3019,9 +3005,8 @@ retry:
       retry_server_stream =
          mongoc_cluster_stream_for_writes (cluster, &ignored_error);
 
-      if (retry_server_stream &&
-          retry_server_stream->sd->max_wire_version >=
-             WIRE_VERSION_RETRY_WRITES) {
+      if (retry_server_stream && retry_server_stream->sd->max_wire_version >=
+                                    WIRE_VERSION_RETRY_WRITES) {
          parts.assembled.server_stream = retry_server_stream;
          GOTO (retry);
       }
