@@ -5,7 +5,7 @@ PKG_CPPFLAGS = \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
 
 PKG_CFLAGS = \
-	-Wno-unused-value -Wno-implicit-function-declaration
+	-Wno-unused -Wno-format
 
 PKG_LIBS = \
 	-L. -L../windows/openssl-1.0.2h/lib${R_ARCH} \

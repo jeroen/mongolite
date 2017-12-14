@@ -26,6 +26,7 @@
 #include "mongoc-trace-private.h"
 #ifdef _WIN32
 #include <Mstcpip.h>
+#include <process.h>
 #endif
 
 #undef MONGOC_LOG_DOMAIN
@@ -1000,7 +1001,11 @@ mongoc_socket_new (int domain,   /* IN */
    sock = (mongoc_socket_t *) bson_malloc0 (sizeof *sock);
    sock->sd = sd;
    sock->domain = domain;
+#ifdef _WIN32
+   sock->pid = (int) _getpid ();
+#else
    sock->pid = (int) getpid ();
+#endif
 
    RETURN (sock);
 
