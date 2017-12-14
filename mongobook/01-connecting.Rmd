@@ -45,7 +45,7 @@ Below the most important options for using mongolite.
 New in `mongolite 1.3` is support for [seedlist](https://docs.mongodb.com/manual/reference/connection-string/#dns-seedlist-connection-format) URLs with the `mongodb+srv://` prefix. This indicates that before connecting, the client should lookup the actual host addresses and parameters from the DNS [SRV](https://en.wikipedia.org/wiki/SRV_record) or [TXT](https://en.wikipedia.org/wiki/TXT_record) record.
 
 ```{r}
-con <- mongo("mtcars", url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test?authSource=admin")
+con <- mongo("mtcars", url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 con$insert(mtcars)
 con$drop()
 ```
