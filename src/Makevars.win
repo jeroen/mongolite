@@ -1,5 +1,5 @@
 PKG_CPPFLAGS = \
-	-I../windows/openssl-1.0.2h/include \
+	-I../windows/openssl-1.1.0f/include \
 	-I. -Ijsonsl -Ibson -Imongoc \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
@@ -8,7 +8,7 @@ PKG_CFLAGS = \
 	-Wno-format
 
 PKG_LIBS = \
-	-L. -L../windows/openssl-1.0.2h/lib${R_ARCH} \
+	-L. -L../windows/openssl-1.1.0f/lib${R_ARCH} \
 	-Lmongoc -lstatmongoc -Lbson -lstatbson -lssl -lcrypto \
 	-lcrypto -lgdi32 -lcrypt32 -lws2_32 -lsecur32 -ldnsapi -lz
 
