@@ -415,9 +415,9 @@ _mongoc_socket_setkeepalive_windows (SOCKET sd)
                  &lpcbBytesReturned,
                  NULL,
                  NULL) == SOCKET_ERROR) {
-      TRACE ("Could not set keepalive values");
+      TRACE ("%s", "Could not set keepalive values");
    } else {
-      TRACE ("KeepAlive values updated");
+      TRACE ("%s", "KeepAlive values updated");
       TRACE ("KeepAliveTime: %d", keepalive.keepalivetime);
       TRACE ("KeepAliveInterval: %d", keepalive.keepaliveinterval);
    }
