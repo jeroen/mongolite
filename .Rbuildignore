@@ -5,7 +5,7 @@
 \.o$
 \.so$
 \.dll$
-\.out
+\.out$
 ^src/a.out.dSYM$
 ^windows$
 ^.travis.yml$
