@@ -352,7 +352,6 @@ mongoc_socket_poll (mongoc_socket_poll_t *sds, /* IN */
 static void
 _mongoc_socket_setkeepalive_windows (SOCKET sd)
 {
-   BOOL optval = 1;
    struct tcp_keepalive keepalive;
    DWORD lpcbBytesReturned = 0;
    HKEY hKey;
