@@ -1,6 +1,7 @@
 language: r
 cache: packages
 latex: false
+fortran: false
 
 # needed for covr
 services: mongodb
