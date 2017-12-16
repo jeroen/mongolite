@@ -17,13 +17,13 @@ matrix:
       r_check_args: '--use-valgrind'
       r: devel
     - os: osx
-      osx_image: xcode9.1
+      osx_image: xcode9.2
       brew_packages: openssl@1.1
     - os: osx
-      osx_image: xcode9.1
+      osx_image: xcode9.2
       brew_packages: openssl
     - os: osx
-      osx_image: xcode9.1
+      osx_image: xcode9.2
       brew_packages: libressl
     - os: osx
       osx_image: xcode7.3
