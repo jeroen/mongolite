@@ -204,42 +204,42 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="json" class="section level2">
 <h2><span class="header-section-number">5.1</span> JSON</h2>
 <p>The default format for is newline delimited JSON lines, i.e. one line for each record (aka <a href="http://ndjson.org/">NDJSON</a>)</p>
-<div class="sourceCode" id="cb128"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb128-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">export</span>(<span class="kw">stdout</span>())</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36df96873bb2dc7bf22f43&quot; }, &quot;name&quot; : &quot;erik&quot;, &quot;age&quot; : 29 }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36df96ba7cb266651ee830&quot; }, &quot;name&quot; : &quot;jerry&quot;, &quot;age&quot; : 31, &quot;has_age&quot; : true }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36df96ba7cb266651ee831&quot; }, &quot;name&quot; : &quot;anna&quot;, &quot;age&quot; : 23, &quot;has_age&quot; : true }
-#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36df96ba7cb266651ee832&quot; }, &quot;name&quot; : &quot;joe&quot;, &quot;has_age&quot; : false }</code></pre>
+<div class="sourceCode" id="cb127"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb127-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">export</span>(<span class="kw">stdout</span>())</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36e124873bb2dc7bf26db3&quot; }, &quot;name&quot; : &quot;erik&quot;, &quot;age&quot; : 29 }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36e124ba7cb267e2762ed0&quot; }, &quot;name&quot; : &quot;jerry&quot;, &quot;age&quot; : 31, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36e124ba7cb267e2762ed1&quot; }, &quot;name&quot; : &quot;anna&quot;, &quot;age&quot; : 23, &quot;has_age&quot; : true }
+#&gt; { &quot;_id&quot; : { &quot;$oid&quot; : &quot;5a36e124ba7cb267e2762ed2&quot; }, &quot;name&quot; : &quot;joe&quot;, &quot;has_age&quot; : false }</code></pre>
 <p>Usually we will export to a file:</p>
-<div class="sourceCode" id="cb130"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb130-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</a></code></pre></div>
+<div class="sourceCode" id="cb129"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb129-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</a></code></pre></div>
 <p>Let’s test this by removing the entire collection, and then importing it back from the file:</p>
-<div class="sourceCode" id="cb131"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb131-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">drop</span>()</a>
-<a class="sourceLine" id="cb131-2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb130"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb130-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">drop</span>()</a>
+<a class="sourceLine" id="cb130-2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 0</code></pre>
-<div class="sourceCode" id="cb133"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb133-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</a>
-<a class="sourceLine" id="cb133-2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb132"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb132-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>))</a>
+<a class="sourceLine" id="cb132-2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 53940</code></pre>
 </div>
 <div id="via-jsonlite" class="section level2">
 <h2><span class="header-section-number">5.2</span> Via jsonlite</h2>
 <p>The <code>jsonlite</code> package also allows for importing/exporting the NDJSON format directly in R via the <code>stream_in</code> and <code>stream_out</code> methods:</p>
-<div class="sourceCode" id="cb135"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb135-1" data-line-number="1">mydata &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">stream_in</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb135-2" data-line-number="2"><span class="kw">print</span>(mydata)</a></code></pre></div>
+<div class="sourceCode" id="cb134"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb134-1" data-line-number="1">mydata &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">stream_in</span>(<span class="kw">file</span>(<span class="st">&quot;dump.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb134-2" data-line-number="2"><span class="kw">print</span>(mydata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                           $oid carat       cut color clarity depth table price     x     y     z
-#&gt; 1     5a36df92ba7cb266651e14cb  0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
-#&gt; 2     5a36df92ba7cb266651e14cc  0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
-#&gt; 3     5a36df92ba7cb266651e14cd  0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
-#&gt; 4     5a36df92ba7cb266651e14ce  0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
-#&gt; 5     5a36df92ba7cb266651e14cf  0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
-#&gt; 6     5a36df92ba7cb266651e14d0  0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
-#&gt; 7     5a36df92ba7cb266651e14d1  0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
-#&gt; 8     5a36df92ba7cb266651e14d2  0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
-#&gt; 9     5a36df92ba7cb266651e14d3  0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
+#&gt; 1     5a36e11fba7cb267e2755b6b  0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
+#&gt; 2     5a36e11fba7cb267e2755b6c  0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
+#&gt; 3     5a36e11fba7cb267e2755b6d  0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
+#&gt; 4     5a36e11fba7cb267e2755b6e  0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
+#&gt; 5     5a36e11fba7cb267e2755b6f  0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
+#&gt; 6     5a36e11fba7cb267e2755b70  0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
+#&gt; 7     5a36e11fba7cb267e2755b71  0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
+#&gt; 8     5a36e11fba7cb267e2755b72  0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
+#&gt; 9     5a36e11fba7cb267e2755b73  0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
 #&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 53931 rows ]</code></pre>
 <p>This is a convenient way to exchange data in a way with R users that might not have MongoDB. Similarly <code>jsonlite</code> allows for exporting data in a way that is easy to import in Mongo:</p>
-<div class="sourceCode" id="cb137"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb137-1" data-line-number="1">jsonlite<span class="op">::</span><span class="kw">stream_out</span>(mtcars, <span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb137-2" data-line-number="2">mt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>)</a>
-<a class="sourceLine" id="cb137-3" data-line-number="3">mt<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>))</a>
-<a class="sourceLine" id="cb137-4" data-line-number="4">mt<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb136"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb136-1" data-line-number="1">jsonlite<span class="op">::</span><span class="kw">stream_out</span>(mtcars, <span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb136-2" data-line-number="2">mt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>)</a>
+<a class="sourceLine" id="cb136-3" data-line-number="3">mt<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;mtcars.json&quot;</span>))</a>
+<a class="sourceLine" id="cb136-4" data-line-number="4">mt<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                      mpg cyl  disp  hp drat    wt  qsec vs am gear carb
 #&gt; Mazda RX4           21.0   6 160.0 110 3.90 2.620 16.46  0  1    4    4
 #&gt; Mazda RX4 Wag       21.0   6 160.0 110 3.90 2.875 17.02  0  1    4    4
@@ -255,25 +255,25 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="streaming" class="section level2">
 <h2><span class="header-section-number">5.3</span> Streaming</h2>
 <p>Both <code>mongolite</code> and <code>jsonlite</code> also allow for importing NDJSON data from a HTTP stream:</p>
-<div class="sourceCode" id="cb139"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb139-1" data-line-number="1">flt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;flights&quot;</span>)</a>
-<a class="sourceLine" id="cb139-2" data-line-number="2">flt<span class="op">$</span><span class="kw">import</span>(<span class="kw">gzcon</span>(curl<span class="op">::</span><span class="kw">curl</span>(<span class="st">&quot;https://jeroen.github.io/data/nycflights13.json.gz&quot;</span>)))</a>
-<a class="sourceLine" id="cb139-3" data-line-number="3">flt<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb138"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb138-1" data-line-number="1">flt &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;flights&quot;</span>)</a>
+<a class="sourceLine" id="cb138-2" data-line-number="2">flt<span class="op">$</span><span class="kw">import</span>(<span class="kw">gzcon</span>(curl<span class="op">::</span><span class="kw">curl</span>(<span class="st">&quot;https://jeroen.github.io/data/nycflights13.json.gz&quot;</span>)))</a>
+<a class="sourceLine" id="cb138-3" data-line-number="3">flt<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
 <p>The same operation in <code>jsonlite</code> would be:</p>
-<div class="sourceCode" id="cb141"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb141-1" data-line-number="1">flights &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">stream_in</span>(</a>
-<a class="sourceLine" id="cb141-2" data-line-number="2">  <span class="kw">gzcon</span>(curl<span class="op">::</span><span class="kw">curl</span>(<span class="st">&quot;https://jeroen.github.io/data/nycflights13.json.gz&quot;</span>)), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb141-3" data-line-number="3"><span class="kw">nrow</span>(flights)</a></code></pre></div>
+<div class="sourceCode" id="cb140"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb140-1" data-line-number="1">flights &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">stream_in</span>(</a>
+<a class="sourceLine" id="cb140-2" data-line-number="2">  <span class="kw">gzcon</span>(curl<span class="op">::</span><span class="kw">curl</span>(<span class="st">&quot;https://jeroen.github.io/data/nycflights13.json.gz&quot;</span>)), <span class="dt">verbose =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb140-3" data-line-number="3"><span class="kw">nrow</span>(flights)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
 </div>
 <div id="bson" class="section level2">
 <h2><span class="header-section-number">5.4</span> BSON</h2>
 <p>MongoDB internally stores data in <a href="http://bsonspec.org/spec.html">BSON</a> format, which is a binary version of JSON. Use the <code>bson</code> parameter to dump a collection directly in BSON format:</p>
-<div class="sourceCode" id="cb143"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb143-1" data-line-number="1">flt<span class="op">$</span><span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb142"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb142-1" data-line-number="1">flt<span class="op">$</span><span class="kw">export</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
 <p>Same to read it back:</p>
-<div class="sourceCode" id="cb144"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb144-1" data-line-number="1">flt<span class="op">$</span><span class="kw">drop</span>()</a>
-<a class="sourceLine" id="cb144-2" data-line-number="2">flt<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb143"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb143-1" data-line-number="1">flt<span class="op">$</span><span class="kw">drop</span>()</a>
+<a class="sourceLine" id="cb143-2" data-line-number="2">flt<span class="op">$</span><span class="kw">import</span>(<span class="kw">file</span>(<span class="st">&quot;flights.bson&quot;</span>), <span class="dt">bson =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 336776</code></pre>
-<div class="sourceCode" id="cb146"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb146-1" data-line-number="1">flt<span class="op">$</span><span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb145"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb145-1" data-line-number="1">flt<span class="op">$</span><span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   year month day dep_time dep_delay arr_time arr_delay carrier tailnum flight origin dest air_time distance hour minute
 #&gt; 1 2013     1   1      517         2      830        11      UA  N14228   1545    EWR  IAH      227     1400    5     17
 #&gt; 2 2013     1   1      533         4      850        20      UA  N24211   1714    LGA  IAH      227     1416    5     33

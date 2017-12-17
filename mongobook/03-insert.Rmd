@@ -97,10 +97,16 @@ students$insert(c(
 students$find()
 ```
 
+
+To modify all elements that are greater than or equal to 100 in the `grades` array, use the filtered positional operator `$[<identifier>]` in the `filters` parameter:
+
 ```{r}
 students$update(query = '{}', update = '{"$set":{"grades.$[element]":100}}', 
   filters = '[{"element": {"$gte":100}}]', multiple = TRUE)
 students$find()
+```
+
+```{r echo=FALSE}
 students$drop()
 ```
 

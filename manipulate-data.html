@@ -233,9 +233,9 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt;  $ writeErrors: list()</code></pre>
 <div class="sourceCode" id="cb102"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb102-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">fields =</span> <span class="st">&#39;{}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id  name age
-#&gt; 1 5a36df96ba7cb266651ee830 jerry  NA
-#&gt; 2 5a36df96ba7cb266651ee831  anna  23
-#&gt; 3 5a36df96ba7cb266651ee832   joe  NA</code></pre>
+#&gt; 1 5a36e124ba7cb267e2762ed0 jerry  NA
+#&gt; 2 5a36e124ba7cb267e2762ed1  anna  23
+#&gt; 3 5a36e124ba7cb267e2762ed2   joe  NA</code></pre>
 <p>Obviously you can generate such JSON records dynamically from data via e.g. <code>jsonlite::toJSON</code>.</p>
 </div>
 <div id="remove" class="section level2">
@@ -308,6 +308,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 1       1   95, 92, 90
 #&gt; 2       2 98, 100, 102
 #&gt; 3       3 95, 110, 100</code></pre>
+<p>To modify all elements that are greater than or equal to 100 in the <code>grades</code> array, use the filtered positional operator <code>$[&lt;identifier&gt;]</code> in the <code>filters</code> parameter:</p>
 <div class="sourceCode" id="cb125"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb125-1" data-line-number="1">students<span class="op">$</span><span class="kw">update</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">update =</span> <span class="st">&#39;{&quot;$set&quot;:{&quot;grades.$[element]&quot;:100}}&#39;</span>, </a>
 <a class="sourceLine" id="cb125-2" data-line-number="2">  <span class="dt">filters =</span> <span class="st">&#39;[{&quot;element&quot;: {&quot;$gte&quot;:100}}]&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a>
 <a class="sourceLine" id="cb125-3" data-line-number="3">students<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
@@ -315,7 +316,6 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 1       1   95, 92, 90
 #&gt; 2       2 98, 100, 100
 #&gt; 3       3 95, 100, 100</code></pre>
-<div class="sourceCode" id="cb127"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb127-1" data-line-number="1">students<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
 
 </div>
 </div>
