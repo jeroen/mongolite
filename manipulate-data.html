@@ -48,57 +48,69 @@
 
 
 <style type="text/css">
-div.sourceLine, a.sourceLine { display: inline-block; min-height: 1.25em; }
+a.sourceLine { display: inline-block; line-height: 1.25; }
 a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; position: absolute; }
 .sourceCode { overflow: visible; }
-code.sourceCode { white-space: pre; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
 @media print {
 code.sourceCode { white-space: pre-wrap; }
-div.sourceLine, a.sourceLine { text-indent: -1em; padding-left: 1em; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
 }
-pre.numberSource div.sourceLine, .numberSource a.sourceLine
+pre.numberSource a.sourceLine
   { position: relative; }
-pre.numberSource div.sourceLine::before, .numberSource a.sourceLine::before
+pre.numberSource a.sourceLine:empty
+  { position: absolute; }
+pre.numberSource a.sourceLine::before
   { content: attr(data-line-number);
     position: absolute; left: -5em; text-align: right; vertical-align: baseline;
     border: none; pointer-events: all;
     -webkit-touch-callout: none; -webkit-user-select: none;
     -khtml-user-select: none; -moz-user-select: none;
     -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em; }
-pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; color: #aaaaaa;  padding-left: 4px; }
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
 @media screen {
-a.sourceLine::before { text-decoration: underline; color = initial; }
+a.sourceLine::before { text-decoration: underline; }
 }
-code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
 code span.dt { color: #902000; } /* DataType */
 code span.dv { color: #40a070; } /* DecVal */
-code span.bn { color: #40a070; } /* BaseN */
-code span.fl { color: #40a070; } /* Float */
-code span.ch { color: #4070a0; } /* Char */
-code span.st { color: #4070a0; } /* String */
-code span.co { color: #60a0b0; font-style: italic; } /* Comment */
-code span.ot { color: #007020; } /* Other */
-code span.al { color: #ff0000; font-weight: bold; } /* Alert */
-code span.fu { color: #06287e; } /* Function */
 code span.er { color: #ff0000; font-weight: bold; } /* Error */
-code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
-code span.cn { color: #880000; } /* Constant */
-code span.sc { color: #4070a0; } /* SpecialChar */
-code span.vs { color: #4070a0; } /* VerbatimString */
-code span.ss { color: #bb6688; } /* SpecialString */
-code span.im { } /* Import */
-code span.va { color: #19177c; } /* Variable */
-code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-code span.op { color: #666666; } /* Operator */
-code span.bu { } /* BuiltIn */
 code span.ex { } /* Extension */
-code span.pp { color: #bc7a00; } /* Preprocessor */
-code span.at { color: #7d9029; } /* Attribute */
-code span.do { color: #ba2121; font-style: italic; } /* Documentation */
-code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
 code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
 </style>
 
 <link rel="stylesheet" href="style.css" type="text/css" />
@@ -124,7 +136,9 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 <li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#testing-with-ssl"><i class="fa fa-check"></i><b>1.4</b> Testing with SSL</a></li>
 </ul></li>
 <li class="chapter" data-level="2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html"><i class="fa fa-check"></i><b>2</b> Connecting to MongoDB</a><ul>
-<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a></li>
+<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a><ul>
+<li class="chapter" data-level="2.1.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#dns-seedlist-connection-format"><i class="fa fa-check"></i><b>2.1.1</b> DNS Seedlist Connection Format</a></li>
+</ul></li>
 <li class="chapter" data-level="2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#authentication"><i class="fa fa-check"></i><b>2.2</b> Authentication</a><ul>
 <li class="chapter" data-level="2.2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ldap"><i class="fa fa-check"></i><b>2.2.1</b> LDAP</a></li>
 <li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
@@ -152,6 +166,7 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 <li class="chapter" data-level="4.1" data-path="manipulate-data.html"><a href="manipulate-data.html#insert"><i class="fa fa-check"></i><b>4.1</b> Insert</a></li>
 <li class="chapter" data-level="4.2" data-path="manipulate-data.html"><a href="manipulate-data.html#remove"><i class="fa fa-check"></i><b>4.2</b> Remove</a></li>
 <li class="chapter" data-level="4.3" data-path="manipulate-data.html"><a href="manipulate-data.html#update-upsert"><i class="fa fa-check"></i><b>4.3</b> Update / Upsert</a></li>
+<li class="chapter" data-level="4.4" data-path="manipulate-data.html"><a href="manipulate-data.html#array-filters"><i class="fa fa-check"></i><b>4.4</b> Array Filters</a></li>
 </ul></li>
 <li class="chapter" data-level="5" data-path="import-export.html"><a href="import-export.html"><i class="fa fa-check"></i><b>5</b> Import / Export</a><ul>
 <li class="chapter" data-level="5.1" data-path="import-export.html"><a href="import-export.html#json"><i class="fa fa-check"></i><b>5.1</b> JSON</a></li>
@@ -188,9 +203,9 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 <div id="insert" class="section level2">
 <h2><span class="header-section-number">4.1</span> Insert</h2>
 <p>The easiest way to insert data is from an R data frame. The data frame columns will automatically be mapped to keys in the JSON records:</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">test &lt;-<span class="st"> </span><span class="kw">mongo</span>()</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">test<span class="op">$</span><span class="kw">drop</span>()</div>
-<div class="sourceLine" id="3" href="#3" data-line-number="3">test<span class="op">$</span><span class="kw">insert</span>(iris)</div></code></pre>
+<div class="sourceCode" id="cb96"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb96-1" data-line-number="1">test &lt;-<span class="st"> </span><span class="kw">mongo</span>()</a>
+<a class="sourceLine" id="cb96-2" data-line-number="2">test<span class="op">$</span><span class="kw">drop</span>()</a>
+<a class="sourceLine" id="cb96-3" data-line-number="3">test<span class="op">$</span><span class="kw">insert</span>(iris)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 5
 #&gt;  $ nInserted  : num 150
 #&gt;  $ nMatched   : num 0
@@ -198,7 +213,7 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 #&gt;  $ nUpserted  : num 0
 #&gt;  $ writeErrors: list()</code></pre>
 <p>This is basically the inverse from <code>mongo$find()</code> which converts the collection back into a Data Frame:</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">test<span class="op">$</span><span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</div></code></pre>
+<div class="sourceCode" id="cb98"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb98-1" data-line-number="1">test<span class="op">$</span><span class="kw">find</span>(<span class="dt">limit =</span> <span class="dv">5</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   Sepal_Length Sepal_Width Petal_Length Petal_Width Species
 #&gt; 1          5.1         3.5          1.4         0.2  setosa
 #&gt; 2          4.9         3.0          1.4         0.2  setosa
@@ -206,9 +221,9 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 #&gt; 4          4.6         3.1          1.5         0.2  setosa
 #&gt; 5          5.0         3.6          1.4         0.2  setosa</code></pre>
 <p>Records can also be inserted directly as JSON strings. This requires a character vector where each element is a valid JSON string.</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;subjects&quot;</span>)</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">str &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&#39;{&quot;name&quot; : &quot;jerry&quot;}&#39;</span> , <span class="st">&#39;{&quot;name&quot;: &quot;anna&quot;, &quot;age&quot; : 23}&#39;</span>, <span class="st">&#39;{&quot;name&quot;: &quot;joe&quot;}&#39;</span>)</div>
-<div class="sourceLine" id="3" href="#3" data-line-number="3">subjects<span class="op">$</span><span class="kw">insert</span>(str)</div></code></pre>
+<div class="sourceCode" id="cb100"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb100-1" data-line-number="1">subjects &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;subjects&quot;</span>)</a>
+<a class="sourceLine" id="cb100-2" data-line-number="2">str &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&#39;{&quot;name&quot; : &quot;jerry&quot;}&#39;</span> , <span class="st">&#39;{&quot;name&quot;: &quot;anna&quot;, &quot;age&quot; : 23}&#39;</span>, <span class="st">&#39;{&quot;name&quot;: &quot;joe&quot;}&#39;</span>)</a>
+<a class="sourceLine" id="cb100-3" data-line-number="3">subjects<span class="op">$</span><span class="kw">insert</span>(str)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 6
 #&gt;  $ nInserted  : int 3
 #&gt;  $ nMatched   : int 0
@@ -216,62 +231,91 @@ code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Infor
 #&gt;  $ nRemoved   : int 0
 #&gt;  $ nUpserted  : int 0
 #&gt;  $ writeErrors: list()</code></pre>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">fields =</span> <span class="st">&#39;{}&#39;</span>)</div></code></pre>
+<div class="sourceCode" id="cb102"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb102-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">fields =</span> <span class="st">&#39;{}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id  name age
-#&gt; 1 5a12f39cba7cb2f2df6f7312 jerry  NA
-#&gt; 2 5a12f39cba7cb2f2df6f7313  anna  23
-#&gt; 3 5a12f39cba7cb2f2df6f7314   joe  NA</code></pre>
+#&gt; 1 5a36df96ba7cb266651ee830 jerry  NA
+#&gt; 2 5a36df96ba7cb266651ee831  anna  23
+#&gt; 3 5a36df96ba7cb266651ee832   joe  NA</code></pre>
 <p>Obviously you can generate such JSON records dynamically from data via e.g. <code>jsonlite::toJSON</code>.</p>
 </div>
 <div id="remove" class="section level2">
 <h2><span class="header-section-number">4.2</span> Remove</h2>
 <p>The same syntax that we use in <code>find()</code> to select records for reading, can also be used to select records for deleting:</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">test<span class="op">$</span><span class="kw">count</span>()</div></code></pre>
+<div class="sourceCode" id="cb104"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb104-1" data-line-number="1">test<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 150</code></pre>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">test<span class="op">$</span><span class="kw">remove</span>(<span class="st">&#39;{&quot;Species&quot; : &quot;setosa&quot;}&#39;</span>)</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">test<span class="op">$</span><span class="kw">count</span>()</div></code></pre>
+<div class="sourceCode" id="cb106"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb106-1" data-line-number="1">test<span class="op">$</span><span class="kw">remove</span>(<span class="st">&#39;{&quot;Species&quot; : &quot;setosa&quot;}&#39;</span>)</a>
+<a class="sourceLine" id="cb106-2" data-line-number="2">test<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 100</code></pre>
 <p>Use the <code>just_one</code> option to delete a single record:</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">test<span class="op">$</span><span class="kw">remove</span>(<span class="st">&#39;{&quot;Sepal_Length&quot; : {&quot;$lte&quot; : 5}}&#39;</span>, <span class="dt">just_one =</span> <span class="ot">TRUE</span>)</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">test<span class="op">$</span><span class="kw">count</span>()</div></code></pre>
+<div class="sourceCode" id="cb108"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb108-1" data-line-number="1">test<span class="op">$</span><span class="kw">remove</span>(<span class="st">&#39;{&quot;Sepal_Length&quot; : {&quot;$lte&quot; : 5}}&#39;</span>, <span class="dt">just_one =</span> <span class="ot">TRUE</span>)</a>
+<a class="sourceLine" id="cb108-2" data-line-number="2">test<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 99</code></pre>
 <p>To delete all records in the collection (but not the collection itself):</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">test<span class="op">$</span><span class="kw">remove</span>(<span class="st">&#39;{}&#39;</span>)</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">test<span class="op">$</span><span class="kw">count</span>()</div></code></pre>
+<div class="sourceCode" id="cb110"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb110-1" data-line-number="1">test<span class="op">$</span><span class="kw">remove</span>(<span class="st">&#39;{}&#39;</span>)</a>
+<a class="sourceLine" id="cb110-2" data-line-number="2">test<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 0</code></pre>
 <p>The <code>drop()</code> operator will delete an entire collection. This includes all data, as well as metadata such as collection indices.</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">test<span class="op">$</span><span class="kw">drop</span>()</div></code></pre>
+<div class="sourceCode" id="cb112"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb112-1" data-line-number="1">test<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
 </div>
 <div id="update-upsert" class="section level2">
 <h2><span class="header-section-number">4.3</span> Update / Upsert</h2>
 <p>To modify existing records, use the <code>update()</code> operator:</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>()</div></code></pre>
+<div class="sourceCode" id="cb113"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb113-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    name age
 #&gt; 1 jerry  NA
 #&gt; 2  anna  23
 #&gt; 3   joe  NA</code></pre>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;jerry&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 31}}&#39;</span>)</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">subjects<span class="op">$</span><span class="kw">find</span>()</div></code></pre>
+<div class="sourceCode" id="cb115"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb115-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;jerry&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 31}}&#39;</span>)</a>
+<a class="sourceLine" id="cb115-2" data-line-number="2">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    name age
 #&gt; 1 jerry  31
 #&gt; 2  anna  23
 #&gt; 3   joe  NA</code></pre>
 <p>By default, the update() method updates a single document. To update multiple documents, use the multi option in the update() method.</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: false}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;age&quot; : {&quot;$gte&quot; : 0}}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: true}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</div>
-<div class="sourceLine" id="3" href="#3" data-line-number="3">subjects<span class="op">$</span><span class="kw">find</span>()</div></code></pre>
+<div class="sourceCode" id="cb117"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb117-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: false}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a>
+<a class="sourceLine" id="cb117-2" data-line-number="2">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;age&quot; : {&quot;$gte&quot; : 0}}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: true}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a>
+<a class="sourceLine" id="cb117-3" data-line-number="3">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    name age has_age
 #&gt; 1 jerry  31    TRUE
 #&gt; 2  anna  23    TRUE
 #&gt; 3   joe  NA   FALSE</code></pre>
 <p>If no document matches the update condition, the default behavior of the update method is to do nothing. By specifying the upsert option to true, the update operation either updates matching document(s) or inserts a new document if no matching document exists.</p>
-<pre class="sourceCode r"><code class="sourceCode r"><div class="sourceLine" id="1" href="#1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;erik&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 29}}&#39;</span>, <span class="dt">upsert =</span> <span class="ot">TRUE</span>)</div>
-<div class="sourceLine" id="2" href="#2" data-line-number="2">subjects<span class="op">$</span><span class="kw">find</span>()</div></code></pre>
+<div class="sourceCode" id="cb119"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb119-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;erik&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 29}}&#39;</span>, <span class="dt">upsert =</span> <span class="ot">TRUE</span>)</a>
+<a class="sourceLine" id="cb119-2" data-line-number="2">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    name age has_age
 #&gt; 1 jerry  31    TRUE
 #&gt; 2  anna  23    TRUE
 #&gt; 3   joe  NA   FALSE
 #&gt; 4  erik  29      NA</code></pre>
+</div>
+<div id="array-filters" class="section level2">
+<h2><span class="header-section-number">4.4</span> Array Filters</h2>
+<p>Starting in MongoDB 3.6, when updating an array field, you can specify <a href="https://docs.mongodb.com/manual/reference/command/update/#update-command-arrayfilters">arrayFilters</a> that determine which array elements to update.</p>
+<div class="sourceCode" id="cb121"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb121-1" data-line-number="1">students &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;students&quot;</span>)</a>
+<a class="sourceLine" id="cb121-2" data-line-number="2">students<span class="op">$</span><span class="kw">insert</span>(<span class="kw">c</span>(</a>
+<a class="sourceLine" id="cb121-3" data-line-number="3">  <span class="st">&#39;{ &quot;student&quot; : 1, &quot;grades&quot; : [ 95, 92, 90 ] }&#39;</span>,</a>
+<a class="sourceLine" id="cb121-4" data-line-number="4">  <span class="st">&#39;{ &quot;student&quot; : 2, &quot;grades&quot; : [ 98, 100, 102  ] }&#39;</span>,</a>
+<a class="sourceLine" id="cb121-5" data-line-number="5">  <span class="st">&#39;{ &quot;student&quot; : 3, &quot;grades&quot; : [ 95, 110, 100] }&#39;</span>))</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 6
+#&gt;  $ nInserted  : int 3
+#&gt;  $ nMatched   : int 0
+#&gt;  $ nModified  : int 0
+#&gt;  $ nRemoved   : int 0
+#&gt;  $ nUpserted  : int 0
+#&gt;  $ writeErrors: list()</code></pre>
+<div class="sourceCode" id="cb123"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb123-1" data-line-number="1">students<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;   student       grades
+#&gt; 1       1   95, 92, 90
+#&gt; 2       2 98, 100, 102
+#&gt; 3       3 95, 110, 100</code></pre>
+<div class="sourceCode" id="cb125"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb125-1" data-line-number="1">students<span class="op">$</span><span class="kw">update</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">update =</span> <span class="st">&#39;{&quot;$set&quot;:{&quot;grades.$[element]&quot;:100}}&#39;</span>, </a>
+<a class="sourceLine" id="cb125-2" data-line-number="2">  <span class="dt">filters =</span> <span class="st">&#39;[{&quot;element&quot;: {&quot;$gte&quot;:100}}]&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a>
+<a class="sourceLine" id="cb125-3" data-line-number="3">students<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;   student       grades
+#&gt; 1       1   95, 92, 90
+#&gt; 2       2 98, 100, 100
+#&gt; 3       3 95, 100, 100</code></pre>
+<div class="sourceCode" id="cb127"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb127-1" data-line-number="1">students<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
 
 </div>
 </div>
