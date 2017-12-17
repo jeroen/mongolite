@@ -84,3 +84,25 @@ subjects$update('{"name":"erik"}', '{"$set":{"age": 29}}', upsert = TRUE)
 subjects$find()
 ```
 
+## Array Filters
+
+Starting in MongoDB 3.6, when updating an array field, you can specify [arrayFilters](https://docs.mongodb.com/manual/reference/command/update/#update-command-arrayfilters) that determine which array elements to update.
+
+```{r}
+students <- mongo("students")
+students$insert(c(
+  '{ "student" : 1, "grades" : [ 95, 92, 90 ] }',
+  '{ "student" : 2, "grades" : [ 98, 100, 102  ] }',
+  '{ "student" : 3, "grades" : [ 95, 110, 100] }'))
+students$find()
+```
+
+```{r}
+students$update(query = '{}', update = '{"$set":{"grades.$[element]":100}}', 
+  filters = '[{"element": {"$gte":100}}]', multiple = TRUE)
+students$find()
+students$drop()
+```
+
+
+
