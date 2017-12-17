@@ -218,9 +218,9 @@ mongo_object <- function(col, client, verbose, orig){
       invisible(mongo_collection_drop(col))
     }
 
-    update <- function(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE){
+    update <- function(query, update = '{"$set":{}}', filters = '[]', upsert = FALSE, multiple = FALSE){
       check_col()
-      invisible(mongo_collection_update(col, query, update, upsert, multiple))
+      invisible(mongo_collection_update(col, query, update, filters, upsert, multiple))
     }
 
     mapreduce <- function(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL){
