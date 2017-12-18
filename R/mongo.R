@@ -220,7 +220,7 @@ mongo_object <- function(col, client, verbose, orig){
 
     update <- function(query, update = '{"$set":{}}', filters = '[]', upsert = FALSE, multiple = FALSE){
       check_col()
-      invisible(mongo_collection_update(col, query, update, filters, upsert, multiple))
+      mongo_collection_update(col, query, update, filters, upsert, multiple)
     }
 
     mapreduce <- function(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL){

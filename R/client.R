@@ -109,7 +109,8 @@ mongo_collection_insert_bson <- function(col, doc, stop_on_error = TRUE){
 mongo_collection_update <- function(col, selector, update, filters, upsert = TRUE, multiple = TRUE){
   stopifnot(is.logical(upsert))
   stopifnot(is.logical(multiple))
-  .Call(R_mongo_collection_update, col, bson_or_json(selector), bson_or_json(update), bson_or_json(filters), upsert, multiple)
+  reply <- .Call(R_mongo_collection_update, col, bson_or_json(selector), bson_or_json(update), bson_or_json(filters), upsert, multiple)
+  structure(reply, class = c("miniprint"))
 }
 
 #' @useDynLib mongolite R_mongo_collection_insert_page

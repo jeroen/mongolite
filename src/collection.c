@@ -76,14 +76,15 @@ SEXP R_mongo_collection_update(SEXP ptr_col, SEXP ptr_selector, SEXP ptr_update,
   BSON_APPEND_ARRAY (&opts, "arrayFilters", filters);
 
   bson_error_t err;
+  bson_t reply;
   bool success = asLogical(multiple) ?
-    mongoc_collection_update_many(col, selector, update, &opts, NULL, &err) :
-    mongoc_collection_update_one(col, selector, update, &opts, NULL, &err);
+    mongoc_collection_update_many(col, selector, update, &opts, &reply, &err) :
+    mongoc_collection_update_one(col, selector, update, &opts, &reply, &err);
 
   if(!success)
     stop(err.message);
 
-  return ScalarLogical(1);
+  return bson2list(&reply);
 }
 
 SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_error){
