@@ -175,8 +175,8 @@ SEXP ConvertBinary(bson_iter_t* iter){
   for (int i = 0; i < binary_len; i++) {
     RAW(out)[i] = binary[i];
   }
-  setAttrib(out, install("type"), ScalarRaw(subtype));
-  UNPROTECT(1);
+  setAttrib(out, PROTECT(install("type")), PROTECT(ScalarRaw(subtype)));
+  UNPROTECT(3);
   return out;
 
 }

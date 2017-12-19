@@ -8,7 +8,8 @@ void bson_reader_finalize(void *handle){
 ssize_t bson_reader_feed(void *handle, void *buf, size_t count){
   int err;
   SEXP *con = (SEXP*) handle;
-  SEXP call = PROTECT(LCONS(install("readBin"), LCONS(*con, LCONS(mkString("raw"), LCONS(ScalarInteger(count), R_NilValue)))));
+  SEXP call = PROTECT(LCONS(PROTECT(install("readBin")),
+    PROTECT(LCONS(*con, LCONS(mkString("raw"), LCONS(ScalarInteger(count), R_NilValue))))));
   SEXP res = PROTECT(R_tryEval(call, R_GlobalEnv, &err));
 
   // check if readBin succeeded
