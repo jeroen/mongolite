@@ -4,6 +4,7 @@
  - Add 'filter' parameter to mongo$update() for arrayFilters
  - Expose 'stop_on_error' parameter in mongo$insert()
  - Updated mongo$update() to new APIs and return summary reply
+ - Workaround #pragma lines in vendored mongo-c-driver for CRAN
 
 1.2
  - Update mongo-c-driver to upstream 1.6.2
