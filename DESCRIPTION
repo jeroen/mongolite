@@ -8,7 +8,7 @@ Description: High-performance 'MongoDB' client based on 'libmongoc' and 'jsonlit
 Version: 1.3
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen@berkeley.edu", role = c("aut", "cre")),
-    person("MongoDB, Inc", role = "cph", comment = "Author of mongo-c-driver")
+    person("MongoDB, Inc", role = "cph", comment = "Bundled mongo-c-driver, see AUTHORS file")
   )
 Imports:
     jsonlite (>= 1.4),
