@@ -204,12 +204,12 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="aggregate" class="section level2">
 <h2><span class="header-section-number">6.1</span> Aggregate</h2>
 <p>The <code>aggregate</code>() method allows you to run an aggregation <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/">pipeline</a>. For example the pipeline below calculates the total flights per carrier and the average distance:</p>
-<div class="sourceCode" id="cb147"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb147-1" data-line-number="1">stats &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">aggregate</span>(</a>
-<a class="sourceLine" id="cb147-2" data-line-number="2">  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,</a>
-<a class="sourceLine" id="cb147-3" data-line-number="3">  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span></a>
-<a class="sourceLine" id="cb147-4" data-line-number="4">)</a>
-<a class="sourceLine" id="cb147-5" data-line-number="5"><span class="kw">names</span>(stats) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;carrier&quot;</span>, <span class="st">&quot;count&quot;</span>, <span class="st">&quot;average&quot;</span>)</a>
-<a class="sourceLine" id="cb147-6" data-line-number="6"><span class="kw">print</span>(stats)</a></code></pre></div>
+<div class="sourceCode" id="cb157"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb157-1" data-line-number="1">stats &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">aggregate</span>(</a>
+<a class="sourceLine" id="cb157-2" data-line-number="2">  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,</a>
+<a class="sourceLine" id="cb157-3" data-line-number="3">  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span></a>
+<a class="sourceLine" id="cb157-4" data-line-number="4">)</a>
+<a class="sourceLine" id="cb157-5" data-line-number="5"><span class="kw">names</span>(stats) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;carrier&quot;</span>, <span class="st">&quot;count&quot;</span>, <span class="st">&quot;average&quot;</span>)</a>
+<a class="sourceLine" id="cb157-6" data-line-number="6"><span class="kw">print</span>(stats)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    carrier count   average
 #&gt; 1       OO    32  500.8125
 #&gt; 2       F9   685 1620.0000
@@ -228,8 +228,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 15      HA   342 4983.0000
 #&gt; 16      AA 32729 1340.2360</code></pre>
 <p>Let’s make a pretty plot:</p>
-<div class="sourceCode" id="cb149"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb149-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
-<a class="sourceLine" id="cb149-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(carrier, count), <span class="dt">data =</span> stats) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb159"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb159-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
+<a class="sourceLine" id="cb159-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(carrier, count), <span class="dt">data =</span> stats) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
 <p><img src="mongobook_files/figure-html/figstats-1.png" width="672" /></p>
 <p>Check the <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/#db.collection.aggregate">MongoDB manual</a> for detailed description of the pipeline syntax and supported options.</p>
 </div>
@@ -237,13 +237,13 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h2><span class="header-section-number">6.2</span> Map/Reduce</h2>
 <p>The <code>mapreduce()</code> method allow for running a custom in-database mapreduce job by providing custom <code>map</code> and <code>reduce</code> JavaScript functions. Running JavaScript is slower using the aggregate system, but you can implement fully customized database operations.</p>
 <p>Below is a simple example to do “binning” of distances to create a histogram.</p>
-<div class="sourceCode" id="cb150"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb150-1" data-line-number="1"><span class="co"># Map-reduce (binning)</span></a>
-<a class="sourceLine" id="cb150-2" data-line-number="2">histdata &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">mapreduce</span>(</a>
-<a class="sourceLine" id="cb150-3" data-line-number="3">  <span class="dt">map =</span> <span class="st">&quot;function(){emit(Math.floor(this.distance/100)*100, 1)}&quot;</span>, </a>
-<a class="sourceLine" id="cb150-4" data-line-number="4">  <span class="dt">reduce =</span> <span class="st">&quot;function(id, counts){return Array.sum(counts)}&quot;</span></a>
-<a class="sourceLine" id="cb150-5" data-line-number="5">)</a>
-<a class="sourceLine" id="cb150-6" data-line-number="6"><span class="kw">names</span>(histdata) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;distance&quot;</span>, <span class="st">&quot;count&quot;</span>)</a>
-<a class="sourceLine" id="cb150-7" data-line-number="7"><span class="kw">print</span>(histdata)</a></code></pre></div>
+<div class="sourceCode" id="cb160"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb160-1" data-line-number="1"><span class="co"># Map-reduce (binning)</span></a>
+<a class="sourceLine" id="cb160-2" data-line-number="2">histdata &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">mapreduce</span>(</a>
+<a class="sourceLine" id="cb160-3" data-line-number="3">  <span class="dt">map =</span> <span class="st">&quot;function(){emit(Math.floor(this.distance/100)*100, 1)}&quot;</span>, </a>
+<a class="sourceLine" id="cb160-4" data-line-number="4">  <span class="dt">reduce =</span> <span class="st">&quot;function(id, counts){return Array.sum(counts)}&quot;</span></a>
+<a class="sourceLine" id="cb160-5" data-line-number="5">)</a>
+<a class="sourceLine" id="cb160-6" data-line-number="6"><span class="kw">names</span>(histdata) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;distance&quot;</span>, <span class="st">&quot;count&quot;</span>)</a>
+<a class="sourceLine" id="cb160-7" data-line-number="7"><span class="kw">print</span>(histdata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    distance count
 #&gt; 1         0  1633
 #&gt; 2       100 16017
@@ -273,8 +273,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 26     3300     8
 #&gt; 27     4900   707</code></pre>
 <p>From this data we can create a pretty histogram:</p>
-<div class="sourceCode" id="cb152"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb152-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
-<a class="sourceLine" id="cb152-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(distance, count), <span class="dt">data =</span> histdata) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb162"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb162-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
+<a class="sourceLine" id="cb162-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(distance, count), <span class="dt">data =</span> histdata) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
 <p><img src="mongobook_files/figure-html/fighist-1.png" width="672" /></p>
 <p>Obviously we could have done binning in R instead, however if we are dealing with loads of data, doing it in database can be much more efficient.</p>
 

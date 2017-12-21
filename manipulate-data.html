@@ -233,9 +233,9 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt;  $ writeErrors: list()</code></pre>
 <div class="sourceCode" id="cb102"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb102-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">fields =</span> <span class="st">&#39;{}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id  name age
-#&gt; 1 5a36e124ba7cb267e2762ed0 jerry  NA
-#&gt; 2 5a36e124ba7cb267e2762ed1  anna  23
-#&gt; 3 5a36e124ba7cb267e2762ed2   joe  NA</code></pre>
+#&gt; 1 5a3bca47ad86a461df2fe819 jerry  NA
+#&gt; 2 5a3bca47ad86a461df2fe81a  anna  23
+#&gt; 3 5a3bca47ad86a461df2fe81b   joe  NA</code></pre>
 <p>Obviously you can generate such JSON records dynamically from data via e.g. <code>jsonlite::toJSON</code>.</p>
 </div>
 <div id="remove" class="section level2">
@@ -265,23 +265,36 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 1 jerry  NA
 #&gt; 2  anna  23
 #&gt; 3   joe  NA</code></pre>
-<div class="sourceCode" id="cb115"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb115-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;jerry&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 31}}&#39;</span>)</a>
-<a class="sourceLine" id="cb115-2" data-line-number="2">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb115"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb115-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;jerry&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 31}}&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 2
+#&gt;  $ modifiedCount: int 1
+#&gt;  $ matchedCount : int 1</code></pre>
+<div class="sourceCode" id="cb117"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb117-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    name age
 #&gt; 1 jerry  31
 #&gt; 2  anna  23
 #&gt; 3   joe  NA</code></pre>
 <p>By default, the update() method updates a single document. To update multiple documents, use the multi option in the update() method.</p>
-<div class="sourceCode" id="cb117"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb117-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: false}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a>
-<a class="sourceLine" id="cb117-2" data-line-number="2">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;age&quot; : {&quot;$gte&quot; : 0}}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: true}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a>
-<a class="sourceLine" id="cb117-3" data-line-number="3">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb119"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb119-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: false}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 2
+#&gt;  $ modifiedCount: int 3
+#&gt;  $ matchedCount : int 3</code></pre>
+<div class="sourceCode" id="cb121"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb121-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;age&quot; : {&quot;$gte&quot; : 0}}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;has_age&quot;: true}}&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 2
+#&gt;  $ modifiedCount: int 2
+#&gt;  $ matchedCount : int 2</code></pre>
+<div class="sourceCode" id="cb123"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb123-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    name age has_age
 #&gt; 1 jerry  31    TRUE
 #&gt; 2  anna  23    TRUE
 #&gt; 3   joe  NA   FALSE</code></pre>
 <p>If no document matches the update condition, the default behavior of the update method is to do nothing. By specifying the upsert option to true, the update operation either updates matching document(s) or inserts a new document if no matching document exists.</p>
-<div class="sourceCode" id="cb119"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb119-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;erik&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 29}}&#39;</span>, <span class="dt">upsert =</span> <span class="ot">TRUE</span>)</a>
-<a class="sourceLine" id="cb119-2" data-line-number="2">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb125"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb125-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">update</span>(<span class="st">&#39;{&quot;name&quot;:&quot;erik&quot;}&#39;</span>, <span class="st">&#39;{&quot;$set&quot;:{&quot;age&quot;: 29}}&#39;</span>, <span class="dt">upsert =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 3
+#&gt;  $ modifiedCount: int 0
+#&gt;  $ matchedCount : int 0
+#&gt;  $ upsertedId   : chr &quot;5a3bca47e3fc4e69b4a23984&quot;</code></pre>
+<div class="sourceCode" id="cb127"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb127-1" data-line-number="1">subjects<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    name age has_age
 #&gt; 1 jerry  31    TRUE
 #&gt; 2  anna  23    TRUE
@@ -291,11 +304,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="array-filters" class="section level2">
 <h2><span class="header-section-number">4.4</span> Array Filters</h2>
 <p>Starting in MongoDB 3.6, when updating an array field, you can specify <a href="https://docs.mongodb.com/manual/reference/command/update/#update-command-arrayfilters">arrayFilters</a> that determine which array elements to update.</p>
-<div class="sourceCode" id="cb121"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb121-1" data-line-number="1">students &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;students&quot;</span>)</a>
-<a class="sourceLine" id="cb121-2" data-line-number="2">students<span class="op">$</span><span class="kw">insert</span>(<span class="kw">c</span>(</a>
-<a class="sourceLine" id="cb121-3" data-line-number="3">  <span class="st">&#39;{ &quot;student&quot; : 1, &quot;grades&quot; : [ 95, 92, 90 ] }&#39;</span>,</a>
-<a class="sourceLine" id="cb121-4" data-line-number="4">  <span class="st">&#39;{ &quot;student&quot; : 2, &quot;grades&quot; : [ 98, 100, 102  ] }&#39;</span>,</a>
-<a class="sourceLine" id="cb121-5" data-line-number="5">  <span class="st">&#39;{ &quot;student&quot; : 3, &quot;grades&quot; : [ 95, 110, 100] }&#39;</span>))</a></code></pre></div>
+<div class="sourceCode" id="cb129"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb129-1" data-line-number="1">students &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;students&quot;</span>)</a>
+<a class="sourceLine" id="cb129-2" data-line-number="2">students<span class="op">$</span><span class="kw">insert</span>(<span class="kw">c</span>(</a>
+<a class="sourceLine" id="cb129-3" data-line-number="3">  <span class="st">&#39;{ &quot;student&quot; : 1, &quot;grades&quot; : [ 95, 92, 90 ] }&#39;</span>,</a>
+<a class="sourceLine" id="cb129-4" data-line-number="4">  <span class="st">&#39;{ &quot;student&quot; : 2, &quot;grades&quot; : [ 98, 100, 102  ] }&#39;</span>,</a>
+<a class="sourceLine" id="cb129-5" data-line-number="5">  <span class="st">&#39;{ &quot;student&quot; : 3, &quot;grades&quot; : [ 95, 110, 100] }&#39;</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 6
 #&gt;  $ nInserted  : int 3
 #&gt;  $ nMatched   : int 0
@@ -303,15 +316,18 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt;  $ nRemoved   : int 0
 #&gt;  $ nUpserted  : int 0
 #&gt;  $ writeErrors: list()</code></pre>
-<div class="sourceCode" id="cb123"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb123-1" data-line-number="1">students<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb131"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb131-1" data-line-number="1">students<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   student       grades
 #&gt; 1       1   95, 92, 90
 #&gt; 2       2 98, 100, 102
 #&gt; 3       3 95, 110, 100</code></pre>
 <p>To modify all elements that are greater than or equal to 100 in the <code>grades</code> array, use the filtered positional operator <code>$[&lt;identifier&gt;]</code> in the <code>filters</code> parameter:</p>
-<div class="sourceCode" id="cb125"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb125-1" data-line-number="1">students<span class="op">$</span><span class="kw">update</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">update =</span> <span class="st">&#39;{&quot;$set&quot;:{&quot;grades.$[element]&quot;:100}}&#39;</span>, </a>
-<a class="sourceLine" id="cb125-2" data-line-number="2">  <span class="dt">filters =</span> <span class="st">&#39;[{&quot;element&quot;: {&quot;$gte&quot;:100}}]&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a>
-<a class="sourceLine" id="cb125-3" data-line-number="3">students<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb133"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb133-1" data-line-number="1">students<span class="op">$</span><span class="kw">update</span>(<span class="dt">query =</span> <span class="st">&#39;{}&#39;</span>, <span class="dt">update =</span> <span class="st">&#39;{&quot;$set&quot;:{&quot;grades.$[element]&quot;:100}}&#39;</span>, </a>
+<a class="sourceLine" id="cb133-2" data-line-number="2">  <span class="dt">filters =</span> <span class="st">&#39;[{&quot;element&quot;: {&quot;$gte&quot;:100}}]&#39;</span>, <span class="dt">multiple =</span> <span class="ot">TRUE</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 2
+#&gt;  $ modifiedCount: int 2
+#&gt;  $ matchedCount : int 3</code></pre>
+<div class="sourceCode" id="cb135"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb135-1" data-line-number="1">students<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   student       grades
 #&gt; 1       1   95, 92, 90
 #&gt; 2       2 98, 100, 100

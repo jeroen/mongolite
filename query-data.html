@@ -267,11 +267,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <a class="sourceLine" id="cb67-5" data-line-number="5">)</a>
 <a class="sourceLine" id="cb67-6" data-line-number="6"><span class="kw">print</span>(test)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id     cut clarity
-#&gt; 1 5a36e11fba7cb267e2755b6c Premium     SI1
-#&gt; 2 5a36e11fba7cb267e2755b6e Premium     VS2
-#&gt; 3 5a36e11fba7cb267e2755b77 Premium     SI1
-#&gt; 4 5a36e11fba7cb267e2755b79 Premium     SI2
-#&gt; 5 5a36e11fba7cb267e2755b7a Premium      I1</code></pre>
+#&gt; 1 5a3bca42ad86a461df2f14bc Premium     SI1
+#&gt; 2 5a3bca42ad86a461df2f14be Premium     VS2
+#&gt; 3 5a3bca42ad86a461df2f14c7 Premium     SI1
+#&gt; 4 5a3bca42ad86a461df2f14c9 Premium     SI2
+#&gt; 5 5a3bca42ad86a461df2f14ca Premium      I1</code></pre>
 <p>By default mongo always includes the <code>id</code> field. To prevent this we need to explicitly disable it:</p>
 <div class="sourceCode" id="cb69"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb69-1" data-line-number="1">test &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(</a>
 <a class="sourceLine" id="cb69-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, </a>
@@ -306,7 +306,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>By default a collection only has an index for <code>_id</code>, which means that selecting or sorting by any other field is relatively slow.</p>
 <div class="sourceCode" id="cb73"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb73-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.001   0.000   0.093</code></pre>
+#&gt;   0.002   0.000   0.107</code></pre>
 <p>By adding an index, the field gets presorted and selecting or sorting it is almost immediate:</p>
 <div class="sourceCode" id="cb75"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb75-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
@@ -314,7 +314,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 2 2      NA         1 price_1 test.diamonds</code></pre>
 <div class="sourceCode" id="cb77"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb77-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.001   0.000   0.007</code></pre>
+#&gt;   0.002   0.000   0.005</code></pre>
 <p>In order to speed up queries involving multiple fields, you need to add a cross-index which intersects both fields:</p>
 <div class="sourceCode" id="cb79"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb79-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price key.depth    name            ns
@@ -371,7 +371,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <a class="sourceLine" id="cb89-8" data-line-number="8">issues &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;issues&quot;</span>)</a>
 <a class="sourceLine" id="cb89-9" data-line-number="9">issues<span class="op">$</span><span class="kw">insert</span>(mydata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 5
-#&gt;  $ nInserted  : num 24
+#&gt;  $ nInserted  : num 17
 #&gt;  $ nMatched   : num 0
 #&gt;  $ nRemoved   : num 0
 #&gt;  $ nUpserted  : num 0
@@ -381,23 +381,16 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <a class="sourceLine" id="cb91-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;created_at&quot;: { &quot;$gte&quot; : { &quot;$date&quot; : &quot;2017-01-01T00:00:00Z&quot; }}}&#39;</span>,</a>
 <a class="sourceLine" id="cb91-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;created_at&quot; : true, &quot;user.login&quot; : true, &quot;title&quot;:true, &quot;_id&quot;: false}&#39;</span></a>
 <a class="sourceLine" id="cb91-4" data-line-number="4">)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;                                          title         login          created_at
-#&gt; 1        Insert issue with numeric rownames...        jcaude 2017-09-29 11:25:50
-#&gt; 2                Installation via R failure...      nstauder 2017-09-27 21:48:43
-#&gt; 3  Request return type as JSON instead of d...     xiaodaigh 2017-09-25 15:51:37
-#&gt; 4  When do a find() I get Error: Elements n...     xiaodaigh 2017-09-19 13:29:57
-#&gt; 5   Is possible to support connection pool?...      smartguo 2017-08-29 04:34:07
-#&gt; 6                       How to insert Date ...       sonijem 2017-08-10 13:37:43
-#&gt; 7                     find() freezes system...        step21 2017-07-04 11:16:59
-#&gt; 8  Issue #98: Support &quot;stop_on_error&quot; optio...       stennie 2017-06-28 14:22:07
-#&gt; 9               Perform an Unordered Insert... hichemmkhalyd 2017-06-27 15:59:14
-#&gt; 10                update always return TRUE...        josp70 2017-06-13 12:28:36
-#&gt; 11                            findAndModify...  achetverikov 2017-06-11 18:03:32
-#&gt; 12            Query Issue with Aggregation ... koushiksaha89 2017-05-25 09:52:11
-#&gt; 13                      colum has arraylist...  yueming-Chen 2017-05-04 06:25:33
-#&gt; 14 Adding NaN and Infinity values to databa...    LauraPalas 2017-04-20 18:20:16
-#&gt; 15 How to &quot;show databases&quot; and &quot;show collec...  kingsnakexxx 2017-03-31 04:05:58
-#&gt; 16 Switching collection without creating ne...         jhan1 2017-03-21 11:31:42</code></pre>
+<pre class="outputcode"><code>#&gt;                                         title         login          created_at
+#&gt; 1       Insert issue with numeric rownames...        jcaude 2017-09-29 11:25:50
+#&gt; 2 Request return type as JSON instead of d...     xiaodaigh 2017-09-25 15:51:37
+#&gt; 3 When do a find() I get Error: Elements n...     xiaodaigh 2017-09-19 13:29:57
+#&gt; 4  Is possible to support connection pool?...      smartguo 2017-08-29 04:34:07
+#&gt; 5            Query Issue with Aggregation ... koushiksaha89 2017-05-25 09:52:11
+#&gt; 6                      colum has arraylist...  yueming-Chen 2017-05-04 06:25:33
+#&gt; 7 Adding NaN and Infinity values to databa...    LauraPalas 2017-04-20 18:20:16
+#&gt; 8 How to &quot;show databases&quot; and &quot;show collec...  kingsnakexxx 2017-03-31 04:05:58
+#&gt; 9 Switching collection without creating ne...         jhan1 2017-03-21 11:31:42</code></pre>
 <p>Note that confusingly, what R calls a <em>Date</em> is not a timestamp but rather a string which only contains the date (Y-M-D) part of a timestamp. This type cannot be queried in MongoDB.</p>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#date">manual</a> for details.</p>
 </div>
@@ -406,16 +399,16 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>Each record inserted into MongoDB is automatically assigned an <code>&quot;_id&quot;</code> value.</p>
 <div class="sourceCode" id="cb93"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb93-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">fields=</span> <span class="st">&#39;{&quot;created_at&quot;:true, &quot;_id&quot;:true}&#39;</span>, <span class="dt">limit =</span> <span class="dv">10</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                         _id          created_at
-#&gt; 1  5a36e124ba7cb267e2762e20 2017-09-29 11:25:50
-#&gt; 2  5a36e124ba7cb267e2762e21 2017-09-27 21:48:43
-#&gt; 3  5a36e124ba7cb267e2762e22 2017-09-25 15:51:37
-#&gt; 4  5a36e124ba7cb267e2762e23 2017-09-19 13:29:57
-#&gt; 5  5a36e124ba7cb267e2762e24 2017-08-29 04:34:07
-#&gt; 6  5a36e124ba7cb267e2762e25 2017-08-10 13:37:43
-#&gt; 7  5a36e124ba7cb267e2762e26 2017-07-04 11:16:59
-#&gt; 8  5a36e124ba7cb267e2762e27 2017-06-28 14:22:07
-#&gt; 9  5a36e124ba7cb267e2762e28 2017-06-27 15:59:14
-#&gt; 10 5a36e124ba7cb267e2762e29 2017-06-13 12:28:36</code></pre>
+#&gt; 1  5a3bca46ad86a461df2fe770 2017-09-29 11:25:50
+#&gt; 2  5a3bca46ad86a461df2fe771 2017-09-25 15:51:37
+#&gt; 3  5a3bca46ad86a461df2fe772 2017-09-19 13:29:57
+#&gt; 4  5a3bca46ad86a461df2fe773 2017-08-29 04:34:07
+#&gt; 5  5a3bca46ad86a461df2fe774 2017-05-25 09:52:11
+#&gt; 6  5a3bca46ad86a461df2fe775 2017-05-04 06:25:33
+#&gt; 7  5a3bca46ad86a461df2fe776 2017-04-20 18:20:16
+#&gt; 8  5a3bca46ad86a461df2fe777 2017-03-31 04:05:58
+#&gt; 9  5a3bca46ad86a461df2fe778 2017-03-21 11:31:42
+#&gt; 10 5a3bca46ad86a461df2fe779 2016-12-21 15:50:14</code></pre>
 <p>Use the <code>{&quot;$oid&quot;}</code> operator (similar to <code>ObjectId()</code> in mongo) to select a record by it’s ID, for example:</p>
 <div class="sourceCode" id="cb95"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb95-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{&quot;_id&quot; : {&quot;$oid&quot;:&quot;58a83a6aba7cb2070210433e&quot;}}&#39;</span>)</a></code></pre></div>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#oid">manual</a> for syntax details.</p>
