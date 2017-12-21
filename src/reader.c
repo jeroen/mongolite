@@ -8,20 +8,21 @@ void bson_reader_finalize(void *handle){
 ssize_t bson_reader_feed(void *handle, void *buf, size_t count){
   int err;
   SEXP *con = (SEXP*) handle;
-  SEXP call = PROTECT(LCONS(PROTECT(install("readBin")),
-    PROTECT(LCONS(*con, LCONS(mkString("raw"), LCONS(ScalarInteger(count), R_NilValue))))));
+  SEXP x = PROTECT(LCONS(ScalarInteger(count), R_NilValue));
+  SEXP y = PROTECT(LCONS(mkString("raw"), x));
+  SEXP z = PROTECT(LCONS(*con, y));
+  SEXP readbin = PROTECT(install("readBin"));
+  SEXP call = PROTECT(LCONS(readbin, z));
   SEXP res = PROTECT(R_tryEval(call, R_GlobalEnv, &err));
 
   // check if readBin succeeded
-  if(err || TYPEOF(res) != RAWSXP) {
-    UNPROTECT(2);
-    error("Mongo reader failed to read data from connection. (%d)", err);
-  }
+  if(err || TYPEOF(res) != RAWSXP)
+    Rf_error("Mongo reader failed to read data from connection. (%d)", err);
 
   // Copy data into buf
   memcpy(buf, RAW(res), length(res));
-  UNPROTECT(2);
-  return length(res);
+  UNPROTECT(6);
+  return Rf_length(res);
 }
 
 SEXP R_mongo_restore(SEXP con, SEXP ptr_col, SEXP verb) {
