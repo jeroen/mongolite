@@ -68,12 +68,12 @@ SEXP R_mongo_collection_update(SEXP ptr_col, SEXP ptr_selector, SEXP ptr_update,
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *selector = r2bson(ptr_selector);
   bson_t *update = r2bson(ptr_update);
-  bson_t *filters = r2bson(ptr_filters);
 
   bson_t opts;
   bson_init (&opts);
   BSON_APPEND_BOOL (&opts, "upsert", asLogical(upsert));
-  BSON_APPEND_ARRAY (&opts, "arrayFilters", filters);
+  if(!Rf_isNull(ptr_filters))
+    BSON_APPEND_ARRAY (&opts, "arrayFilters",  r2bson(ptr_filters));
 
   bson_error_t err;
   bson_t reply;
