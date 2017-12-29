@@ -1,10 +1,10 @@
 #' @importFrom jsonlite toJSON fromJSON
-mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, ...){
+mongo_stream_out <- function(data, mongo, pagesize = 1000, verbose = TRUE, stop_on_error = TRUE, ...){
   stopifnot(is.data.frame(data))
   stopifnot(is.numeric(pagesize))
   stopifnot(is.logical(verbose))
   FUN <- function(x){
-    mongo_collection_insert_page(mongo, mongo_to_json(x, collapse = FALSE, ...))
+    mongo_collection_insert_page(mongo, mongo_to_json(x, collapse = FALSE, ...), stop_on_error = stop_on_error)
   }
   out <- jsonlite:::apply_by_pages(data, FUN, pagesize = pagesize, verbose = verbose)
   structure(list(

@@ -29,15 +29,15 @@
 #include "mongoc-client.h"
 #include "mongoc-list-private.h"
 #include "mongoc-opcode.h"
-#include "mongoc-read-prefs.h"
 #include "mongoc-rpc-private.h"
 #include "mongoc-server-stream-private.h"
 #include "mongoc-set-private.h"
 #include "mongoc-stream.h"
+#include "mongoc-topology-private.h"
 #include "mongoc-topology-description-private.h"
-#include "mongoc-uri.h"
 #include "mongoc-write-concern.h"
-
+#include "mongoc-scram-private.h"
+#include "mongoc-cmd-private.h"
 
 BSON_BEGIN_DECLS
 
@@ -59,6 +59,9 @@ typedef struct _mongoc_cluster_t {
    int64_t operation_id;
    uint32_t request_id;
    uint32_t sockettimeoutms;
+   uint8_t scram_client_key[MONGOC_SCRAM_HASH_SIZE];
+   uint8_t scram_server_key[MONGOC_SCRAM_HASH_SIZE];
+   uint8_t scram_salted_password[MONGOC_SCRAM_HASH_SIZE];
    uint32_t socketcheckintervalms;
    mongoc_uri_t *uri;
    unsigned requires_auth : 1;
@@ -69,6 +72,9 @@ typedef struct _mongoc_cluster_t {
    mongoc_array_t iov;
 } mongoc_cluster_t;
 
+bool
+mongoc_cluster_is_not_master_error (const bson_error_t *error);
+
 void
 mongoc_cluster_init (mongoc_cluster_t *cluster,
                      const mongoc_uri_t *uri,
@@ -78,7 +84,10 @@ void
 mongoc_cluster_destroy (mongoc_cluster_t *cluster);
 
 void
-mongoc_cluster_disconnect_node (mongoc_cluster_t *cluster, uint32_t id);
+mongoc_cluster_disconnect_node (mongoc_cluster_t *cluster,
+                                uint32_t id,
+                                bool invalidate,
+                                const bson_error_t *why);
 
 int32_t
 mongoc_cluster_get_max_bson_obj_size (mongoc_cluster_t *cluster);
@@ -86,17 +95,21 @@ mongoc_cluster_get_max_bson_obj_size (mongoc_cluster_t *cluster);
 int32_t
 mongoc_cluster_get_max_msg_size (mongoc_cluster_t *cluster);
 
-int32_t
-mongoc_cluster_node_max_wire_version (mongoc_cluster_t *cluster,
-                                      uint32_t server_id);
+size_t
+_mongoc_cluster_buffer_iovec (mongoc_iovec_t *iov,
+                              size_t iovcnt,
+                              int skip,
+                              char *buffer);
 
 bool
-mongoc_cluster_sendv_to_server (mongoc_cluster_t *cluster,
-                                mongoc_rpc_t *rpcs,
-                                size_t rpcs_len,
-                                mongoc_server_stream_t *server_stream,
-                                const mongoc_write_concern_t *write_concern,
-                                bson_error_t *error);
+mongoc_cluster_check_interval (mongoc_cluster_t *cluster, uint32_t server_id);
+
+bool
+mongoc_cluster_legacy_rpc_sendv_to_server (
+   mongoc_cluster_t *cluster,
+   mongoc_rpc_t *rpcs,
+   mongoc_server_stream_t *server_stream,
+   bson_error_t *error);
 
 bool
 mongoc_cluster_try_recv (mongoc_cluster_t *cluster,
@@ -122,25 +135,43 @@ mongoc_cluster_stream_for_server (mongoc_cluster_t *cluster,
 
 bool
 mongoc_cluster_run_command_monitored (mongoc_cluster_t *cluster,
-                                      mongoc_server_stream_t *server_stream,
-                                      mongoc_query_flags_t flags,
-                                      const char *db_name,
-                                      const bson_t *command,
-                                      int64_t operation_id,
+                                      mongoc_cmd_t *cmd,
                                       bson_t *reply,
                                       bson_error_t *error);
 
 bool
-mongoc_cluster_run_command (mongoc_cluster_t *cluster,
-                            mongoc_stream_t *stream,
-                            uint32_t server_id,
-                            mongoc_query_flags_t flags,
-                            const char *db_name,
-                            const bson_t *command,
-                            bson_t *reply,
-                            bson_error_t *error);
+mongoc_cluster_run_command_parts (mongoc_cluster_t *cluster,
+                                  mongoc_server_stream_t *server_stream,
+                                  mongoc_cmd_parts_t *parts,
+                                  bson_t *reply,
+                                  bson_error_t *error);
 
+bool
+mongoc_cluster_run_command_private (mongoc_cluster_t *cluster,
+                                    mongoc_cmd_t *cmd,
+                                    bson_t *reply,
+                                    bson_error_t *error);
 
+void
+_mongoc_cluster_build_sasl_start (bson_t *cmd,
+                                  const char *mechanism,
+                                  const char *buf,
+                                  uint32_t buflen);
+
+void
+_mongoc_cluster_build_sasl_continue (bson_t *cmd,
+                                     int conv_id,
+                                     const char *buf,
+                                     uint32_t buflen);
+
+int
+_mongoc_cluster_get_conversation_id (const bson_t *reply);
+
+mongoc_server_stream_t *
+_mongoc_cluster_create_server_stream (mongoc_topology_t *topology,
+                                      uint32_t server_id,
+                                      mongoc_stream_t *stream,
+                                      bson_error_t *error /* OUT */);
 BSON_END_DECLS
 
 

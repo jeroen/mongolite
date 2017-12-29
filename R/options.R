@@ -16,7 +16,7 @@
 #'  - `6`: *trace*
 #'
 #' Note that setting it below 2 will suppress important warnings and setting
-#' below 1 will suppress critical erros (not recommended). The default is 4.
+#' below 1 will suppress critical errors (not recommended). The default is 4.
 #'
 #' @export
 #' @param log_level integer between 0 and 6 or `NULL` to leave unchanged.

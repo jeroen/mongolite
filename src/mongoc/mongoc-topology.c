@@ -26,6 +26,8 @@
 #include "mongoc-client-private.h"
 #include "mongoc-uri-private.h"
 #include "mongoc-util-private.h"
+#include "mongoc-host-list-private.h"
+#include "mongoc-trace-private.h"
 
 #include "utlist.h"
 
@@ -46,8 +48,9 @@ _mongoc_topology_reconcile_add_nodes (void *item, void *ctx)
     * this scan. */
    if (!mongoc_topology_scanner_get_node (scanner, sd->id) &&
        !mongoc_topology_scanner_has_node_for_host (scanner, &sd->host)) {
-      mongoc_topology_scanner_add_and_scan (
-         scanner, &sd->host, sd->id, topology->connect_timeout_msec);
+      mongoc_topology_scanner_add (scanner, &sd->host, sd->id);
+      mongoc_topology_scanner_scan (
+         scanner, sd->id, topology->connect_timeout_msec);
    }
 
    return true;
@@ -151,16 +154,34 @@ _mongoc_topology_scanner_cb (uint32_t id,
                              const bson_error_t *error /* IN */)
 {
    mongoc_topology_t *topology;
+   mongoc_server_description_t *sd;
 
    BSON_ASSERT (data);
 
    topology = (mongoc_topology_t *) data;
 
    mongoc_mutex_lock (&topology->mutex);
-   _mongoc_topology_update_no_lock (
-      id, ismaster_response, rtt_msec, topology, error);
+   sd = mongoc_topology_description_server_by_id (
+      &topology->description, id, NULL);
 
-   mongoc_cond_broadcast (&topology->cond_client);
+   /* Server Discovery and Monitoring Spec: "Once a server is connected, the
+    * client MUST change its type to Unknown only after it has retried the
+    * server once." */
+   if (!ismaster_response && sd && sd->type != MONGOC_SERVER_UNKNOWN) {
+      _mongoc_topology_update_no_lock (
+         id, ismaster_response, rtt_msec, topology, error);
+
+      /* add another ismaster call to the current scan - the scan continues
+       * until all commands are done */
+      mongoc_topology_scanner_scan (
+         topology->scanner, sd->id, topology->connect_timeout_msec);
+   } else {
+      _mongoc_topology_update_no_lock (
+         id, ismaster_response, rtt_msec, topology, error);
+
+      mongoc_cond_broadcast (&topology->cond_client);
+   }
+
    mongoc_mutex_unlock (&topology->mutex);
 }
 
@@ -185,41 +206,25 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
    int64_t heartbeat_default;
    int64_t heartbeat;
    mongoc_topology_t *topology;
+   bool topology_valid;
    mongoc_topology_description_type_t init_type;
+   const char *service;
+   char *prefixed_service;
    uint32_t id;
    const mongoc_host_list_t *hl;
 
    BSON_ASSERT (uri);
 
    topology = (mongoc_topology_t *) bson_malloc0 (sizeof *topology);
-
-   /*
-    * Not ideal, but there's no great way to do this.
-    * Base on the URI, we assume:
-    *   - if we've got a replicaSet name, initialize to RS_NO_PRIMARY
-    *   - otherwise, if the seed list has a single host, initialize to SINGLE
-    *   - everything else gets initialized to UNKNOWN
-    */
-   if (mongoc_uri_get_replica_set (uri)) {
-      init_type = MONGOC_TOPOLOGY_RS_NO_PRIMARY;
-   } else {
-      hl = mongoc_uri_get_hosts (uri);
-      if (hl->next) {
-         init_type = MONGOC_TOPOLOGY_UNKNOWN;
-      } else {
-         init_type = MONGOC_TOPOLOGY_SINGLE;
-      }
-   }
-
+   topology->session_pool = NULL;
    heartbeat_default =
       single_threaded ? MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_SINGLE_THREADED
                       : MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_MULTI_THREADED;
 
    heartbeat = mongoc_uri_get_option_as_int32 (
-      uri, "heartbeatfrequencyms", heartbeat_default);
+      uri, MONGOC_URI_HEARTBEATFREQUENCYMS, heartbeat_default);
 
-   mongoc_topology_description_init (
-      &topology->description, init_type, heartbeat);
+   mongoc_topology_description_init (&topology->description, heartbeat);
 
    topology->description.set_name =
       bson_strdup (mongoc_uri_get_replica_set (uri));
@@ -243,18 +248,19 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
        *
        *   "The serverSelectionTryOnce option MUST be true by default."
        */
-      topology->server_selection_try_once =
-         mongoc_uri_get_option_as_bool (uri, "serverselectiontryonce", true);
+      topology->server_selection_try_once = mongoc_uri_get_option_as_bool (
+         uri, MONGOC_URI_SERVERSELECTIONTRYONCE, true);
    } else {
       topology->server_selection_try_once = false;
    }
 
    topology->server_selection_timeout_msec = mongoc_uri_get_option_as_int32 (
       topology->uri,
-      "serverselectiontimeoutms",
+      MONGOC_URI_SERVERSELECTIONTIMEOUTMS,
       MONGOC_TOPOLOGY_SERVER_SELECTION_TIMEOUT_MS);
 
-   topology->local_threshold_msec = mongoc_uri_get_local_threshold_option (topology->uri);
+   topology->local_threshold_msec =
+      mongoc_uri_get_local_threshold_option (topology->uri);
 
    /* Total time allowed to check a server is connectTimeoutMS.
     * Server Discovery And Monitoring Spec:
@@ -263,17 +269,64 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
     *   regular sockets. Multi-threaded clients SHOULD set monitoring sockets'
     *   socketTimeoutMS to the connectTimeoutMS."
     */
-   topology->connect_timeout_msec = mongoc_uri_get_option_as_int32 (
-      topology->uri, "connecttimeoutms", MONGOC_DEFAULT_CONNECTTIMEOUTMS);
+   topology->connect_timeout_msec =
+      mongoc_uri_get_option_as_int32 (topology->uri,
+                                      MONGOC_URI_CONNECTTIMEOUTMS,
+                                      MONGOC_DEFAULT_CONNECTTIMEOUTMS);
 
    mongoc_mutex_init (&topology->mutex);
    mongoc_cond_init (&topology->cond_client);
    mongoc_cond_init (&topology->cond_server);
 
-   for (hl = mongoc_uri_get_hosts (uri); hl; hl = hl->next) {
+   topology_valid = true;
+   service = mongoc_uri_get_service (uri);
+   if (service) {
+      /* a mongodb+srv URI. try SRV lookup, if no error then also try TXT */
+      prefixed_service = bson_strdup_printf ("_mongodb._tcp.%s", service);
+      if (!_mongoc_client_get_rr (prefixed_service,
+                                  MONGOC_RR_SRV,
+                                  topology->uri,
+                                  &topology->scanner->error) ||
+          !_mongoc_client_get_rr (service,
+                                  MONGOC_RR_TXT,
+                                  topology->uri,
+                                  &topology->scanner->error)) {
+         topology_valid = false;
+      }
+
+      bson_free (prefixed_service);
+   }
+
+   /*
+    * Set topology type from URI:
+    *   - if we've got a replicaSet name, initialize to RS_NO_PRIMARY
+    *   - otherwise, if the seed list has a single host, initialize to SINGLE
+    *   - everything else gets initialized to UNKNOWN
+    */
+   hl = mongoc_uri_get_hosts (topology->uri);
+   if (mongoc_uri_get_replica_set (topology->uri)) {
+      init_type = MONGOC_TOPOLOGY_RS_NO_PRIMARY;
+   } else {
+      if (hl && hl->next) {
+         init_type = MONGOC_TOPOLOGY_UNKNOWN;
+      } else {
+         init_type = MONGOC_TOPOLOGY_SINGLE;
+      }
+   }
+
+   topology->description.type = init_type;
+
+   if (!topology_valid) {
+      /* add no nodes */
+      return topology;
+   }
+
+   while (hl) {
       mongoc_topology_description_add_server (
          &topology->description, hl->host_and_port, &id);
       mongoc_topology_scanner_add (topology->scanner, hl, id);
+
+      hl = hl->next;
    }
 
    return topology;
@@ -323,6 +376,8 @@ mongoc_topology_set_apm_callbacks (mongoc_topology_t *topology,
 void
 mongoc_topology_destroy (mongoc_topology_t *topology)
 {
+   mongoc_server_session_t *ss, *tmp1, *tmp2;
+
    if (!topology) {
       return;
    }
@@ -333,6 +388,12 @@ mongoc_topology_destroy (mongoc_topology_t *topology)
    mongoc_uri_destroy (topology->uri);
    mongoc_topology_description_destroy (&topology->description);
    mongoc_topology_scanner_destroy (topology->scanner);
+
+   CDL_FOREACH_SAFE (topology->session_pool, ss, tmp1, tmp2)
+   {
+      _mongoc_server_session_destroy (ss);
+   }
+
    mongoc_cond_destroy (&topology->cond_client);
    mongoc_cond_destroy (&topology->cond_server);
    mongoc_mutex_destroy (&topology->mutex);
@@ -365,8 +426,7 @@ _mongoc_topology_do_blocking_scan (mongoc_topology_t *topology,
    mongoc_topology_scanner_start (
       scanner, (int32_t) topology->connect_timeout_msec, true);
 
-   mongoc_topology_scanner_work (topology->scanner,
-                                 topology->connect_timeout_msec);
+   mongoc_topology_scanner_work (topology->scanner);
 
    mongoc_mutex_lock (&topology->mutex);
    _mongoc_topology_scanner_finish (scanner);
@@ -387,6 +447,13 @@ mongoc_topology_compatible (const mongoc_topology_description_t *td,
 {
    int64_t max_staleness_seconds;
    int32_t max_wire_version;
+
+   if (td->compatibility_error.code) {
+      if (error) {
+         memcpy (error, &td->compatibility_error, sizeof (bson_error_t));
+      }
+      return false;
+   }
 
    if (!read_prefs) {
       /* NULL means read preference Primary */
@@ -531,6 +598,15 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
    int64_t expire_at;   /* when server selection timeout expires */
 
    BSON_ASSERT (topology);
+   if (!mongoc_topology_scanner_valid (topology->scanner)) {
+      if (error) {
+         mongoc_topology_scanner_get_error (topology->scanner, error);
+         error->domain = MONGOC_ERROR_SERVER_SELECTION;
+         error->code = MONGOC_ERROR_SERVER_SELECTION_FAILURE;
+      }
+
+      return 0;
+   }
 
    heartbeat_msec = topology->description.heartbeat_msec;
    local_threshold_ms = topology->local_threshold_msec;
@@ -832,14 +908,52 @@ _mongoc_topology_update_from_handshake (mongoc_topology_t *topology,
 
    mongoc_mutex_lock (&topology->mutex);
 
-   has_server = _mongoc_topology_update_no_lock (
-      sd->id, &sd->last_is_master, sd->round_trip_time_msec, topology, NULL);
+   mongoc_topology_description_handle_ismaster (&topology->description,
+                                                sd->id,
+                                                &sd->last_is_master,
+                                                sd->round_trip_time_msec,
+                                                NULL);
+
+   _mongoc_topology_scanner_set_cluster_time (
+      topology->scanner, &topology->description.cluster_time);
+
+   /* return false if server was removed from topology */
+   has_server = mongoc_topology_description_server_by_id (
+                   &topology->description, sd->id, NULL) != NULL;
 
    /* if pooled, wake threads waiting in mongoc_topology_server_by_id */
    mongoc_cond_broadcast (&topology->cond_client);
    mongoc_mutex_unlock (&topology->mutex);
 
    return has_server;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_topology_update_last_used --
+ *
+ *       Internal function. In single-threaded mode only, track when the socket
+ *       to a particular server was last used. This is required for
+ *       mongoc_cluster_check_interval to know when a socket has been idle.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_topology_update_last_used (mongoc_topology_t *topology,
+                                   uint32_t server_id)
+{
+   mongoc_topology_scanner_node_t *node;
+
+   if (!topology->single_threaded) {
+      return;
+   }
+
+   node = mongoc_topology_scanner_get_node (topology->scanner, server_id);
+   if (node) {
+      node->last_used = bson_get_monotonic_time ();
+   }
 }
 
 /*
@@ -935,6 +1049,10 @@ _mongoc_topology_run_background (void *data)
    for (;;) {
       /* unlocked after starting a scan or after breaking out of the loop */
       mongoc_mutex_lock (&topology->mutex);
+      if (!mongoc_topology_scanner_valid (topology->scanner)) {
+         mongoc_mutex_unlock (&topology->mutex);
+         goto DONE;
+      }
 
       /* we exit this loop on error, or when we should scan immediately */
       for (;;) {
@@ -992,8 +1110,7 @@ _mongoc_topology_run_background (void *data)
 
       /* scanning locks and unlocks the mutex itself until the scan is done */
       mongoc_mutex_unlock (&topology->mutex);
-      mongoc_topology_scanner_work (topology->scanner,
-                                    topology->connect_timeout_msec);
+      mongoc_topology_scanner_work (topology->scanner);
 
       mongoc_mutex_lock (&topology->mutex);
 
@@ -1122,4 +1239,183 @@ _mongoc_topology_set_appname (mongoc_topology_t *topology, const char *appname)
    }
    mongoc_mutex_unlock (&topology->mutex);
    return ret;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_topology_update_cluster_time --
+ *
+ *       Internal function. If the server reply has a later $clusterTime than
+ *       any seen before, update the topology's clusterTime. See the Driver
+ *       Sessions Spec.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_topology_update_cluster_time (mongoc_topology_t *topology,
+                                      const bson_t *reply)
+{
+   mongoc_mutex_lock (&topology->mutex);
+   mongoc_topology_description_update_cluster_time (&topology->description,
+                                                    reply);
+   _mongoc_topology_scanner_set_cluster_time (
+      topology->scanner, &topology->description.cluster_time);
+   mongoc_mutex_unlock (&topology->mutex);
+}
+
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_topology_pop_server_session --
+ *
+ *       Internal function. Get a server session from the pool or create
+ *       one. On error, return NULL and fill out @error.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+mongoc_server_session_t *
+_mongoc_topology_pop_server_session (mongoc_topology_t *topology,
+                                     bson_error_t *error)
+{
+   int64_t timeout;
+   mongoc_server_session_t *ss = NULL;
+   mongoc_topology_description_t *td;
+
+   ENTRY;
+
+   mongoc_mutex_lock (&topology->mutex);
+
+   td = &topology->description;
+   timeout = td->session_timeout_minutes;
+
+   if (timeout == MONGOC_NO_SESSIONS) {
+      /* if needed, connect and check for session timeout again */
+      if (!mongoc_topology_description_has_data_node (td)) {
+         mongoc_mutex_unlock (&topology->mutex);
+         if (!mongoc_topology_select_server_id (
+                topology, MONGOC_SS_READ, NULL, error)) {
+            RETURN (NULL);
+         }
+
+         mongoc_mutex_lock (&topology->mutex);
+         timeout = td->session_timeout_minutes;
+      }
+
+      if (timeout == MONGOC_NO_SESSIONS) {
+         mongoc_mutex_unlock (&topology->mutex);
+         bson_set_error (error,
+                         MONGOC_ERROR_CLIENT,
+                         MONGOC_ERROR_CLIENT_SESSION_FAILURE,
+                         "Server does not support sessions");
+         RETURN (NULL);
+      }
+   }
+
+   while (topology->session_pool) {
+      ss = topology->session_pool;
+      CDL_DELETE (topology->session_pool, ss);
+      if (_mongoc_server_session_timed_out (ss, timeout)) {
+         _mongoc_server_session_destroy (ss);
+         ss = NULL;
+      } else {
+         break;
+      }
+   }
+
+   mongoc_mutex_unlock (&topology->mutex);
+
+   if (!ss) {
+      ss = _mongoc_server_session_new (error);
+   }
+
+   RETURN (ss);
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_topology_push_server_session --
+ *
+ *       Internal function. Return a server session to the pool.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_topology_push_server_session (mongoc_topology_t *topology,
+                                      mongoc_server_session_t *server_session)
+{
+   int64_t timeout;
+   mongoc_server_session_t *ss;
+
+   ENTRY;
+
+   mongoc_mutex_lock (&topology->mutex);
+
+   timeout = topology->description.session_timeout_minutes;
+
+   /* start at back of queue and reap timed-out sessions */
+   while (topology->session_pool && topology->session_pool->prev) {
+      ss = topology->session_pool->prev;
+      if (_mongoc_server_session_timed_out (ss, timeout)) {
+         BSON_ASSERT (ss->next); /* silences clang scan-build */
+         CDL_DELETE (topology->session_pool, ss);
+         _mongoc_server_session_destroy (ss);
+      } else {
+         /* if ss is not timed out, sessions in front of it are ok too */
+         break;
+      }
+   }
+
+   if (_mongoc_server_session_timed_out (server_session, timeout)) {
+      _mongoc_server_session_destroy (server_session);
+   } else {
+      /* silences clang scan-build */
+      BSON_ASSERT (!topology->session_pool || (topology->session_pool->next &&
+                                               topology->session_pool->prev));
+      CDL_PREPEND (topology->session_pool, server_session);
+   }
+
+   mongoc_mutex_unlock (&topology->mutex);
+
+   EXIT;
+}
+
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_topology_end_sessions --
+ *
+ *       Internal function. End all server sessions. @cmd is an
+ *       uninitialized document.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd)
+{
+   char buf[16];
+   const char *key;
+   uint32_t i;
+   mongoc_server_session_t *ss;
+   bson_t ar;
+
+   bson_init (cmd);
+   BSON_APPEND_ARRAY_BEGIN (cmd, "endSessions", &ar);
+
+   i = 0;
+   CDL_FOREACH (topology->session_pool, ss)
+   {
+      bson_uint32_to_string (i, &key, buf, sizeof buf);
+      BSON_APPEND_DOCUMENT (&ar, key, &ss->lsid);
+      i++;
+   }
+
+   bson_append_array_end (cmd, &ar);
 }

@@ -92,7 +92,8 @@ _mongoc_cursor_array_prime (mongoc_cursor_t *cursor)
 
    BSON_ASSERT (arr);
 
-   if (_mongoc_cursor_run_command (cursor, &cursor->filter, &arr->array) &&
+   if (_mongoc_cursor_run_command (
+          cursor, &cursor->filter, &cursor->opts, &arr->array) &&
        bson_iter_init_find (&iter, &arr->array, arr->field_name) &&
        BSON_ITER_HOLDS_ARRAY (&iter) && bson_iter_recurse (&iter, &arr->iter)) {
       arr->has_array = true;
@@ -175,7 +176,9 @@ _mongoc_cursor_array_more (mongoc_cursor_t *cursor)
 
 
 static bool
-_mongoc_cursor_array_error (mongoc_cursor_t *cursor, bson_error_t *error)
+_mongoc_cursor_array_error_document (mongoc_cursor_t *cursor,
+                                     bson_error_t *error,
+                                     const bson_t **doc)
 {
    mongoc_cursor_array_t *arr;
 
@@ -184,10 +187,14 @@ _mongoc_cursor_array_error (mongoc_cursor_t *cursor, bson_error_t *error)
    arr = (mongoc_cursor_array_t *) cursor->iface_data;
 
    if (arr->has_synthetic_bson) {
+      if (doc) {
+         *doc = NULL;
+      }
+
       return false;
-   } else {
-      return _mongoc_cursor_error (cursor, error);
    }
+
+   return _mongoc_cursor_error_document (cursor, error, doc);
 }
 
 
@@ -196,7 +203,7 @@ static mongoc_cursor_interface_t gMongocCursorArray = {
    _mongoc_cursor_array_destroy,
    _mongoc_cursor_array_more,
    _mongoc_cursor_array_next,
-   _mongoc_cursor_array_error,
+   _mongoc_cursor_array_error_document,
 };
 
 

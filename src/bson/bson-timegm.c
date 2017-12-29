@@ -16,14 +16,10 @@
 
 #include "errno.h"
 #include "string.h"
-#include "limits.h" /* for CHAR_BIT et al. */
+#include <stdint.h> /* for INT64_MAX and INT64_MIN */
 
 /* Unlike <ctype.h>'s isdigit, this also works if c < 0 | c > UCHAR_MAX. */
 #define is_digit(c) ((unsigned) (c) - '0' <= 9)
-
-#ifndef CHAR_BIT
-#define CHAR_BIT 8
-#endif
 
 #if 2 < __GNUC__ + (96 <= __GNUC_MINOR__)
 #define ATTRIBUTE_CONST __attribute__ ((const))
@@ -49,15 +45,11 @@
 #define restrict /* empty */
 #endif
 
-#ifndef TYPE_BIT
-#define TYPE_BIT(type) (sizeof (type) * CHAR_BIT)
-#endif /* !defined TYPE_BIT */
-
 #ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunknown-pragmas"
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshift-negative-value"
+/*CRAN*/ #pragma clang diagnostic push
+/*CRAN*/ #pragma clang diagnostic ignored "-Wunknown-pragmas"
+/*CRAN*/ #pragma clang diagnostic push
+/*CRAN*/ #pragma clang diagnostic ignored "-Wshift-negative-value"
 #endif
 
 /* The minimum and maximum finite time values.  */
@@ -65,8 +57,8 @@ static int64_t const time_t_min = INT64_MIN;
 static int64_t const time_t_max = INT64_MAX;
 
 #ifdef __clang__
-#pragma clang diagnostic pop
-#pragma clang diagnostic pop
+/*CRAN*/ #pragma clang diagnostic pop
+/*CRAN*/ #pragma clang diagnostic pop
 #endif
 
 #ifndef TZ_MAX_TIMES
@@ -566,7 +558,7 @@ time2sub (struct bson_tm *const tmp,
       return WRONG;
    if (normalize_overflow (&yourtm.tm_mday, &yourtm.tm_hour, HOURSPERDAY))
       return WRONG;
-   y = yourtm.tm_year;
+   y = (int_fast32_t) yourtm.tm_year;
    if (normalize_overflow32 (&y, &yourtm.tm_mon, MONSPERYEAR))
       return WRONG;
    /*
@@ -625,10 +617,8 @@ time2sub (struct bson_tm *const tmp,
    /*
    ** Do a binary search.
    */
-   lo = 1;
-   for (i = 0; i < (int64_t) TYPE_BIT (int64_t) - 1; ++i)
-      lo *= 2;
-   hi = -(lo + 1);
+   lo = INT64_MIN;
+   hi = INT64_MAX;
 
    for (;;) {
       t = lo / 2 + hi / 2;

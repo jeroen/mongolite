@@ -312,9 +312,8 @@ mongoc_stream_get_base_stream (mongoc_stream_t *stream) /* IN */
 }
 
 
-static mongoc_stream_t *
+mongoc_stream_t *
 mongoc_stream_get_root_stream (mongoc_stream_t *stream)
-
 {
    BSON_ASSERT (stream);
 
@@ -477,6 +476,17 @@ mongoc_stream_check_closed (mongoc_stream_t *stream)
    ret = stream->check_closed (stream);
 
    RETURN (ret);
+}
+
+bool
+mongoc_stream_timed_out (mongoc_stream_t *stream)
+{
+   ENTRY;
+
+   BSON_ASSERT (stream);
+
+   /* for e.g. a file stream there is no timed_out function */
+   RETURN (stream->timed_out && stream->timed_out (stream));
 }
 
 bool

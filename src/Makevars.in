@@ -1,12 +1,11 @@
 PKG_CPPFLAGS=-I. -Ijsonsl -Ibson -Imongoc -DBSON_COMPILATION -DMONGOC_COMPILATION \
   @cflags@
 
-LIBBSON=bson/bcon.o bson/bson-atomic.o bson/bson-clock.o bson/bson-context.o \
+LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
 	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
 	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
-	bson/bson-value.o bson/bson-version-functions.o bson/bson-writer.o bson/bson.o \
-	bson/bson-decimal128.o jsonsl/jsonsl.o
+	bson/bson-value.o  bson/bson.o bson/bson-decimal128.o jsonsl/jsonsl.o
 
 LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
@@ -16,37 +15,35 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
 	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
 	mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
-	mongoc/mongoc-matcher-op.o mongoc/mongoc-matcher.o mongoc/mongoc-queue.o \
 	mongoc/mongoc-rand-openssl.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
 	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
-	mongoc/mongoc-stream-buffered.o mongoc/mongoc-stream-file.o \
-	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
+	mongoc/mongoc-stream-buffered.o	mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
 	mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
 	mongoc/mongoc-write-command.o mongoc/mongoc-write-concern.o mongoc/mongoc-topology-description-apm.o \
 	mongoc/mongoc-async.o mongoc/mongoc-async-cmd.o mongoc/mongoc-host-list.o \
-	mongoc/mongoc-opcode.o mongoc/mongoc-server-description.o mongoc/mongoc-set.o \
-	mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
+	mongoc/mongoc-set.o mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
 	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o \
 	mongoc/mongoc-memcmp.o mongoc/mongoc-server-stream.o mongoc/mongoc-find-and-modify.o \
 	mongoc/mongoc-read-concern.o mongoc/mongoc-openssl.o mongoc/mongoc-apm.o \
 	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-openssl.o mongoc/mongoc-handshake.o \
 	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o \
-	mongoc/mongoc-linux-distro-scanner.o mongoc/mongoc-cluster-sasl.o
+	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o \
+	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o mongoc/mongoc-cluster-cyrus.o \
+	mongoc/mongoc-compression.o mongoc/mongoc-cyrus.o mongoc/mongoc-write-command-legacy.o \
+	mongoc/mongoc-linux-distro-scanner.o
 
-PKG_LIBS=-L. -lmongoc -lbson @libs@
+PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson @libs@ -lz
+STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
 
 # For development only
-#PKG_CFLAGS= -Wall -pedantic
-# all: clean
+# PKG_CFLAGS= -Wall -pedantic
+all: clean
 
-$(SHLIB): libbson.a libmongoc.a
+$(SHLIB): $(STATLIB)
 
-libbson.a: $(LIBBSON)
-	$(AR) rcs libbson.a $(LIBBSON)
-
-libmongoc.a: $(LIBMONGOC)
-	$(AR) rcs libmongoc.a $(LIBMONGOC)
+$(STATLIB): $(LIBBSON) $(LIBMONGOC)
+	$(AR) rcs bson/libstatbson.a $(LIBBSON)
+	$(AR) rcs mongoc/libstatmongoc.a $(LIBMONGOC)
 
 clean:
-	rm -f $(LIBBSON) $(LIBMONGOC) $(SHLIB) $(OBJECTS)
-	rm -f libbson.a libmongoc.a
+	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)

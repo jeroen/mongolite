@@ -1,12 +1,14 @@
 # High level wrapper
 #' @importFrom jsonlite validate
-bson_or_json <- function(x){
+bson_or_json <- function(x, allowNull = FALSE){
   if(inherits(x, "bson")){
     return(x)
   } else if(is.character(x)) {
     if(!validate(x))
       stop("Invalid JSON object: ", substring(x, 1, 200))
     json_to_bson(paste(x, collapse = "\n"))
+  } else if(is.null(x) && isTRUE(allowNull)){
+    return(NULL)
   } else {
     stop("argument must be bson or json.")
   }

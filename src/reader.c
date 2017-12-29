@@ -8,19 +8,21 @@ void bson_reader_finalize(void *handle){
 ssize_t bson_reader_feed(void *handle, void *buf, size_t count){
   int err;
   SEXP *con = (SEXP*) handle;
-  SEXP call = PROTECT(LCONS(install("readBin"), LCONS(*con, LCONS(mkString("raw"), LCONS(ScalarInteger(count), R_NilValue)))));
+  SEXP x = PROTECT(LCONS(ScalarInteger(count), R_NilValue));
+  SEXP y = PROTECT(LCONS(mkString("raw"), x));
+  SEXP z = PROTECT(LCONS(*con, y));
+  SEXP readbin = PROTECT(install("readBin"));
+  SEXP call = PROTECT(LCONS(readbin, z));
   SEXP res = PROTECT(R_tryEval(call, R_GlobalEnv, &err));
 
   // check if readBin succeeded
-  if(err || TYPEOF(res) != RAWSXP) {
-    UNPROTECT(2);
-    error("Mongo reader failed to read data from connection. (%d)", err);
-  }
+  if(err || TYPEOF(res) != RAWSXP)
+    Rf_error("Mongo reader failed to read data from connection. (%d)", err);
 
   // Copy data into buf
   memcpy(buf, RAW(res), length(res));
-  UNPROTECT(2);
-  return length(res);
+  UNPROTECT(6);
+  return Rf_length(res);
 }
 
 SEXP R_mongo_restore(SEXP con, SEXP ptr_col, SEXP verb) {
@@ -37,7 +39,8 @@ SEXP R_mongo_restore(SEXP con, SEXP ptr_col, SEXP verb) {
   bson_t reply;
 
   while(!done) {
-    bulk = mongoc_collection_create_bulk_operation (col, true, NULL);
+    //note: default opts uses {ordered:true}
+    bulk = mongoc_collection_create_bulk_operation_with_opts(col, NULL);
     for(i = 0; i < 1000; i++){
       if(!(b = bson_reader_read (reader, &done)))
         break;

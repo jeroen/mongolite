@@ -11,7 +11,7 @@
 #' be the same PEM file as cert.
 #' @param ca a certificate authority PEM file
 #' @param ca_dir directory with CA files
-#' @param crl_file file with revokations
+#' @param crl_file file with revocations
 #' @param allow_invalid_hostname do not verify hostname on server certificate
 #' @param weak_cert_validation disable certificate verification
 ssl_options <- function(cert = NULL, key = cert, ca = NULL, ca_dir = NULL,

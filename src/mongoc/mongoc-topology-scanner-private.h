@@ -71,8 +71,8 @@ typedef struct mongoc_topology_scanner {
    mongoc_async_t *async;
    mongoc_topology_scanner_node_t *nodes;
    bson_t ismaster_cmd;
-
    bson_t ismaster_cmd_with_handshake;
+   bson_t cluster_time;
    bool handshake_ok_to_send;
    const char *appname;
 
@@ -104,16 +104,18 @@ mongoc_topology_scanner_new (
 void
 mongoc_topology_scanner_destroy (mongoc_topology_scanner_t *ts);
 
-mongoc_topology_scanner_node_t *
+bool
+mongoc_topology_scanner_valid (mongoc_topology_scanner_t *ts);
+
+void
 mongoc_topology_scanner_add (mongoc_topology_scanner_t *ts,
                              const mongoc_host_list_t *host,
                              uint32_t id);
 
 void
-mongoc_topology_scanner_add_and_scan (mongoc_topology_scanner_t *ts,
-                                      const mongoc_host_list_t *host,
-                                      uint32_t id,
-                                      int64_t timeout_msec);
+mongoc_topology_scanner_scan (mongoc_topology_scanner_t *ts,
+                              uint32_t id,
+                              int64_t timeout_msec);
 
 void
 mongoc_topology_scanner_node_retire (mongoc_topology_scanner_node_t *node);
@@ -132,8 +134,7 @@ mongoc_topology_scanner_start (mongoc_topology_scanner_t *ts,
                                bool obey_cooldown);
 
 void
-mongoc_topology_scanner_work (mongoc_topology_scanner_t *ts,
-                              int64_t timeout_msec);
+mongoc_topology_scanner_work (mongoc_topology_scanner_t *ts);
 
 void
 _mongoc_topology_scanner_finish (mongoc_topology_scanner_t *ts);
@@ -152,6 +153,9 @@ mongoc_topology_scanner_node_setup (mongoc_topology_scanner_node_t *node,
 mongoc_topology_scanner_node_t *
 mongoc_topology_scanner_get_node (mongoc_topology_scanner_t *ts, uint32_t id);
 
+bson_t *
+_mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts);
+
 bool
 mongoc_topology_scanner_has_node_for_host (mongoc_topology_scanner_t *ts,
                                            mongoc_host_list_t *host);
@@ -163,6 +167,9 @@ mongoc_topology_scanner_set_stream_initiator (mongoc_topology_scanner_t *ts,
 bool
 _mongoc_topology_scanner_set_appname (mongoc_topology_scanner_t *ts,
                                       const char *name);
+void
+_mongoc_topology_scanner_set_cluster_time (mongoc_topology_scanner_t *ts,
+                                           const bson_t *cluster_time);
 
 
 #ifdef MONGOC_ENABLE_SSL

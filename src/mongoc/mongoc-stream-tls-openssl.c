@@ -557,14 +557,6 @@ mongoc_stream_tls_openssl_handshake (mongoc_stream_t *stream,
 
    BIO_get_ssl (openssl->bio, &ssl);
 
-/* Added in OpenSSL 0.9.8f, as a build time option */
-#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
-   /* Set the SNI hostname we are expecting certificate for */
-   if (!tls->ssl_opts.allow_invalid_hostname) {
-      SSL_set_tlsext_host_name (ssl, host);
-   }
-#endif
-
    if (BIO_do_handshake (openssl->bio) == 1) {
       if (_mongoc_openssl_check_cert (
              ssl, host, tls->ssl_opts.allow_invalid_hostname)) {
@@ -604,6 +596,36 @@ mongoc_stream_tls_openssl_handshake (mongoc_stream_t *stream,
    RETURN (false);
 }
 
+/* Callback to get the client provided SNI, if any
+ * It is only called in SSL "server mode" (e.g. when using the Mock Server),
+ * and we don't actually use the hostname for anything, just debug print it
+ */
+static int
+_mongoc_stream_tls_openssl_sni (SSL *ssl, int *ad, void *arg)
+{
+   const char *hostname;
+
+   if (ssl == NULL) {
+      TRACE ("%s", "No SNI hostname provided");
+      return SSL_TLSEXT_ERR_NOACK;
+   }
+
+   hostname = SSL_get_servername (ssl, TLSEXT_NAMETYPE_host_name);
+   /* This is intentionally debug since its only used by the mock test server */
+   MONGOC_DEBUG ("Got SNI: '%s'", hostname);
+
+   return SSL_TLSEXT_ERR_OK;
+}
+
+static bool
+_mongoc_stream_tls_openssl_timed_out (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
+
+   ENTRY;
+
+   RETURN (mongoc_stream_timed_out (tls->base_stream));
+}
 
 /*
  *--------------------------------------------------------------------------
@@ -651,7 +673,7 @@ mongoc_stream_tls_openssl_new (mongoc_stream_t *base_stream,
       RETURN (NULL);
    }
 
-#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L && !defined(LIBRESSL_VERSION_NUMBER)
    if (!opt->allow_invalid_hostname) {
       struct in_addr addr;
       X509_VERIFY_PARAM *param = X509_VERIFY_PARAM_new ();
@@ -668,6 +690,13 @@ mongoc_stream_tls_openssl_new (mongoc_stream_t *base_stream,
       X509_VERIFY_PARAM_free (param);
    }
 #endif
+
+   if (!client) {
+      /* Only usd by the Mock Server.
+       * Set a callback to get the SNI, if provided */
+      SSL_CTX_set_tlsext_servername_callback (ssl_ctx,
+                                              _mongoc_stream_tls_openssl_sni);
+   }
 
    if (opt->weak_cert_validation) {
       SSL_CTX_set_verify (ssl_ctx, SSL_VERIFY_NONE, NULL);
@@ -686,6 +715,16 @@ mongoc_stream_tls_openssl_new (mongoc_stream_t *base_stream,
       BIO_free_all (bio_ssl);
       BIO_meth_free (meth);
       RETURN (NULL);
+   }
+
+/* Added in OpenSSL 0.9.8f, as a build time option */
+#ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
+   if (client) {
+      SSL *ssl;
+      /* Set the SNI hostname we are expecting certificate for */
+      BIO_get_ssl (bio_ssl, &ssl);
+      SSL_set_tlsext_host_name (ssl, host);
+#endif
    }
 
 
@@ -707,6 +746,7 @@ mongoc_stream_tls_openssl_new (mongoc_stream_t *base_stream,
    tls->parent.setsockopt = _mongoc_stream_tls_openssl_setsockopt;
    tls->parent.get_base_stream = _mongoc_stream_tls_openssl_get_base_stream;
    tls->parent.check_closed = _mongoc_stream_tls_openssl_check_closed;
+   tls->parent.timed_out = _mongoc_stream_tls_openssl_timed_out;
    memcpy (&tls->ssl_opts, opt, sizeof tls->ssl_opts);
    tls->handshake = mongoc_stream_tls_openssl_handshake;
    tls->ctx = (void *) openssl;

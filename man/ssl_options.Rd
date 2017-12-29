@@ -20,7 +20,7 @@ be the same PEM file as cert.}
 
 \item{ca_dir}{directory with CA files}
 
-\item{crl_file}{file with revokations}
+\item{crl_file}{file with revocations}
 
 \item{allow_invalid_hostname}{do not verify hostname on server certificate}
 

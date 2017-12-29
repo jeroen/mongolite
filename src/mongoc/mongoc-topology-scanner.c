@@ -73,29 +73,42 @@ static bool
 _build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
 {
    bson_t *doc = &ts->ismaster_cmd_with_handshake;
-   bson_t handshake_doc;
+   bson_t subdoc;
+   bson_iter_t iter;
+   const char *key;
+   int keylen;
    bool res;
+   const bson_t *compressors;
+   int count = 0;
+   char buf[16];
 
    _add_ismaster (doc);
 
-   BSON_APPEND_DOCUMENT_BEGIN (doc, HANDSHAKE_FIELD, &handshake_doc);
-   res = _mongoc_handshake_build_doc_with_application (&handshake_doc,
-                                                       ts->appname);
-   bson_append_document_end (doc, &handshake_doc);
+   BSON_APPEND_DOCUMENT_BEGIN (doc, HANDSHAKE_FIELD, &subdoc);
+   res = _mongoc_handshake_build_doc_with_application (&subdoc, ts->appname);
+   bson_append_document_end (doc, &subdoc);
+
+   BSON_APPEND_ARRAY_BEGIN (doc, "compression", &subdoc);
+   if (ts->uri) {
+      compressors = mongoc_uri_get_compressors (ts->uri);
+
+      if (bson_iter_init (&iter, compressors)) {
+         while (bson_iter_next (&iter)) {
+            keylen = bson_uint32_to_string (count++, &key, buf, sizeof buf);
+            bson_append_utf8 (
+               &subdoc, key, (int) keylen, bson_iter_key (&iter), -1);
+         }
+      }
+   }
+   bson_append_array_end (doc, &subdoc);
 
    /* Return whether the handshake doc fit the size limit */
    return res;
 }
 
-static bson_t *
-_get_ismaster_doc (mongoc_topology_scanner_t *ts,
-                   mongoc_topology_scanner_node_t *node)
+bson_t *
+_mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts)
 {
-   if (node->last_used != -1 && node->last_failed == -1) {
-      /* The node's been used before and not failed recently */
-      return &ts->ismaster_cmd;
-   }
-
    /* If this is the first time using the node or if it's the first time
     * using it after a failure, build handshake doc */
    if (bson_empty (&ts->ismaster_cmd_with_handshake)) {
@@ -118,17 +131,30 @@ _begin_ismaster_cmd (mongoc_topology_scanner_t *ts,
                      mongoc_topology_scanner_node_t *node,
                      int64_t timeout_msec)
 {
-   const bson_t *ismaster_cmd_to_send = _get_ismaster_doc (ts, node);
+   bson_t cmd;
 
-   node->cmd = mongoc_async_cmd (ts->async,
-                                 node->stream,
-                                 ts->setup,
-                                 node->host.host,
-                                 "admin",
-                                 ismaster_cmd_to_send,
-                                 &mongoc_topology_scanner_ismaster_handler,
-                                 node,
-                                 timeout_msec);
+   if (node->last_used != -1 && node->last_failed == -1) {
+      /* The node's been used before and not failed recently */
+      bson_copy_to (&ts->ismaster_cmd, &cmd);
+   } else {
+      bson_copy_to (_mongoc_topology_scanner_get_ismaster (ts), &cmd);
+   }
+
+   if (!bson_empty (&ts->cluster_time)) {
+      bson_append_document (&cmd, "$clusterTime", 12, &ts->cluster_time);
+   }
+
+   node->cmd = mongoc_async_cmd_new (ts->async,
+                                     node->stream,
+                                     ts->setup,
+                                     node->host.host,
+                                     "admin",
+                                     &cmd,
+                                     &mongoc_topology_scanner_ismaster_handler,
+                                     node,
+                                     timeout_msec);
+
+   bson_destroy (&cmd);
 }
 
 
@@ -147,6 +173,7 @@ mongoc_topology_scanner_new (
    bson_init (&ts->ismaster_cmd);
    _add_ismaster (&ts->ismaster_cmd);
    bson_init (&ts->ismaster_cmd_with_handshake);
+   bson_init (&ts->cluster_time);
 
    ts->setup_err_cb = setup_err_cb;
    ts->cb = cb;
@@ -191,6 +218,7 @@ mongoc_topology_scanner_destroy (mongoc_topology_scanner_t *ts)
    mongoc_async_destroy (ts->async);
    bson_destroy (&ts->ismaster_cmd);
    bson_destroy (&ts->ismaster_cmd_with_handshake);
+   bson_destroy (&ts->cluster_time);
 
    /* This field can be set by a mongoc_client */
    bson_free ((char *) ts->appname);
@@ -198,7 +226,15 @@ mongoc_topology_scanner_destroy (mongoc_topology_scanner_t *ts)
    bson_free (ts);
 }
 
-mongoc_topology_scanner_node_t *
+/* whether the scanner was successfully initialized - false if a mongodb+srv
+ * URI failed to resolve to any hosts */
+bool
+mongoc_topology_scanner_valid (mongoc_topology_scanner_t *ts)
+{
+   return ts->nodes != NULL;
+}
+
+void
 mongoc_topology_scanner_add (mongoc_topology_scanner_t *ts,
                              const mongoc_host_list_t *host,
                              uint32_t id)
@@ -215,21 +251,18 @@ mongoc_topology_scanner_add (mongoc_topology_scanner_t *ts,
    node->last_used = -1;
 
    DL_APPEND (ts->nodes, node);
-
-   return node;
 }
 
 void
-mongoc_topology_scanner_add_and_scan (mongoc_topology_scanner_t *ts,
-                                      const mongoc_host_list_t *host,
-                                      uint32_t id,
-                                      int64_t timeout_msec)
+mongoc_topology_scanner_scan (mongoc_topology_scanner_t *ts,
+                              uint32_t id,
+                              int64_t timeout_msec)
 {
    mongoc_topology_scanner_node_t *node;
 
    BSON_ASSERT (timeout_msec < INT32_MAX);
 
-   node = mongoc_topology_scanner_add (ts, host, id);
+   node = mongoc_topology_scanner_get_node (ts, id);
 
    /* begin non-blocking connection, don't wait for success */
    if (node && mongoc_topology_scanner_node_setup (node, &node->last_error)) {
@@ -237,7 +270,6 @@ mongoc_topology_scanner_add_and_scan (mongoc_topology_scanner_t *ts,
    }
 
    /* if setup fails the node stays in the scanner. destroyed after the scan. */
-   return;
 }
 
 void
@@ -724,17 +756,13 @@ _mongoc_topology_scanner_finish (mongoc_topology_scanner_t *ts)
  *      be called only after mongoc_topology_scanner_start() has been used
  *      to begin the scan.
  *
- * Returns:
- *      true if there is more work to do, false if scan is done.
- *
  *--------------------------------------------------------------------------
  */
 
 void
-mongoc_topology_scanner_work (mongoc_topology_scanner_t *ts,
-                              int64_t timeout_msec)
+mongoc_topology_scanner_work (mongoc_topology_scanner_t *ts)
 {
-   mongoc_async_run (ts->async, timeout_msec);
+   mongoc_async_run (ts->async);
 }
 
 /*
@@ -800,6 +828,18 @@ _mongoc_topology_scanner_set_appname (mongoc_topology_scanner_t *ts,
 
    ts->appname = bson_strdup (appname);
    return true;
+}
+
+/*
+ * Set the scanner's clusterTime unconditionally: don't compare with prior
+ * @cluster_time is like {clusterTime: <timestamp>}
+ */
+void
+_mongoc_topology_scanner_set_cluster_time (mongoc_topology_scanner_t *ts,
+                                           const bson_t *cluster_time)
+{
+   bson_destroy (&ts->cluster_time);
+   bson_copy_to (cluster_time, &ts->cluster_time);
 }
 
 /* SDAM Monitoring Spec: send HeartbeatStartedEvent */

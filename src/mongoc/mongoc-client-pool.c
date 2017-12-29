@@ -114,24 +114,39 @@ mongoc_client_pool_new (const mongoc_uri_t *uri)
 
    b = mongoc_uri_get_options (pool->uri);
 
-   if (bson_iter_init_find_case (&iter, b, "minpoolsize")) {
+   if (bson_iter_init_find_case (&iter, b, MONGOC_URI_MINPOOLSIZE)) {
+      MONGOC_WARNING (
+         MONGOC_URI_MINPOOLSIZE
+         " is deprecated; its behavior does not match its name, and its actual"
+         " behavior will likely hurt performance.");
+
       if (BSON_ITER_HOLDS_INT32 (&iter)) {
          pool->min_pool_size = BSON_MAX (0, bson_iter_int32 (&iter));
       }
    }
 
-   if (bson_iter_init_find_case (&iter, b, "maxpoolsize")) {
+   if (bson_iter_init_find_case (&iter, b, MONGOC_URI_MAXPOOLSIZE)) {
       if (BSON_ITER_HOLDS_INT32 (&iter)) {
          pool->max_pool_size = BSON_MAX (1, bson_iter_int32 (&iter));
       }
    }
 
-   appname = mongoc_uri_get_option_as_utf8 (pool->uri, "appname", NULL);
+   appname =
+      mongoc_uri_get_option_as_utf8 (pool->uri, MONGOC_URI_APPNAME, NULL);
    if (appname) {
       /* the appname should have already been validated */
       BSON_ASSERT (mongoc_client_pool_set_appname (pool, appname));
    }
 
+#ifdef MONGOC_ENABLE_SSL
+   if (mongoc_uri_get_ssl (pool->uri)) {
+      mongoc_ssl_opt_t ssl_opt = {0};
+
+      _mongoc_ssl_opts_from_uri (&ssl_opt, pool->uri);
+      /* sets use_ssl = true */
+      mongoc_client_pool_set_ssl_opts (pool, &ssl_opt);
+   }
+#endif
    mongoc_counter_client_pools_active_inc ();
 
    RETURN (pool);
@@ -146,6 +161,12 @@ mongoc_client_pool_destroy (mongoc_client_pool_t *pool)
    ENTRY;
 
    BSON_ASSERT (pool);
+
+   if (pool->topology->session_pool) {
+      client = mongoc_client_pool_pop (pool);
+      _mongoc_client_end_sessions (client);
+      mongoc_client_pool_push (pool, client);
+   }
 
    while (
       (client = (mongoc_client_t *) _mongoc_queue_pop_head (&pool->queue))) {
@@ -199,7 +220,7 @@ mongoc_client_pool_pop (mongoc_client_pool_t *pool)
 again:
    if (!(client = (mongoc_client_t *) _mongoc_queue_pop_head (&pool->queue))) {
       if (pool->size < pool->max_pool_size) {
-         client = _mongoc_client_new_from_uri (pool->uri, pool->topology);
+         client = _mongoc_client_new_from_uri (pool->topology);
 
          /* for tests */
          mongoc_client_set_stream_initiator (
@@ -242,7 +263,7 @@ mongoc_client_pool_try_pop (mongoc_client_pool_t *pool)
 
    if (!(client = (mongoc_client_t *) _mongoc_queue_pop_head (&pool->queue))) {
       if (pool->size < pool->max_pool_size) {
-         client = _mongoc_client_new_from_uri (pool->uri, pool->topology);
+         client = _mongoc_client_new_from_uri (pool->topology);
 #ifdef MONGOC_ENABLE_SSL
          if (pool->ssl_opts_set) {
             mongoc_client_set_ssl_opts (client, &pool->ssl_opts);
@@ -329,10 +350,10 @@ mongoc_client_pool_num_pushed (mongoc_client_pool_t *pool)
 }
 
 
-mongoc_topology_description_t *
-_mongoc_client_pool_get_topology_description (mongoc_client_pool_t *pool)
+mongoc_topology_t *
+_mongoc_client_pool_get_topology (mongoc_client_pool_t *pool)
 {
-   return &pool->topology->description;
+   return pool->topology;
 }
 
 
@@ -352,6 +373,10 @@ void
 mongoc_client_pool_min_size (mongoc_client_pool_t *pool, uint32_t min_pool_size)
 {
    ENTRY;
+
+   MONGOC_WARNING (
+      "mongoc_client_pool_min_size is deprecated; its behavior does not match"
+      " its name, and its actual behavior will likely hurt performance.");
 
    mongoc_mutex_lock (&pool->mutex);
    pool->min_pool_size = min_pool_size;
