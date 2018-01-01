@@ -64,11 +64,12 @@ SEXP R_mongo_collection_insert_bson(SEXP ptr_col, SEXP ptr_bson, SEXP stop_on_er
   return ScalarLogical(1);
 }
 
-SEXP R_mongo_collection_update(SEXP ptr_col, SEXP ptr_selector, SEXP ptr_update, SEXP ptr_filters, SEXP upsert, SEXP multiple){
+SEXP R_mongo_collection_update(SEXP ptr_col, SEXP ptr_selector, SEXP ptr_update, SEXP ptr_filters, SEXP upsert, SEXP multiple, SEXP replace){
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *selector = r2bson(ptr_selector);
   bson_t *update = r2bson(ptr_update);
 
+  bool success;
   bson_t opts;
   bson_init (&opts);
   BSON_APPEND_BOOL (&opts, "upsert", asLogical(upsert));
@@ -77,9 +78,13 @@ SEXP R_mongo_collection_update(SEXP ptr_col, SEXP ptr_selector, SEXP ptr_update,
 
   bson_error_t err;
   bson_t reply;
-  bool success = asLogical(multiple) ?
-    mongoc_collection_update_many(col, selector, update, &opts, &reply, &err) :
-    mongoc_collection_update_one(col, selector, update, &opts, &reply, &err);
+  if(asLogical(replace)){
+    success = mongoc_collection_replace_one(col, selector, update, &opts, &reply, &err);
+  } else {
+    success = asLogical(multiple) ?
+      mongoc_collection_update_many(col, selector, update, &opts, &reply, &err) :
+      mongoc_collection_update_one(col, selector, update, &opts, &reply, &err);
+  }
 
   if(!success)
     stop(err.message);
