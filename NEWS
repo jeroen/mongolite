@@ -1,5 +1,6 @@
 1.5
  - Change default value of 'filters' to NULL for MongoDB < 3.4
+ - Added a new method mongo$replace() for fixed value updates
 
 1.4
  - Fix protect bug introduced while trying to fix rchk

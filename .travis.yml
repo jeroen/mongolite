@@ -9,9 +9,6 @@ services: mongodb
 matrix:
   include:
     - os: linux
-      dist: precise
-      sudo: false
-    - os: linux
       dist: trusty
       env: R_CODECOV=true
       r_check_args: '--use-valgrind'
