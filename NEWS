@@ -1,3 +1,6 @@
+1.6
+ - Update mongo-c-driver to upstream 1.9.2
+
 1.5
  - Change default value of 'filters' to NULL for MongoDB < 3.4
  - Added a new method mongo$replace() for fixed value updates
