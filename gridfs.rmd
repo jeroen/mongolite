@@ -1,0 +1,109 @@
+---
+title: "Proposal: GridFS Design in mongolite"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+GridFS API in mongolite will be a new top level object class, consistent with the current API to instantiate regular mongodb collection objects.
+
+```r
+fs <- mongolite::gridfs(db = "test", url = "mongodb://localhost")
+```
+
+The initial API will focus on basic read/write/delete operations. 
+
+## Error Handling
+
+All methods will automatically translate `mongoc` exceptions into R errors.
+
+## Listing Files
+
+Returns a data frame with files and fixed meta data (size, date, content-type, etc).
+
+```r
+list <- fs$list(filter = '{}', options = '{}')
+```
+
+__*References*__:
+
+ - [mongoc_gridfs_find_with_opts](http://mongoc.org/libmongoc/current/mongoc_gridfs_t.html) for listing
+ - [mongoc_gridfs_file_t](http://mongoc.org/libmongoc/current/mongoc_gridfs_file_t.html) for reading file properties
+
+## Reading Files
+
+A file can be read either into a buffer, or streamed to a file or connection. The default behavior is to read the entire file and return the data in a raw data vector:
+
+```r
+buf <- fs$read(name = "myfile.bin")
+```
+
+Alternatively the user can supply an R connection object that we can use to stream data to e.g. a file or network socket. 
+
+```r
+fs$read(name = "myfile.bin", con = connection)
+```
+
+The latter will be a memory efficient way to incrementally read from the GridFS and write out the data. It is similar to the `export()` method for regular mongo collection objects.
+
+
+__*References*__:
+
+ - [mongoc_gridfs_find_one_by_filename](http://mongoc.org/libmongoc/current/mongoc_gridfs_find_one_by_filename.html) to lookup the file
+ - [mongoc_stream_gridfs_new](http://mongoc.org/libmongoc/current/mongoc_stream_gridfs_new.html) to create a stream reader
+ - [mongoc_stream_t](http://mongoc.org/libmongoc/current/mongoc_stream_t.html) methods for reading the stream
+ - [What exactly is a connection in R](https://stackoverflow.com/questions/30445875/what-exactly-is-a-connection-in-r)
+
+
+## Writing Files
+
+Analogous to reading, a write operation can either write a raw data vector from memory or stream data from a local file or connection object. 
+
+```r
+fs$write(name = "myfile.bin", data = buffer)
+```
+
+When the `data` argument is an R connection object, it will incrementally read from the connection and upload to GridFS.
+
+```r
+fs$write(name = "myfile.bin", data = connection)
+```
+
+
+__*References*__:
+
+ - [mongoc_gridfs_create_file_from_stream](http://mongoc.org/libmongoc/current/mongoc_gridfs_create_file_from_stream.html) create a new file using a stream
+ - [mongoc_stream_write](http://mongoc.org/libmongoc/current/mongoc_stream_write.html) write to the stream
+ - [What exactly is a connection in R](https://stackoverflow.com/questions/30445875/what-exactly-is-a-connection-in-r)
+ 
+## Removing Files
+
+Removes a single file from the GridFS collection:
+
+```r
+fs$remove(name = "myfile.bin")
+```
+
+Here the `name` argument can be vectorized in standard R fashion such that multiple files can be removed with a single call.
+
+__*References*__:
+
+ - [mongoc_gridfs_remove_by_filename](http://mongoc.org/libmongoc/current/mongoc_gridfs_remove_by_filename.html) to delete the file
+
+## Drop GridFS
+
+Requests that an entire GridFS be dropped, including all files associated with it.
+
+```r
+fs$drop()
+```
+
+__*References*__:
+
+ - [mongoc_gridfs_drop](http://mongoc.org/libmongoc/current/mongoc_gridfs_drop.html)
+
