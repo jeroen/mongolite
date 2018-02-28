@@ -37,7 +37,7 @@ STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
 
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
-all: clean
+# all: clean
 
 $(SHLIB): $(STATLIB)
 
