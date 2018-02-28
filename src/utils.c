@@ -57,6 +57,54 @@ mongoc_client_t* r2client(SEXP ptr){
   return client;
 }
 
+static void fin_mongo(SEXP ptr){
+#ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE ("destorying collection.");
+#endif
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
+
+static void fin_bson(SEXP ptr){
+#ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("destorying BSON.");
+#endif
+  if(!R_ExternalPtrAddr(ptr)) return;
+  bson_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
+
+static void fin_cursor(SEXP ptr){
+#ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("destorying cursor.");
+#endif
+
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_cursor_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
+
+static void fin_client(SEXP ptr){
+#ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("destorying client.");
+#endif
+
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_client_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
+
+static void fin_gridfs(SEXP ptr){
+#ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("destorying gridfs.");
+#endif
+
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_gridfs_destroy(R_ExternalPtrAddr(ptr));
+  R_ClearExternalPtr(ptr);
+}
+
 SEXP bson2r(bson_t* b){
   SEXP ptr = PROTECT(R_MakeExternalPtr(b, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_bson, 1);
@@ -69,6 +117,14 @@ SEXP cursor2r(mongoc_cursor_t* c){
   SEXP ptr = PROTECT(R_MakeExternalPtr(c, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_cursor, 1);
   setAttrib(ptr, R_ClassSymbol, mkString("mongo_cursor"));
+  UNPROTECT(1);
+  return ptr;
+}
+
+SEXP gridfs2r(mongoc_gridfs_t *fs){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(fs, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(ptr, fin_gridfs, 1);
+  setAttrib(ptr, R_ClassSymbol, mkString("mongo_gridfs"));
   UNPROTECT(1);
   return ptr;
 }
@@ -87,42 +143,4 @@ SEXP client2r(mongoc_client_t *client){
   setAttrib(ptr, R_ClassSymbol, mkString("mongo_client"));
   UNPROTECT(1);
   return ptr;
-}
-
-void fin_mongo(SEXP ptr){
-  #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE ("destorying collection.");
-  #endif
-  if(!R_ExternalPtrAddr(ptr)) return;
-  mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
-  R_ClearExternalPtr(ptr);
-}
-
-void fin_bson(SEXP ptr){
-  #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE("destorying BSON.");
-  #endif
-  if(!R_ExternalPtrAddr(ptr)) return;
-  bson_destroy(R_ExternalPtrAddr(ptr));
-  R_ClearExternalPtr(ptr);
-}
-
-void fin_cursor(SEXP ptr){
-  #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE("destorying cursor.");
-  #endif
-
-  if(!R_ExternalPtrAddr(ptr)) return;
-  mongoc_cursor_destroy(R_ExternalPtrAddr(ptr));
-  R_ClearExternalPtr(ptr);
-}
-
-void fin_client(SEXP ptr){
-  #ifdef MONGOLITE_DEBUG
-  MONGOC_MESSAGE("destorying client.");
-  #endif
-
-  if(!R_ExternalPtrAddr(ptr)) return;
-  mongoc_client_destroy(R_ExternalPtrAddr(ptr));
-  R_ClearExternalPtr(ptr);
 }
