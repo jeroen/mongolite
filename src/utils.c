@@ -113,24 +113,24 @@ SEXP bson2r(bson_t* b){
   return ptr;
 }
 
-SEXP cursor2r(mongoc_cursor_t* c){
-  SEXP ptr = PROTECT(R_MakeExternalPtr(c, R_NilValue, R_NilValue));
+SEXP cursor2r(mongoc_cursor_t* c, SEXP prot){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(c, R_NilValue, prot));
   R_RegisterCFinalizerEx(ptr, fin_cursor, 1);
   setAttrib(ptr, R_ClassSymbol, mkString("mongo_cursor"));
   UNPROTECT(1);
   return ptr;
 }
 
-SEXP gridfs2r(mongoc_gridfs_t *fs){
-  SEXP ptr = PROTECT(R_MakeExternalPtr(fs, R_NilValue, R_NilValue));
+SEXP gridfs2r(mongoc_gridfs_t *fs, SEXP prot){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(fs, R_NilValue, prot));
   R_RegisterCFinalizerEx(ptr, fin_gridfs, 1);
   setAttrib(ptr, R_ClassSymbol, mkString("mongo_gridfs"));
   UNPROTECT(1);
   return ptr;
 }
 
-SEXP col2r(mongoc_collection_t *col){
-  SEXP ptr = PROTECT(R_MakeExternalPtr(col, R_NilValue, R_NilValue));
+SEXP col2r(mongoc_collection_t *col, SEXP prot){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(col, R_NilValue, prot));
   R_RegisterCFinalizerEx(ptr, fin_mongo, 1);
   setAttrib(ptr, R_ClassSymbol, mkString("mongo_collection"));
   UNPROTECT(1);

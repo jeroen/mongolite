@@ -3,7 +3,7 @@
 SEXP R_mongo_collection_new(SEXP ptr_client, SEXP collection, SEXP db) {
   mongoc_client_t *client = r2client(ptr_client);
   mongoc_collection_t *col = mongoc_client_get_collection (client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(collection)));
-  SEXP out = PROTECT(col2r(col));
+  SEXP out = PROTECT(col2r(col, ptr_client));
   setAttrib(out, install("client"), ptr_client);
   UNPROTECT(1);
   return out;
@@ -181,7 +181,7 @@ SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_opts) {
   bson_t *opts = r2bson(ptr_opts);
   mongoc_read_prefs_t * readpref = mongoc_read_prefs_new(MONGOC_READ_PRIMARY);
   mongoc_cursor_t *c = mongoc_collection_find_with_opts(col, query, opts, readpref);
-  return cursor2r(c);
+  return cursor2r(c, ptr_col);
 }
 
 SEXP R_mongo_collection_command_simple(SEXP ptr_col, SEXP command){
@@ -219,7 +219,7 @@ SEXP R_mongo_collection_find_indexes(SEXP ptr_col) {
   if(mongoc_cursor_error(c, &err))
     stop(err.message);
 
-  return cursor2r(c);
+  return cursor2r(c, ptr_col);
 }
 
 SEXP R_mongo_collection_rename(SEXP ptr_col, SEXP db, SEXP name) {
@@ -246,7 +246,7 @@ SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline, SEXP ptr_opti
   mongoc_cursor_t *c = mongoc_collection_aggregate (col, flags, pipeline, options, NULL);
   if(!c)
     stop("Error executing pipeline.");
-  return cursor2r(c);
+  return cursor2r(c, ptr_col);
 }
 
 SEXP R_mongo_collection_command(SEXP ptr_col, SEXP ptr_cmd, SEXP no_timeout){
@@ -260,5 +260,5 @@ SEXP R_mongo_collection_command(SEXP ptr_col, SEXP ptr_cmd, SEXP no_timeout){
   mongoc_cursor_t *c = mongoc_collection_command(col, flags, 0, 0, 0, cmd, NULL, NULL);
   if(!c)
     stop("Error executing command.");
-  return cursor2r(c);
+  return cursor2r(c, ptr_col);
 }
