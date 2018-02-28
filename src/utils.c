@@ -43,6 +43,13 @@ mongoc_collection_t* r2col(SEXP ptr){
   return col;
 }
 
+mongoc_gridfs_t* r2gridfs(SEXP ptr){
+  mongoc_gridfs_t* c = R_ExternalPtrAddr(ptr);
+  if(!c)
+    error("This grid has been destroyed.");
+  return c;
+}
+
 mongoc_cursor_t* r2cursor(SEXP ptr){
   mongoc_cursor_t* c = R_ExternalPtrAddr(ptr);
   if(!c)

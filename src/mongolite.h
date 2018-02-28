@@ -10,6 +10,7 @@ bson_t* r2bson(SEXP ptr);
 mongoc_collection_t* r2col(SEXP ptr);
 mongoc_cursor_t* r2cursor(SEXP ptr);
 mongoc_client_t* r2client(SEXP ptr);
+mongoc_gridfs_t* r2gridfs(SEXP ptr);
 SEXP bson2r(bson_t* b);
 SEXP col2r(mongoc_collection_t *col, SEXP prot);
 SEXP cursor2r(mongoc_cursor_t* c, SEXP prot);
