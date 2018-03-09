@@ -68,7 +68,7 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
     close <- function(){
       check_open()
       invisible(close_client())
-    }  
+    }
 
     server_status <- function(){
       mongo_client_server_status(client)
@@ -79,9 +79,9 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
   lockEnvironment(self, TRUE)
 
   connect_to_db_and_coll <- function(db, collection) {
-    
+
     t0 <- as.numeric(Sys.time())*1000
-    
+
     # workaround for missing 'mongoc_client_get_default_database'
     if(missing(db) || is.null(db)){
       url_db <- mongo_get_default_database(client)
@@ -209,7 +209,9 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
 #'   \item{\code{mapreduce(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function. Set \code{out} to a string to store results in a collection instead of returning.}
 #'   \item{\code{remove(query = "{}", multiple = FALSE)}}{Remove record(s) matching \code{query} from the collection.}
 #'   \item{\code{rename(name, db = NULL)}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
-#'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Replace or modify matching record(s) with value of the \code{update} argument.}
+#'   \item{\code{run(comand = '{"ping: 1}')}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
+#'   \item{\code{replace(query, update = '{}', upsert = FALSE)}}{Replace matching record(s) with value of the \code{update} argument.}
+#'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Modify fields of matching record(s) with value of the \code{update} argument.}
 #' }
 mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
   mongoclient <- mongo_client(url, verbose, options)
@@ -232,7 +234,7 @@ mongo_object <- function(col, mongo_client, verbose, orig){
     close <- function(){
       check_open()
       invisible(close_collection())
-    }  
+    }
 
     insert <- function(data, pagesize = 1000, stop_on_error = TRUE, ...){
       col <<- parent.env(mongo_client)$check_col(col, orig$name, orig$db)
@@ -312,7 +314,12 @@ mongo_object <- function(col, mongo_client, verbose, orig){
 
     update <- function(query, update = '{"$set":{}}', filters = NULL, upsert = FALSE, multiple = FALSE){
       col <<- parent.env(mongo_client)$check_col(col, orig$name, orig$db)
-      mongo_collection_update(col, query, update, filters, upsert, multiple)
+      mongo_collection_update(col, query, update, filters, upsert, multiple = multiple, replace = FALSE)
+    }
+
+    replace <- function(query, update = '{}', upsert = FALSE){
+      parent.env(mongo_client)$check_col(col, orig$name, orig$db)
+      mongo_collection_update(col, query, update, upsert = upsert, replace = TRUE)
     }
 
     mapreduce <- function(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL){
@@ -351,6 +358,10 @@ mongo_object <- function(col, mongo_client, verbose, orig){
         url = orig$url
       )
       orig
+    }
+
+    run <- function(command = '{"ping: 1}'){
+      mongo_collection_command_simple(col, command)
     }
 
     index <- function(add = NULL, remove = NULL){

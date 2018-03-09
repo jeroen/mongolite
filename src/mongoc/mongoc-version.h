@@ -45,7 +45,7 @@
  *
  * MONGOC micro version component (e.g. 3 if %MONGOC_VERSION is 1.2.3)
  */
-#define MONGOC_MICRO_VERSION (0)
+#define MONGOC_MICRO_VERSION (2)
 
 
 /**
@@ -53,7 +53,7 @@
  *
  * MONGOC prerelease version component (e.g. rc0 if %MONGOC_VERSION is 1.2.3-rc0)
  */
-#define MONGOC_PRERELEASE_VERSION (dev)
+#define MONGOC_PRERELEASE_VERSION ()
 
 
 /**
@@ -61,7 +61,7 @@
  *
  * MONGOC version.
  */
-#define MONGOC_VERSION (1.9.0-dev)
+#define MONGOC_VERSION (1.9.2)
 
 
 /**
@@ -70,7 +70,7 @@
  * MONGOC version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define MONGOC_VERSION_S "1.9.0-dev"
+#define MONGOC_VERSION_S "1.9.2"
 
 
 /**

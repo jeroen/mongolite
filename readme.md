@@ -19,7 +19,7 @@
 
 About the R package:
 
- - Vignette: [Getting started with MongoDB in R](https://cran.r-project.org/web/packages/mongolite/vignettes/intro.html)
+ - Book: [Mongolite User Manual](https://jeroen.github.io/mongolite/)
  - Presentation: [UseR 2015 slides](http://jeroen.github.io/mongo-slides)
 
 ## Hello World
