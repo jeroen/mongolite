@@ -80,8 +80,6 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
 
   connect_to_db_and_coll <- function(db, collection) {
 
-    t0 <- as.numeric(Sys.time())*1000
-
     # workaround for missing 'mongoc_client_get_default_database'
     if(missing(db) || is.null(db)){
       url_db <- mongo_get_default_database(client)
@@ -100,10 +98,7 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
     if(length(options$pem_file) && file.exists(options$pem_file))
       attr(orig, "pemdata") <- readLines(options$pem_file)
 
-    res <- mongo_object(col, self, verbose, options)
-    msg <- sprintf("opened collection %s in db %s in %f milliseconds", collection, db, as.numeric(Sys.time())*1000 - t0)
-    print(msg)
-    res
+    mongo_object(col, self, verbose, options)
   }
 
   structure(self, class=c("mongo_client", "jeroen", class(self)))
@@ -227,7 +222,6 @@ mongo_object <- function(col, mongo_client, verbose, orig){
   self <- local({
     use <- function(collection, db = orig$db){
       parent.env(mongo_client)$check_open()
-      #connect_to_db_and_coll(client, orig$url, db, collection, verbose, orig$options)
       mongo_client$use(collection, db)
     }
 
@@ -238,7 +232,6 @@ mongo_object <- function(col, mongo_client, verbose, orig){
 
     insert <- function(data, pagesize = 1000, stop_on_error = TRUE, ...){
       col <<- parent.env(mongo_client)$check_col(col, orig$name, orig$db)
-      # check_col(col)
       if(is.data.frame(data)){
         mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose, stop_on_error = stop_on_error, ...)
       } else if(is.list(data) && !is.null(names(data))){
@@ -344,7 +337,6 @@ mongo_object <- function(col, mongo_client, verbose, orig){
       list(
         name = mongo_collection_name(col),
         stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
-        #server = mongo_client_server_status(client)
         server = mongo_client$server_status()
       )
     }
