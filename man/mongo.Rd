@@ -3,7 +3,7 @@
 \name{mongo}
 \alias{mongo}
 \alias{mongolite}
-\title{MongoDB client}
+\title{MongoDB collection client}
 \usage{
 mongo(collection = "test", db = "test", url = "mongodb://localhost",
   verbose = FALSE, options = ssl_options())
@@ -121,6 +121,4 @@ dmd$drop()
 }
 \references{
 \href{https://jeroen.github.io/mongolite/}{Mongolite User Manual}
-
-Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 }
