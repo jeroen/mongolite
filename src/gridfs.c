@@ -20,21 +20,23 @@ SEXP R_mongo_gridfs_drop (SEXP ptr_fs){
   return ScalarLogical(1);
 }
 
-SEXP R_mongo_gridf_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
+SEXP R_mongo_gridfs_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_t *filter = r2bson(ptr_filter);
   bson_t *opts = r2bson(ptr_opts);
   mongoc_gridfs_file_list_t * list = mongoc_gridfs_find_with_opts (fs, filter, opts);
-  mongoc_gridfs_file_t *file;
 
-  /* STUB: store output in R list */
+  /* iterate through results and store in linked list */
+  SEXP ret = R_NilValue;
+  mongoc_gridfs_file_t * file;
   while ((file = mongoc_gridfs_file_list_next (list))) {
-    const char *name = mongoc_gridfs_file_get_filename (file);
-    printf ("%s\n", name ? name : "?");
+    const char * name = mongoc_gridfs_file_get_filename (file);
+    ret = PROTECT(Rf_cons(Rf_mkString(name), ret));
     mongoc_gridfs_file_destroy (file);
   }
   mongoc_gridfs_file_list_destroy (list);
-  return ScalarLogical(1);
+  UNPROTECT(Rf_length(ret));
+  return ret;
 }
 
 SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
