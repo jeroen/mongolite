@@ -41,6 +41,9 @@ fs_object <- function(fs, client, orig){
     read <- function(name){
       mongo_gridfs_read(fs, name)
     }
+    write <- function(name, data){
+      mongo_gridfs_write(fs, name, data)
+    }
     remove <- function(name){
       mongo_gridfs_remove(fs, name)
     }
@@ -80,6 +83,13 @@ mongo_gridfs_upload <- function(fs, name, path){
     id[i] = out$id
   }
   structure(id, names = name)
+}
+
+#' @useDynLib mongolite R_mongo_gridfs_write
+mongo_gridfs_write <- function(fs, name, data){
+  stopifnot(is.raw(data))
+  stopifnot(is.character(name))
+  .Call(R_mongo_gridfs_write, fs, name, data)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_read

@@ -4,18 +4,16 @@
 \alias{gridfs}
 \title{GridFS API}
 \usage{
-gridfs(prefix = "fs", db = "test", url = "mongodb://localhost",
-  verbose = FALSE, options = ssl_options())
+gridfs(db = "test", url = "mongodb://localhost", prefix = "fs",
+  options = ssl_options())
 }
 \arguments{
-\item{prefix}{string to prefix the collection name}
-
 \item{db}{name of database}
 
 \item{url}{address of the mongodb server in mongo connection string
 \href{http://docs.mongodb.org/manual/reference/connection-string}{URI format}}
 
-\item{verbose}{emit some more output}
+\item{prefix}{string to prefix the collection name}
 
 \item{options}{additional connection options such as SSL keys/certs.}
 }

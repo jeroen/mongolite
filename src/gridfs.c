@@ -77,6 +77,23 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
   return get_id_and_destroy(file);
 }
 
+SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  mongoc_gridfs_file_opt_t opt = {0};
+  opt.filename = get_string(name);
+  mongoc_gridfs_file_t * file = mongoc_gridfs_create_file(fs, &opt);
+  if(file == NULL)
+    stop("Failure at mongoc_gridfs_create_file()");
+
+  mongoc_iovec_t iov = {0};
+  iov.iov_len = Rf_length(data);
+  iov.iov_base = RAW(data);
+  if(mongoc_gridfs_file_writev(file, &iov, 1, 0) < 0)
+    stop("Failure at mongoc_gridfs_file_writev");
+  mongoc_gridfs_file_save (file);
+  return get_id_and_destroy(file);
+}
+
 SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_error_t err;
