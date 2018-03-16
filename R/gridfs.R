@@ -5,7 +5,7 @@
 #' @inheritParams mongo
 #' @export
 #' @param prefix string to prefix the collection name
-gridfs <- function(prefix = "fs", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
+gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", options = ssl_options()){
   client <- do.call(mongo_client_new, c(list(uri = url), options))
 
   # Get a database
@@ -24,10 +24,10 @@ gridfs <- function(prefix = "fs", db = "test", url = "mongodb://localhost", verb
   )
   if(length(options$pem_file) && file.exists(options$pem_file))
     attr(orig, "pemdata") <- readLines(options$pem_file)
-  fs_object(fs, client, verbose, orig)
+  fs_object(fs, client, orig)
 }
 
-fs_object <- function(fs, client, verbose, orig){
+fs_object <- function(fs, client, orig){
   self <- local({
     drop <- function(){
       mongo_gridfs_drop(fs)

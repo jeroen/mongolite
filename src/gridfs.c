@@ -1,7 +1,13 @@
 #include <mongolite.h>
 
 SEXP make_string(const char * x){
-  return x ? Rf_mkString(x) : ScalarString(NA_STRING);
+  return ScalarString(x ? Rf_mkCharCE(x, CE_UTF8) : NA_STRING);
+}
+
+const char * get_string(SEXP x){
+  if(!Rf_isString(x) || Rf_length(x) != 1)
+    stop("Value is not a string of length 1");
+  return translateCharUTF8(STRING_ELT(x, 0));
 }
 
 SEXP get_id_and_destroy(mongoc_gridfs_file_t * file){
@@ -15,7 +21,7 @@ SEXP get_id_and_destroy(mongoc_gridfs_file_t * file){
 SEXP R_mongo_gridfs_new(SEXP ptr_client, SEXP prefix, SEXP db) {
   mongoc_client_t *client = r2client(ptr_client);
   bson_error_t err;
-  mongoc_gridfs_t * fs = mongoc_client_get_gridfs(client, translateCharUTF8(asChar(db)), translateCharUTF8(asChar(prefix)), &err);
+  mongoc_gridfs_t * fs = mongoc_client_get_gridfs(client, get_string(db), get_string(prefix), &err);
   if(fs == NULL)
     stop(err.message);
   SEXP out = PROTECT(gridfs2r(fs, ptr_client));
@@ -63,7 +69,7 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
     stop("Failure at mongoc_stream_file_new_for_path()");
 
   mongoc_gridfs_file_opt_t opt = {0};
-  opt.filename = CHAR(STRING_ELT(name, 0));
+  opt.filename = get_string(name);
   mongoc_gridfs_file_t * file = mongoc_gridfs_create_file_from_stream (fs, stream, &opt);
   if(file == NULL)
     stop("Failure at mongoc_gridfs_create_file_from_stream()");
@@ -74,7 +80,7 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
 SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_error_t err;
-  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, CHAR(asChar(name)), &err);
+  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
   if(file == NULL)
     stop(err.message);
 
@@ -95,7 +101,7 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
 SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_error_t err;
-  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, CHAR(asChar(name)), &err);
+  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
   if(file == NULL)
     stop(err.message);
   if(!mongoc_gridfs_file_remove(file, &err))
