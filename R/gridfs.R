@@ -73,7 +73,13 @@ mongo_gridfs_list <- function(fs, filter, opts){
 mongo_gridfs_upload <- function(fs, name, path){
   stopifnot(is.character(name))
   path <- normalizePath(path, mustWork = TRUE)
-  .Call(R_mongo_gridfs_upload, fs, name, path)
+  stopifnot(length(name) == length(path))
+  id <- rep(NA, length(name))
+  for(i in seq_along(name)){
+    out <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i])
+    id[i] = out$id
+  }
+  structure(id, names = name)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_read
@@ -83,6 +89,7 @@ mongo_gridfs_read <- function(fs, name){
 
 #' @useDynLib mongolite R_mongo_gridfs_remove
 mongo_gridfs_remove <- function(fs, name){
-  out <- .Call(R_mongo_gridfs_remove, fs, name)
-  return(out$id)
+  vapply(name, function(x){
+    .Call(R_mongo_gridfs_remove, fs, x)$id
+  }, character(1))
 }
