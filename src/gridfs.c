@@ -27,6 +27,7 @@ SEXP R_mongo_gridfs_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   mongoc_gridfs_file_list_t * list = mongoc_gridfs_find_with_opts (fs, filter, opts);
 
   /* iterate through results and store in linked list */
+  /* TODO: only protect head of lists */
   SEXP ret = R_NilValue;
   mongoc_gridfs_file_t * file;
   while ((file = mongoc_gridfs_file_list_next (list))) {
@@ -37,6 +38,22 @@ SEXP R_mongo_gridfs_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   mongoc_gridfs_file_list_destroy (list);
   UNPROTECT(Rf_length(ret));
   return ret;
+}
+
+SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  mongoc_stream_t * stream = mongoc_stream_file_new_for_path(CHAR(STRING_ELT(path, 0)), O_RDONLY, 0);
+  if(stream == NULL)
+    stop("Failure at mongoc_stream_file_new_for_path()");
+
+  mongoc_gridfs_file_opt_t opt = {0};
+  opt.filename = CHAR(STRING_ELT(name, 0));
+  mongoc_gridfs_file_t * file = mongoc_gridfs_create_file_from_stream (fs, stream, &opt);
+  if(file == NULL)
+    stop("Failure at mongoc_gridfs_create_file_from_stream()");
+  mongoc_gridfs_file_save (file);
+  mongoc_gridfs_file_destroy (file);
+  return name;
 }
 
 SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
@@ -59,4 +76,3 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   mongoc_gridfs_file_destroy (file);
   return out;
 }
-

@@ -35,6 +35,9 @@ fs_object <- function(fs, client, verbose, orig){
     list <-  function(filter = '{}', options = '{}'){
       mongo_gridfs_list(fs, filter, options)
     }
+    upload <- function(name, path){
+      mongo_gridfs_upload(fs, name, path)
+    }
     environment()
   })
   lockEnvironment(self, TRUE)
@@ -55,4 +58,11 @@ mongo_gridfs_drop <- function(fs){
 mongo_gridfs_list <- function(fs, filter, opts){
   out <- .Call(R_mongo_gridfs_list, fs, bson_or_json(filter), bson_or_json(opts))
   rev(as.character(unlist(out, recursive = FALSE)))
+}
+
+#' @useDynLib mongolite R_mongo_gridfs_upload
+mongo_gridfs_upload <- function(fs, name, path){
+  stopifnot(is.character(name))
+  path <- normalizePath(path, mustWork = TRUE)
+  .Call(R_mongo_gridfs_upload, fs, name, path)
 }
