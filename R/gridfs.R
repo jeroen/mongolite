@@ -38,6 +38,9 @@ fs_object <- function(fs, client, verbose, orig){
     upload <- function(name, path){
       mongo_gridfs_upload(fs, name, path)
     }
+    read <- function(name){
+      mongo_gridfs_read(fs, name)
+    }
     environment()
   })
   lockEnvironment(self, TRUE)
@@ -65,4 +68,9 @@ mongo_gridfs_upload <- function(fs, name, path){
   stopifnot(is.character(name))
   path <- normalizePath(path, mustWork = TRUE)
   .Call(R_mongo_gridfs_upload, fs, name, path)
+}
+
+#' @useDynLib mongolite R_mongo_gridfs_read
+mongo_gridfs_read <- function(fs, name){
+  .Call(R_mongo_gridfs_read, fs, name)
 }
