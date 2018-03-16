@@ -41,6 +41,9 @@ fs_object <- function(fs, client, verbose, orig){
     read <- function(name){
       mongo_gridfs_read(fs, name)
     }
+    remove <- function(name){
+      mongo_gridfs_remove(fs, name)
+    }
     environment()
   })
   lockEnvironment(self, TRUE)
@@ -61,7 +64,7 @@ mongo_gridfs_drop <- function(fs){
 mongo_gridfs_list <- function(fs, filter, opts){
   out <- .Call(R_mongo_gridfs_list, fs, bson_or_json(filter), bson_or_json(opts))
   out <- lapply(out, unlist, recursive = TRUE)
-  names(out) <- c('name', 'size', 'date', 'id')
+  names(out) <- c('id', 'name', 'size', 'date')
   out$date <- structure(out$date / 1000, class = c("POSIXct", "POSIXt"))
   data.frame(out, stringsAsFactors = FALSE)
 }
@@ -76,4 +79,10 @@ mongo_gridfs_upload <- function(fs, name, path){
 #' @useDynLib mongolite R_mongo_gridfs_read
 mongo_gridfs_read <- function(fs, name){
   .Call(R_mongo_gridfs_read, fs, name)
+}
+
+#' @useDynLib mongolite R_mongo_gridfs_remove
+mongo_gridfs_remove <- function(fs, name){
+  out <- .Call(R_mongo_gridfs_remove, fs, name)
+  return(out$id)
 }

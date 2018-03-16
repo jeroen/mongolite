@@ -49,7 +49,7 @@ SEXP R_mongo_gridfs_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   }
   mongoc_gridfs_file_list_destroy (list);
   UNPROTECT(Rf_length(names) * 4);
-  return Rf_list4(names, sizes, dates, ids);
+  return Rf_list4(ids, names, sizes, dates);
 }
 
 SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
@@ -103,4 +103,19 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   mongoc_stream_destroy (stream);
   mongoc_gridfs_file_destroy (file);
   return out;
+}
+
+SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  bson_error_t err;
+  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, CHAR(asChar(name)), &err);
+  if(file == NULL)
+    stop(err.message);
+  if(!mongoc_gridfs_file_remove(file, &err))
+    stop(err.message);
+  bson_t val;
+  bson_init (&val);
+  BSON_APPEND_VALUE(&val, "id", mongoc_gridfs_file_get_id(file));
+  mongoc_gridfs_file_destroy (file);
+  return bson2list(&val);
 }
