@@ -88,7 +88,7 @@ SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data){
   mongoc_iovec_t iov = {0};
   iov.iov_len = Rf_length(data);
   iov.iov_base = RAW(data);
-  if(mongoc_gridfs_file_writev(file, &iov, 1, 0) < 0)
+  if(mongoc_gridfs_file_writev(file, &iov, 1, 0) < iov.iov_len)
     stop("Failure at mongoc_gridfs_file_writev");
   mongoc_gridfs_file_save (file);
   return get_id_and_destroy(file);
@@ -113,6 +113,41 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   mongoc_stream_destroy (stream);
   mongoc_gridfs_file_destroy(file);
   return out;
+}
+
+SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  bson_error_t err;
+  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
+  if(file == NULL)
+    stop(err.message);
+
+  mongoc_stream_t * stream = mongoc_stream_gridfs_new (file);
+  if(!stream)
+    stop("Failed to create mongoc_stream_gridfs_new");
+
+  char buf[4096];
+  mongoc_iovec_t iov;
+  iov.iov_base = buf;
+  iov.iov_len = sizeof buf;
+
+  FILE * fp = fopen(get_string(path), "wb");
+  if(!fp)
+    stop("Failed to open file %s", get_string(path));
+
+  for(;;) {
+    int nbytes = mongoc_stream_readv (stream, &iov, 1, -1, 0);
+    if(nbytes == 0)
+      break;
+    if(nbytes < 0)
+      stop("Error in mongoc_stream_readv()");
+    if (fwrite (iov.iov_base, 1, nbytes, fp) != nbytes)
+      stop("Failed to write to file");
+  }
+  fclose(fp);
+  mongoc_stream_destroy (stream);
+  mongoc_gridfs_file_destroy(file);
+  return path;
 }
 
 SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){

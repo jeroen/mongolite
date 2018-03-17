@@ -38,6 +38,9 @@ fs_object <- function(fs, client, orig){
     upload <- function(path, name = basename(path)){
       mongo_gridfs_upload(fs, name, path)
     }
+    download <- function(name, path = name){
+      mongo_gridfs_download(fs, name, path)
+    }
     read <- function(name){
       mongo_gridfs_read(fs, name)
     }
@@ -83,6 +86,18 @@ mongo_gridfs_upload <- function(fs, name, path){
     id[i] = out$id
   }
   structure(id, names = name)
+}
+
+#' @useDynLib mongolite R_mongo_gridfs_download
+mongo_gridfs_download <- function(fs, name, path){
+  stopifnot(is.character(name))
+  path <- normalizePath(path, mustWork = FALSE)
+  stopifnot(length(name) == length(path))
+  out <- rep(NA, length(name))
+  for(i in seq_along(name)){
+    out <- .Call(R_mongo_gridfs_download, fs, name[i], path[i])
+  }
+  structure(out, names = name)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_write
