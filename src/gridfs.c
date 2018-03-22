@@ -18,6 +18,15 @@ SEXP get_id_and_destroy(mongoc_gridfs_file_t * file){
   return bson2list(&val);
 }
 
+SEXP save_file_and_get_id(mongoc_gridfs_file_t * file){
+  if(!mongoc_gridfs_file_save (file)){
+    bson_error_t err;
+    mongoc_gridfs_file_error(file, &err);
+    stop(err.message);
+  }
+  return get_id_and_destroy(file);
+}
+
 SEXP R_mongo_gridfs_new(SEXP ptr_client, SEXP prefix, SEXP db) {
   mongoc_client_t *client = r2client(ptr_client);
   bson_error_t err;
@@ -73,8 +82,7 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
   mongoc_gridfs_file_t * file = mongoc_gridfs_create_file_from_stream (fs, stream, &opt);
   if(file == NULL)
     stop("Failure at mongoc_gridfs_create_file_from_stream()");
-  mongoc_gridfs_file_save (file);
-  return get_id_and_destroy(file);
+  return save_file_and_get_id(file);
 }
 
 SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data){
@@ -90,8 +98,7 @@ SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data){
   iov.iov_base = RAW(data);
   if(mongoc_gridfs_file_writev(file, &iov, 1, 0) < iov.iov_len)
     stop("Failure at mongoc_gridfs_file_writev");
-  mongoc_gridfs_file_save (file);
-  return get_id_and_destroy(file);
+  return save_file_and_get_id(file);
 }
 
 SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
