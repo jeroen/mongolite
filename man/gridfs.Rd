@@ -20,3 +20,22 @@ gridfs(db = "test", url = "mongodb://localhost", prefix = "fs",
 \description{
 Connect to a GridFS database.
 }
+\examples{
+# New GridFS
+fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
+input <- R.home('doc/NEWS.pdf')
+fs$upload(input)
+fs$download('NEWS.pdf', 'output.pdf')
+hashes <- tools::md5sum(c(input, 'output.pdf'))
+unlink('output.pdf')
+stopifnot(hashes[[1]] == hashes[[1]])
+
+# Insert Binary Data
+fs$write('iris3', serialize(datasets::iris3, NULL))
+out <- unserialize(fs$read('iris3'))
+stopifnot(all.equal(out, datasets::iris3))
+
+# Show what we have
+fs$list()
+fs$drop()
+}

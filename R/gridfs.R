@@ -5,6 +5,23 @@
 #' @inheritParams mongo
 #' @export
 #' @param prefix string to prefix the collection name
+#' @examples # New GridFS
+#' fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
+#' input <- R.home('doc/NEWS.pdf')
+#' fs$upload(input)
+#' fs$download('NEWS.pdf', 'output.pdf')
+#' hashes <- tools::md5sum(c(input, 'output.pdf'))
+#' unlink('output.pdf')
+#' stopifnot(hashes[[1]] == hashes[[1]])
+#'
+#' # Insert Binary Data
+#' fs$write('iris3', serialize(datasets::iris3, NULL))
+#' out <- unserialize(fs$read('iris3'))
+#' stopifnot(all.equal(out, datasets::iris3))
+#'
+#' # Show what we have
+#' fs$list()
+#' fs$drop()
 gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", options = ssl_options()){
   client <- do.call(mongo_client_new, c(list(uri = url), options))
 
