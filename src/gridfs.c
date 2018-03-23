@@ -114,7 +114,7 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
     stop("Failed to create mongoc_stream_gridfs_new");
 
   SEXP out = Rf_allocVector(RAWSXP, size);
-  if(mongoc_stream_read (stream, RAW(out), size, size, 0) < size)
+  if(mongoc_stream_read (stream, RAW(out), size, -1, 0) < size)
     stop("Failed to read entire steam");
 
   mongoc_stream_destroy (stream);
@@ -134,21 +134,17 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
     stop("Failed to create mongoc_stream_gridfs_new");
 
   char buf[4096];
-  mongoc_iovec_t iov;
-  iov.iov_base = buf;
-  iov.iov_len = sizeof buf;
-
   FILE * fp = fopen(get_string(path), "wb");
   if(!fp)
     stop("Failed to open file %s", get_string(path));
 
   for(;;) {
-    int nbytes = mongoc_stream_readv (stream, &iov, 1, -1, 0);
+    int nbytes = mongoc_stream_read(stream, buf, 4096, -1, 0);
     if(nbytes == 0)
       break;
     if(nbytes < 0)
       stop("Error in mongoc_stream_readv()");
-    if (fwrite (iov.iov_base, 1, nbytes, fp) != nbytes)
+    if (fwrite (buf, 1, nbytes, fp) != nbytes)
       stop("Failed to write to file");
   }
   fclose(fp);
