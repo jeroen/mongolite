@@ -52,8 +52,8 @@ fs_object <- function(fs, client, orig){
     list <-  function(filter = '{}', options = '{}'){
       mongo_gridfs_list(fs, filter, options)
     }
-    upload <- function(path, name = basename(path), content_type = NULL){
-      mongo_gridfs_upload(fs, name, path, content_type)
+    upload <- function(path, name = basename(path), content_type = NULL, metadata = NULL){
+      mongo_gridfs_upload(fs, name, path, content_type, metadata)
     }
     download <- function(name, path = name){
       mongo_gridfs_download(fs, name, path)
@@ -61,8 +61,8 @@ fs_object <- function(fs, client, orig){
     read <- function(name){
       mongo_gridfs_read(fs, name)
     }
-    write <- function(name, data, content_type = NULL){
-      mongo_gridfs_write(fs, name, data, content_type)
+    write <- function(name, data, content_type = NULL, metadata = NULL){
+      mongo_gridfs_write(fs, name, data, content_type, metadata)
     }
     remove <- function(name){
       mongo_gridfs_remove(fs, name)
@@ -93,7 +93,7 @@ mongo_gridfs_list <- function(fs, filter, opts){
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_upload
-mongo_gridfs_upload <- function(fs, name, path, type){
+mongo_gridfs_upload <- function(fs, name, path, type, metadata){
   stopifnot(is.character(name))
   path <- normalizePath(path, mustWork = TRUE)
   stopifnot(length(name) == length(path))
@@ -101,8 +101,10 @@ mongo_gridfs_upload <- function(fs, name, path, type){
   if(is.null(type))
     type <- mime::guess_type(name, unknown = NA, empty = NA)
   type <- as.character(rep_len(type, length(name)))
+  metadata <- if(length(metadata))
+    bson_or_json(metadata)
   for(i in seq_along(name)){
-    out <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i], type[i])
+    out <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i], type[i], metadata)
     id[i] = out$id
   }
   structure(id, names = name)
@@ -121,10 +123,12 @@ mongo_gridfs_download <- function(fs, name, path){
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_write
-mongo_gridfs_write <- function(fs, name, data, type){
+mongo_gridfs_write <- function(fs, name, data, type, metadata){
   stopifnot(is.raw(data))
   stopifnot(is.character(name))
-  .Call(R_mongo_gridfs_write, fs, name, data, type)
+  metadata <- if(length(metadata))
+    bson_or_json(metadata)
+  .Call(R_mongo_gridfs_write, fs, name, data, type, metadata)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_read

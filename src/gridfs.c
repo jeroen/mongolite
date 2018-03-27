@@ -73,7 +73,7 @@ SEXP R_mongo_gridfs_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   return Rf_list5(ids, names, sizes, dates, content_type);
 }
 
-SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type){
+SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type, SEXP meta_ptr){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   mongoc_stream_t * stream = mongoc_stream_file_new_for_path(CHAR(STRING_ELT(path, 0)), O_RDONLY, 0);
   if(stream == NULL)
@@ -86,10 +86,12 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type)
     stop("Failure at mongoc_gridfs_create_file_from_stream()");
   if(Rf_length(content_type) && STRING_ELT(content_type, 0) != NA_STRING)
     mongoc_gridfs_file_set_content_type(file, CHAR(STRING_ELT(content_type, 0)));
+  if(Rf_length(meta_ptr))
+    mongoc_gridfs_file_set_metadata(file, r2bson(meta_ptr));
   return save_file_and_get_id(file);
 }
 
-SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data, SEXP content_type){
+SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data, SEXP content_type, SEXP meta_ptr){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   mongoc_gridfs_file_opt_t opt = {0};
   opt.filename = get_string(name);
@@ -104,6 +106,8 @@ SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data, SEXP content_type){
     stop("Failure at mongoc_gridfs_file_writev");
   if(Rf_length(content_type) && STRING_ELT(content_type, 0) != NA_STRING)
     mongoc_gridfs_file_set_content_type(file, CHAR(STRING_ELT(content_type, 0)));
+  if(Rf_length(meta_ptr))
+    mongoc_gridfs_file_set_metadata(file, r2bson(meta_ptr));
   return save_file_and_get_id(file);
 }
 
