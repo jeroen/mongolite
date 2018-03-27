@@ -52,8 +52,8 @@ fs_object <- function(fs, client, orig){
     list <-  function(filter = '{}', options = '{}'){
       mongo_gridfs_list(fs, filter, options)
     }
-    upload <- function(path, name = basename(path)){
-      mongo_gridfs_upload(fs, name, path)
+    upload <- function(path, name = basename(path), content_type = NULL){
+      mongo_gridfs_upload(fs, name, path, content_type)
     }
     download <- function(name, path = name){
       mongo_gridfs_download(fs, name, path)
@@ -61,8 +61,8 @@ fs_object <- function(fs, client, orig){
     read <- function(name){
       mongo_gridfs_read(fs, name)
     }
-    write <- function(name, data){
-      mongo_gridfs_write(fs, name, data)
+    write <- function(name, data, content_type = NULL){
+      mongo_gridfs_write(fs, name, data, content_type)
     }
     remove <- function(name){
       mongo_gridfs_remove(fs, name)
@@ -87,19 +87,22 @@ mongo_gridfs_drop <- function(fs){
 mongo_gridfs_list <- function(fs, filter, opts){
   out <- .Call(R_mongo_gridfs_list, fs, bson_or_json(filter), bson_or_json(opts))
   out <- lapply(out, unlist, recursive = TRUE)
-  names(out) <- c('id', 'name', 'size', 'date')
+  names(out) <- c('id', 'name', 'size', 'date', 'type')
   out$date <- structure(out$date / 1000, class = c("POSIXct", "POSIXt"))
   data.frame(out, stringsAsFactors = FALSE)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_upload
-mongo_gridfs_upload <- function(fs, name, path){
+mongo_gridfs_upload <- function(fs, name, path, type){
   stopifnot(is.character(name))
   path <- normalizePath(path, mustWork = TRUE)
   stopifnot(length(name) == length(path))
   id <- rep(NA, length(name))
+  if(is.null(type))
+    type <- mime::guess_type(name, unknown = NA, empty = NA)
+  type <- as.character(rep_len(type, length(name)))
   for(i in seq_along(name)){
-    out <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i])
+    out <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i], type[i])
     id[i] = out$id
   }
   structure(id, names = name)
@@ -118,10 +121,10 @@ mongo_gridfs_download <- function(fs, name, path){
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_write
-mongo_gridfs_write <- function(fs, name, data){
+mongo_gridfs_write <- function(fs, name, data, type){
   stopifnot(is.raw(data))
   stopifnot(is.character(name))
-  .Call(R_mongo_gridfs_write, fs, name, data)
+  .Call(R_mongo_gridfs_write, fs, name, data, type)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_read

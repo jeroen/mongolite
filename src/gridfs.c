@@ -59,19 +59,21 @@ SEXP R_mongo_gridfs_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   SEXP sizes = R_NilValue;
   SEXP dates = R_NilValue;
   SEXP ids = R_NilValue;
+  SEXP content_type = R_NilValue;
   mongoc_gridfs_file_t * file;
   while ((file = mongoc_gridfs_file_list_next (list))) {
     names = PROTECT(Rf_cons(make_string(mongoc_gridfs_file_get_filename (file)), names));
     sizes = PROTECT(Rf_cons(Rf_ScalarReal(mongoc_gridfs_file_get_length (file)), sizes));
     dates = PROTECT(Rf_cons(Rf_ScalarReal(mongoc_gridfs_file_get_upload_date (file)), dates));
+    content_type = PROTECT(Rf_cons(make_string(mongoc_gridfs_file_get_content_type(file)), content_type));
     ids = PROTECT(Rf_cons(get_id_and_destroy(file), ids));
   }
   mongoc_gridfs_file_list_destroy (list);
-  UNPROTECT(Rf_length(names) * 4);
-  return Rf_list4(ids, names, sizes, dates);
+  UNPROTECT(Rf_length(names) * 5);
+  return Rf_list5(ids, names, sizes, dates, content_type);
 }
 
-SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
+SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   mongoc_stream_t * stream = mongoc_stream_file_new_for_path(CHAR(STRING_ELT(path, 0)), O_RDONLY, 0);
   if(stream == NULL)
@@ -82,10 +84,12 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path){
   mongoc_gridfs_file_t * file = mongoc_gridfs_create_file_from_stream (fs, stream, &opt);
   if(file == NULL)
     stop("Failure at mongoc_gridfs_create_file_from_stream()");
+  if(Rf_length(content_type) && STRING_ELT(content_type, 0) != NA_STRING)
+    mongoc_gridfs_file_set_content_type(file, CHAR(STRING_ELT(content_type, 0)));
   return save_file_and_get_id(file);
 }
 
-SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data){
+SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data, SEXP content_type){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   mongoc_gridfs_file_opt_t opt = {0};
   opt.filename = get_string(name);
@@ -98,6 +102,8 @@ SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data){
   iov.iov_base = RAW(data);
   if(mongoc_gridfs_file_writev(file, &iov, 1, 0) < iov.iov_len)
     stop("Failure at mongoc_gridfs_file_writev");
+  if(Rf_length(content_type) && STRING_ELT(content_type, 0) != NA_STRING)
+    mongoc_gridfs_file_set_content_type(file, CHAR(STRING_ELT(content_type, 0)));
   return save_file_and_get_id(file);
 }
 
