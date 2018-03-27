@@ -36,6 +36,6 @@ out <- unserialize(fs$read('iris3'))
 stopifnot(all.equal(out, datasets::iris3))
 
 # Show what we have
-fs$list()
+fs$find()
 fs$drop()
 }

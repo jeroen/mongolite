@@ -20,7 +20,7 @@
 #' stopifnot(all.equal(out, datasets::iris3))
 #'
 #' # Show what we have
-#' fs$list()
+#' fs$find()
 #' fs$drop()
 gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", options = ssl_options()){
   client <- do.call(mongo_client_new, c(list(uri = url), options))
