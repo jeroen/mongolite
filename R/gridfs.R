@@ -49,8 +49,8 @@ fs_object <- function(fs, client, orig){
     drop <- function(){
       mongo_gridfs_drop(fs)
     }
-    list <-  function(filter = '{}', options = '{}'){
-      mongo_gridfs_list(fs, filter, options)
+    find <-  function(filter = '{}', options = '{}'){
+      mongo_gridfs_find(fs, filter, options)
     }
     upload <- function(path, name = basename(path), content_type = NULL, metadata = NULL){
       mongo_gridfs_upload(fs, name, path, content_type, metadata)
@@ -83,9 +83,9 @@ mongo_gridfs_drop <- function(fs){
   .Call(R_mongo_gridfs_drop, fs)
 }
 
-#' @useDynLib mongolite R_mongo_gridfs_list
-mongo_gridfs_list <- function(fs, filter, opts){
-  out <- .Call(R_mongo_gridfs_list, fs, bson_or_json(filter), bson_or_json(opts))
+#' @useDynLib mongolite R_mongo_gridfs_find
+mongo_gridfs_find <- function(fs, filter, opts){
+  out <- .Call(R_mongo_gridfs_find, fs, bson_or_json(filter), bson_or_json(opts))
   out <- lapply(out, unlist, recursive = TRUE)
   names(out) <- c('id', 'name', 'size', 'date', 'type')
   out$date <- structure(out$date / 1000, class = c("POSIXct", "POSIXt"))

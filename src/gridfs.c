@@ -47,7 +47,7 @@ SEXP R_mongo_gridfs_drop (SEXP ptr_fs){
   return ScalarLogical(1);
 }
 
-SEXP R_mongo_gridfs_list(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
+SEXP R_mongo_gridfs_find(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_t *filter = r2bson(ptr_filter);
   bson_t *opts = r2bson(ptr_opts);
