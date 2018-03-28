@@ -86,10 +86,14 @@ mongo_gridfs_drop <- function(fs){
 #' @useDynLib mongolite R_mongo_gridfs_find
 mongo_gridfs_find <- function(fs, filter, opts){
   out <- .Call(R_mongo_gridfs_find, fs, bson_or_json(filter), bson_or_json(opts))
-  out <- lapply(out, unlist, recursive = TRUE)
-  names(out) <- c('id', 'name', 'size', 'date', 'type')
-  out$date <- structure(out$date / 1000, class = c("POSIXct", "POSIXt"))
-  data.frame(out, stringsAsFactors = FALSE)
+  data.frame(
+    id = vapply(out[[1]], `[[`, character(1), 'id'),
+    name = as.character(out[[2]]),
+    size = as.numeric(out[[3]]),
+    date = structure(as.numeric(out[[4]]) / 1000, class = c("POSIXct", "POSIXt")),
+    type = as.character(out[[5]]),
+    stringsAsFactors = FALSE
+  )
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_upload

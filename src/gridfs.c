@@ -10,6 +10,10 @@ const char * get_string(SEXP x){
   return translateCharUTF8(STRING_ELT(x, 0));
 }
 
+SEXP append_tail(SEXP el, SEXP tail){
+  return SETCDR(tail, Rf_cons(el, R_NilValue));
+}
+
 SEXP get_id_and_destroy(mongoc_gridfs_file_t * file){
   bson_t val;
   bson_init (&val);
@@ -53,24 +57,25 @@ SEXP R_mongo_gridfs_find(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
   bson_t *opts = r2bson(ptr_opts);
   mongoc_gridfs_file_list_t * list = mongoc_gridfs_find_with_opts (fs, filter, opts);
 
-  /* iterate through results and store in linked list */
-  /* TODO: only protect head of lists */
-  SEXP names = R_NilValue;
-  SEXP sizes = R_NilValue;
-  SEXP dates = R_NilValue;
-  SEXP ids = R_NilValue;
-  SEXP content_type = R_NilValue;
+  /* Protect HEAD sentinel nodes for each list */
+  SEXP a,b,c,d,e;
+  SEXP ids = a = PROTECT(Rf_list1(R_NilValue));
+  SEXP names = b = PROTECT(Rf_list1(R_NilValue));
+  SEXP sizes = c = PROTECT(Rf_list1(R_NilValue));
+  SEXP dates = d = PROTECT(Rf_list1(R_NilValue));
+  SEXP content_type = e = PROTECT(Rf_list1(R_NilValue));
   mongoc_gridfs_file_t * file;
   while ((file = mongoc_gridfs_file_list_next (list))) {
-    names = PROTECT(Rf_cons(make_string(mongoc_gridfs_file_get_filename (file)), names));
-    sizes = PROTECT(Rf_cons(Rf_ScalarReal(mongoc_gridfs_file_get_length (file)), sizes));
-    dates = PROTECT(Rf_cons(Rf_ScalarReal(mongoc_gridfs_file_get_upload_date (file)), dates));
-    content_type = PROTECT(Rf_cons(make_string(mongoc_gridfs_file_get_content_type(file)), content_type));
-    ids = PROTECT(Rf_cons(get_id_and_destroy(file), ids));
+    names = append_tail(make_string(mongoc_gridfs_file_get_filename (file)), names);
+    sizes = append_tail(Rf_ScalarReal(mongoc_gridfs_file_get_length (file)), sizes);
+    dates = append_tail(Rf_ScalarReal(mongoc_gridfs_file_get_upload_date (file)), dates);
+    content_type = append_tail(make_string(mongoc_gridfs_file_get_content_type(file)), content_type);
+    ids = append_tail(get_id_and_destroy(file), ids);
   }
   mongoc_gridfs_file_list_destroy (list);
-  UNPROTECT(Rf_length(names) * 5);
-  return Rf_list5(ids, names, sizes, dates, content_type);
+  SEXP out = Rf_list5(CDR(a), CDR(b), CDR(c), CDR(d), CDR(e)); // CDR() drops sentinel node
+  UNPROTECT(5);
+  return out;
 }
 
 SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type, SEXP meta_ptr){
