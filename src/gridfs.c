@@ -32,6 +32,17 @@ SEXP save_file_and_get_id(mongoc_gridfs_file_t * file){
   return get_id_and_destroy(file);
 }
 
+SEXP create_outlist(mongoc_gridfs_file_t * file, SEXP data){
+  PROTECT(data);
+  SEXP filename = PROTECT(make_string(mongoc_gridfs_file_get_filename(file)));
+  SEXP content_type = PROTECT(make_string(mongoc_gridfs_file_get_content_type(file)));
+  SEXP metadata = PROTECT(bson_to_str(mongoc_gridfs_file_get_metadata(file)));
+  SEXP id = PROTECT(get_id_and_destroy(file));
+  SEXP out = Rf_list5(id, filename, content_type, metadata, data);
+  UNPROTECT(5);
+  return out;
+}
+
 SEXP R_mongo_gridfs_new(SEXP ptr_client, SEXP prefix, SEXP db) {
   mongoc_client_t *client = r2client(ptr_client);
   bson_error_t err;
@@ -129,18 +140,11 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   if(!stream)
     stop("Failed to create mongoc_stream_gridfs_new");
 
-  SEXP buf = PROTECT(Rf_allocVector(RAWSXP, size));
+  SEXP buf = Rf_allocVector(RAWSXP, size);
   if(mongoc_stream_read (stream, RAW(buf), size, -1, 0) < size)
     stop("Failed to read entire steam");
-
   mongoc_stream_destroy (stream);
-  SEXP filename = PROTECT(make_string(mongoc_gridfs_file_get_filename(file)));
-  SEXP content_type = PROTECT(make_string(mongoc_gridfs_file_get_content_type(file)));
-  SEXP metadata = PROTECT(bson_to_str(mongoc_gridfs_file_get_metadata(file)));
-  SEXP id = PROTECT(get_id_and_destroy(file));
-  SEXP out = Rf_list5(id, filename, content_type, metadata, buf);
-  UNPROTECT(5);
-  return out;
+  return create_outlist(file, buf);
 }
 
 SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
@@ -170,8 +174,7 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
   }
   fclose(fp);
   mongoc_stream_destroy (stream);
-  mongoc_gridfs_file_destroy(file);
-  return path;
+  return create_outlist(file, path);
 }
 
 SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
