@@ -87,7 +87,7 @@ mongo_gridfs_drop <- function(fs){
 mongo_gridfs_find <- function(fs, filter, opts){
   out <- .Call(R_mongo_gridfs_find, fs, bson_or_json(filter), bson_or_json(opts))
   data.frame(
-    id = vapply(out[[1]], `[[`, character(1), 'id'),
+    id = as.character(out[[1]]),
     name = as.character(out[[2]]),
     size = as.numeric(out[[3]]),
     date = structure(as.numeric(out[[4]]) / 1000, class = c("POSIXct", "POSIXt")),
@@ -108,8 +108,7 @@ mongo_gridfs_upload <- function(fs, name, path, type, metadata){
   metadata <- if(length(metadata))
     bson_or_json(metadata)
   for(i in seq_along(name)){
-    out <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i], type[i], metadata)
-    id[i] = out$id
+    id[i] <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i], type[i], metadata)
   }
   structure(id, names = name)
 }
@@ -137,12 +136,13 @@ mongo_gridfs_write <- function(fs, name, data, type, metadata){
 
 #' @useDynLib mongolite R_mongo_gridfs_read
 mongo_gridfs_read <- function(fs, name){
-  .Call(R_mongo_gridfs_read, fs, name)
+  out <- .Call(R_mongo_gridfs_read, fs, name)
+  structure(as.list(out), names = c("id", "name", "type", "metadata", "data"))
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_remove
 mongo_gridfs_remove <- function(fs, name){
   vapply(name, function(x){
-    .Call(R_mongo_gridfs_remove, fs, x)$id
+    .Call(R_mongo_gridfs_remove, fs, x)
   }, character(1))
 }

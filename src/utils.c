@@ -12,6 +12,18 @@ SEXP mkStringUTF8(const char* str){
   return out;
 }
 
+SEXP bson_to_str(const bson_t * b){
+  if(b == NULL)
+    return mkString("");
+  size_t jsonlength;
+  char *str = bson_as_json(b, &jsonlength);
+  if(str == NULL)
+    return mkString("");
+  SEXP out = ScalarString(mkCharLenCE(str, jsonlength, CE_UTF8));
+  bson_free(str);
+  return out;
+}
+
 SEXP mkRaw(const unsigned char *buf, int len){
   //create raw vector
   SEXP out = PROTECT(allocVector(RAWSXP, len));
