@@ -2,10 +2,10 @@ arXiv
 bson
 datetime
 github
+GridFS
 int
 io
 jeroen
-Jeroen
 json
 jsonlines
 jsonlite
@@ -18,6 +18,5 @@ mongodump
 mongoexport
 mongoimport
 mongorestore
-Ooms
 PEM
 POSIXct

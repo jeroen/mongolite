@@ -16,8 +16,9 @@
 #'
 #' # Insert Binary Data
 #' fs$write('iris3', serialize(datasets::iris3, NULL))
-#' out <- unserialize(fs$read('iris3'))
-#' stopifnot(all.equal(out, datasets::iris3))
+#' out <- fs$read('iris3')
+#' iris4 <- unserialize(out$data)
+#' stopifnot(all.equal(iris4, datasets::iris3))
 #'
 #' # Show what we have
 #' fs$find()
