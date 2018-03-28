@@ -133,7 +133,7 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   bson_error_t err;
   mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
   if(file == NULL)
-    stop(err.message);
+    stop("File not found. %s", err.message);
 
   ssize_t size = mongoc_gridfs_file_get_length(file);
   mongoc_stream_t * stream = mongoc_stream_gridfs_new (file);
@@ -152,7 +152,7 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
   bson_error_t err;
   mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
   if(file == NULL)
-    stop(err.message);
+    stop("File not found. %s", err.message);
 
   mongoc_stream_t * stream = mongoc_stream_gridfs_new (file);
   if(!stream)
@@ -182,7 +182,7 @@ SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
   bson_error_t err;
   mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
   if(file == NULL)
-    stop(err.message);
+    stop("File not found. %s", err.message);
   if(!mongoc_gridfs_file_remove(file, &err))
     stop(err.message);
   return get_id_and_destroy(file);
