@@ -23,6 +23,8 @@ SystemRequirements: OpenSSL, Cyrus SASL (aka libsasl2)
 RoxygenNote: 6.0.1.9000
 Roxygen: list(markdown = TRUE)
 Suggests:
-    spelling
+    spelling,
+    nycflights13,
+    ggplot2
 Language: en-GB
 Encoding: UTF-8
