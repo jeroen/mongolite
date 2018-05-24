@@ -61,10 +61,16 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
     out <- as.list(out, sorted = FALSE)
     out <- out[order(as.numeric(names(out)))]
     if (flat) {
-      out <- lapply(out, as.data.frame, stringsAsFactors = FALSE)
-      out <- do.call("rbind", out)
-      # Alternatively:
-      # out <- data.table::rbindlist(out)
+      if (requireNamespace("dplyr", quietly = TRUE)) {
+        out <- dplyr::bind_rows(out)
+      } else if (requireNamespace("data.table", quietly = TRUE)) {
+        out <- data.table::rbindlist(out, fill = TRUE)
+      } else {
+        # TODO: This is much, much slower. We might consider bundling an
+        # rbindlist implementation suited to the inputs instead.
+        out <- lapply(out, as.data.frame, stringsAsFactors = FALSE)
+        out <- do.call("rbind", out)
+      }
       # For compatibility with jsonlite:::simplifyDataFrame():
       attr(out, "row.names") <- seq_len(nrow(out))
       out
