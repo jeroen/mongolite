@@ -33,7 +33,8 @@ methods listed below.
 \examples{
 # Connect to mongolabs
 con <- mongo_client(url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
-coll <- con$use('testcollection', 'testdatabase')
+con$default_database()
+coll <- con$use('testcollection', 'jeroen_test')
 coll$find()
 rm(con)
 gc()

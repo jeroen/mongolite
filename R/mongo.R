@@ -106,7 +106,14 @@
 mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
   mongoclient <- mongo_client(url, verbose, options)
 
-  mongoclient$use(collection, db)
+  actual_db <-
+    if(missing(db) || is.null(db)){
+      url_db <- mongoclient$default_database()
+      if(length(url_db) && nchar(url_db))
+        db <- url_db
+    } else db
+
+  mongoclient$use(collection, actual_db)
 }
 
 mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, orig){

@@ -11,7 +11,8 @@
 #' @return Upon success returns a pointer to database connection instance.
 #' @examples # Connect to mongolabs
 #' con <- mongo_client(url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
-#' coll <- con$use('testcollection', 'testdatabase')
+#' con$default_database()
+#' coll <- con$use('testcollection', 'jeroen_test')
 #' coll$find()
 #' rm(con)
 #' gc()
@@ -51,6 +52,10 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
       connect_to_db_and_coll(db, collection)
     }
 
+    default_database <- function() {
+      mongo_get_default_database(client)
+    }
+
     server_status <- function() {
       mongo_client_server_status(client)
     }
@@ -60,14 +65,6 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
   lockEnvironment(self, TRUE)
 
   connect_to_db_and_coll <- function(db, collection) {
-
-    # workaround for missing 'mongoc_client_get_default_database'
-    if(missing(db) || is.null(db)){
-      url_db <- mongo_get_default_database(client)
-      if(length(url_db) && nchar(url_db))
-        db <- url_db
-    }
-
     col <- mongo_collection_new(client, collection, db)
     mongo_collection_command_simple(col, '{"ping":1}')
     orig <- list(
