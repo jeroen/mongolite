@@ -86,14 +86,18 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
 }
 
 
-SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size){
+SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size, SEXP as_json){
   mongoc_cursor_t *c = r2cursor(ptr);
   int n = asInteger(size);
   const bson_t *b = NULL;
   SEXP list = PROTECT(allocVector(VECSXP, n));
   int total = 0;
   for(int i = 0; i < n && mongoc_cursor_next(c, &b); i++){
-    SET_VECTOR_ELT(list, i, bson2list((bson_t*) b));
+    if(asLogical(as_json)){
+      SET_VECTOR_ELT(list, i, bson_to_str(b));
+    } else {
+      SET_VECTOR_ELT(list, i, bson2list((bson_t*) b));
+    }
     total++;
   }
 

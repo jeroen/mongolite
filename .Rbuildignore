@@ -18,3 +18,5 @@
 ^appveyor\.yml$
 ^tests/testthat/specifications/(?!source).*$
 ^tests/testthat/specifications/source/(?!bson-).*$
+^test.R$
+^gridfs.rmd

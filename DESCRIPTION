@@ -12,7 +12,8 @@ Authors@R: c(
   )
 Imports:
     jsonlite (>= 1.4),
-    openssl (>= 0.9.4)
+    openssl (>= 0.9.4),
+    mime
 License: Apache License 2.0
 URL: https://github.com/jeroen/mongolite/ (devel) 
     https://jeroen.github.io/mongolite/ (user manual)
@@ -22,5 +23,8 @@ SystemRequirements: OpenSSL, Cyrus SASL (aka libsasl2)
 RoxygenNote: 6.0.1.9000
 Roxygen: list(markdown = TRUE)
 Suggests:
-    spelling
+    spelling,
+    nycflights13,
+    ggplot2
 Language: en-GB
+Encoding: UTF-8

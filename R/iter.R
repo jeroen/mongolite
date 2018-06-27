@@ -6,6 +6,9 @@ mongo_iterator <- function(cur, col){
     batch <- function(size = 1000){
       mongo_cursor_next_page(cur, size = size)
     }
+    json <- function(size = 1000){
+      as.character(mongo_cursor_next_page(cur, size = size, as_json = TRUE))
+    }
     page <- function(size = 1000){
       as.data.frame(jsonlite:::simplify(mongo_cursor_next_page(cur, size = size)))
     }

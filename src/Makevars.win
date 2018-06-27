@@ -25,7 +25,7 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cursor-transform.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
 	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
 	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
-	mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
+	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
 	mongoc/mongoc-rand-openssl.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
 	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
 	mongoc/mongoc-stream-buffered.o	mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
@@ -38,7 +38,7 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-read-concern.o mongoc/mongoc-openssl.o mongoc/mongoc-apm.o \
 	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-openssl.o mongoc/mongoc-handshake.o \
 	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o \
-	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o \
+	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o mongoc/mongoc-stream-file.o \
 	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o \
 	mongoc/mongoc-compression.o mongoc/mongoc-write-command-legacy.o \
 	mongoc/mongoc-sspi.o mongoc/mongoc-cluster-sspi.o mongoc/mongoc-queue.o
