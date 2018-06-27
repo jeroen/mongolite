@@ -2,7 +2,6 @@
 % Please edit documentation in R/mongoclient.R
 \name{mongo_client}
 \alias{mongo_client}
-\alias{mongolite}
 \title{MongoDB client}
 \usage{
 mongo_client(url = "mongodb://localhost", verbose = FALSE,
@@ -34,11 +33,11 @@ methods listed below.
 \examples{
 # Connect to mongolabs
 con <- mongo_client(url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
-con$use('testcollection', 'testdatabase')
-con$close()
+coll <- con$use('testcollection', 'testdatabase')
+coll$find()
+rm(con)
+gc()
 }
 \references{
-\href{https://jeroen.github.io/mongolite/}{Mongolite User Manual}
-
 Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 }

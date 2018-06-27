@@ -4,8 +4,6 @@
 #' methods listed below.
 #'
 #' @export
-#' @aliases mongolite
-#' @references [Mongolite User Manual](https://jeroen.github.io/mongolite/)
 #' @param url address of the mongodb server in mongo connection string
 #' [URI format](http://docs.mongodb.org/manual/reference/connection-string)
 #' @param verbose emit some more output
@@ -13,8 +11,10 @@
 #' @return Upon success returns a pointer to database connection instance.
 #' @examples # Connect to mongolabs
 #' con <- mongo_client(url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
-#' con$use('testcollection', 'testdatabase')
-#' con$close()
+#' coll <- con$use('testcollection', 'testdatabase')
+#' coll$find()
+#' rm(con)
+#' gc()
 #' @section Methods:
 #' \describe{
 #'   \item{\code{use(collection, db)}}{Creates a [mongo] object representing a collection in a database with the active connection}
@@ -30,7 +30,7 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
       message("Connection lost. Trying to reconnect with mongo...")
       if(length(options$pem_file) && !file.exists(options$pem_file)){
         options$pem_file <- tempfile()
-        writeLines(attr(orig, "pemdata"), orig$options$pem_file) # FIXME
+        writeLines(attr(orig, "pemdata"), options$pem_file) # FIXME
       }
       client <<- do.call(mongo_client_new, c(list(uri = url), options))
       FALSE
@@ -79,7 +79,7 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
     if(length(options$pem_file) && file.exists(options$pem_file))
       attr(orig, "pemdata") <- readLines(options$pem_file)
 
-    mongo_object(col, self, db, collection, verbose, options)
+    mongo_object(col, self, db, collection, verbose, orig)
   }
 
   structure(self, class=c("mongo_client", "jeroen", class(self)))
