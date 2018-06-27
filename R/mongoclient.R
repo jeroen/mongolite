@@ -25,21 +25,21 @@ mongo_client <- function(url = "mongodb://localhost", verbose = FALSE, options =
   client <- do.call(mongo_client_new, c(list(uri = url), options))
 
   # Check if the ptr has died and automatically recreate it
-  check_conn <- function() {
+  check_conn <- function(orig) {
     if(null_ptr(client)){
       message("Connection lost. Trying to reconnect with mongo...")
-      if(length(options$pem_file) && !file.exists(options$pem_file)){
-        options$pem_file <- tempfile()
-        writeLines(attr(orig, "pemdata"), options$pem_file) # FIXME
+      if(length(orig$options$pem_file) && !file.exists(orig$options$pem_file)){
+        orig$options$pem_file <- tempfile()
+        writeLines(attr(orig, "pemdata"), orig$options$pem_file)
       }
-      client <<- do.call(mongo_client_new, c(list(uri = url), options))
+      client <<- do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
       FALSE
     } else TRUE
   }
 
   # If reconnected, recreates the collection pointer
-  check_col <- function(col, col_name, db) {
-    if( !check_conn() ) {
+  check_col <- function(col, col_name, db, orig) {
+    if( !check_conn(orig) ) {
       newcol <- mongo_collection_new(client, col_name, db)
       mongo_collection_command_simple(newcol, '{"ping":1}')
       newcol

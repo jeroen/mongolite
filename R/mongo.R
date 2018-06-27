@@ -113,15 +113,19 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
 
   col <- col_
 
+  renewColl <- function() {
+    col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name, orig)
+  }
+
   # The reference object
   self <- local({
     use <- function(collection, db = db_name){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       mongo_client$use(collection, db)
     }
 
     insert <- function(data, pagesize = 1000, stop_on_error = TRUE, ...){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       if(is.data.frame(data)){
         mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose, stop_on_error = stop_on_error, ...)
       } else if(is.list(data) && !is.null(names(data))){
@@ -144,20 +148,20 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
     }
 
     find <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0, handler = NULL, pagesize = 1000){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
     iterate <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       # make sure 'col' does not go out of scope to prevent gc
       mongo_iterator(cur, col)
     }
 
     export <- function(con = stdout(), bson = FALSE){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       if(isTRUE(bson)){
         mongo_dump(col, con, verbose = verbose)
       } else {
@@ -166,7 +170,7 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
     }
 
     import <- function(con, bson = FALSE){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       if(isTRUE(bson)){
         mongo_restore(col, con, verbose = verbose)
       } else {
@@ -175,38 +179,38 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
     }
 
     aggregate <- function(pipeline = '{}', options = '{"allowDiskUse":true}', handler = NULL, pagesize = 1000){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       cur <- mongo_collection_aggregate(col, pipeline, options)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
     count <- function(query = '{}'){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       mongo_collection_count(col, query)
     }
 
     remove <- function(query, just_one = FALSE){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       invisible(mongo_collection_remove(col, query, just_one))
     }
 
     drop <- function(){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       invisible(mongo_collection_drop(col))
     }
 
     update <- function(query, update = '{"$set":{}}', filters = NULL, upsert = FALSE, multiple = FALSE){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       mongo_collection_update(col, query, update, filters, upsert, multiple = multiple, replace = FALSE)
     }
 
     replace <- function(query, update = '{}', upsert = FALSE){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       mongo_collection_update(col, query, update, upsert = upsert, replace = TRUE)
     }
 
     mapreduce <- function(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       cur <- mongo_collection_mapreduce(col, map = map, reduce = reduce, query = query,
         sort = sort, limit = limit, out = out, scope = scope)
       results <- mongo_stream_in(cur, verbose = FALSE)
@@ -217,13 +221,13 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
     }
 
     distinct <- function(key, query = '{}'){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       out <- mongo_collection_distinct(col, key, query)
       jsonlite:::simplify(out$values)
     }
 
     info <- function(){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       list(
         name = mongo_collection_name(col),
         stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
@@ -232,7 +236,7 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
     }
 
     rename <- function(name, db = NULL){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       out <- mongo_collection_rename(col, db, name)
       orig <<- list(
         name =  tryCatch(mongo_collection_name(col), error = function(e){name}),
@@ -243,12 +247,12 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
     }
 
     run <- function(command = '{"ping: 1}'){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       mongo_collection_command_simple(col, command)
     }
 
     index <- function(add = NULL, remove = NULL){
-      col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name)
+      renewColl()
       if(length(add))
         mongo_collection_create_index(col, add);
 
