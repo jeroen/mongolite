@@ -49,6 +49,7 @@ is the best place to get started.
 \item{\code{run(comand = '{"ping: 1}')}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 \item{\code{replace(query, update = '{}', upsert = FALSE)}}{Replace matching record(s) with value of the \code{update} argument.}
 \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Modify fields of matching record(s) with value of the \code{update} argument.}
+\item{\code{use(collection, db)}}{Creates a \link{mongo} object representing a collection in a database, using the active connection}#'
 }
 }
 

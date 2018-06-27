@@ -26,3 +26,25 @@ test_that("remove data", {
   expect_equal(m$count(), 0L)
   expect_true(m$drop())
 })
+
+test_that("multiple collections", {
+  b <- m$use(db='test', coll='b')
+  expect_equal(b$count(), 0L)
+  expect_equal(m$count(), 0L)
+
+  b$insert(diamonds)
+  expect_equal(b$count(), nrow(diamonds))
+  expect_equal(m$count(), 0L)
+
+  m$insert(diamonds[1:100,])
+  expect_equal(m$count(), 100L)
+  expect_equal(b$count(), nrow(diamonds))
+
+  b$remove('{}', just_one = FALSE)
+  expect_equal(b$count(), 0L)
+  expect_true(b$drop())
+
+  m$remove('{}', just_one = FALSE)
+  expect_equal(m$count(), 0L)
+  expect_true(m$drop())
+})

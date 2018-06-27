@@ -67,7 +67,3 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
 
   return client2r(client);
 }
-
-void R_mongo_client_close(SEXP ptr_client) {
-  fin_client(ptr_client);
-}
