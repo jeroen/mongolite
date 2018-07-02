@@ -276,10 +276,19 @@ mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, 
 
 #' @export
 print.mongo <- function(x, ...){
-  if( exists('mongo_client', parent.env(x)) )
-    parent.env(parent.env(x)$mongo_client)$check_conn()
-  else
-    parent.env(x)$check_conn()
+  if( exists('mongo_client', parent.env(x)) ) {
+    parent.env(x)$renewColl()
+  } else {
+    print('type')
+    print(typeof(x))
+    print('attr')
+    print(ls(x))
+    print('pattr')
+    print(ls(parent.env(x)))
+    print('pattr2')
+    print(ls(parent.env(parent.env(x))))
+    parent.env(x)$renewColl()
+  }
   print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(x)$col), "'"))
 }
 
