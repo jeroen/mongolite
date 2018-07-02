@@ -6,6 +6,7 @@
 #' @export
 #' @param prefix string to prefix the collection name
 #' @examples # New GridFS
+#' \donttest{
 #' fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 #' input <- R.home('doc/NEWS.pdf')
 #' fs$upload(input)
@@ -23,6 +24,7 @@
 #' # Show what we have
 #' fs$find()
 #' fs$drop()
+#' }
 gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", options = ssl_options()){
   client <- do.call(mongo_client_new, c(list(uri = url), options))
 

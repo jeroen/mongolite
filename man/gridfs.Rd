@@ -22,6 +22,7 @@ Connect to a GridFS database.
 }
 \examples{
 # New GridFS
+\donttest{
 fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 input <- R.home('doc/NEWS.pdf')
 fs$upload(input)
@@ -39,4 +40,5 @@ stopifnot(all.equal(iris4, datasets::iris3))
 # Show what we have
 fs$find()
 fs$drop()
+}
 }
