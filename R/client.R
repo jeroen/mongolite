@@ -15,7 +15,6 @@ mongo_get_default_database <- function(client){
 #' @useDynLib mongolite R_mongo_client_new
 mongo_client_new <- function(uri = "mongodb://127.0.0.1", pem_file = NULL, pem_pwd = NULL,
     ca_file = NULL, ca_dir = NULL, crl_file = NULL, allow_invalid_hostname = NULL, weak_cert_validation = NULL){
-
   stopifnot(is.character(uri))
   pem_file <- as.character(pem_file)
   pem_pwd <- as.character(pem_pwd)

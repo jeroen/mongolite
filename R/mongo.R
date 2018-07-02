@@ -1,4 +1,4 @@
-#' MongoDB client
+#' MongoDB collection client
 #'
 #' Connect to a MongoDB collection. Returns a [mongo] connection object with
 #' methods listed below. The [mongolite user manual](https://jeroen.github.io/mongolite/)
@@ -101,52 +101,38 @@
 #'   \item{\code{run(comand = '{"ping: 1}')}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 #'   \item{\code{replace(query, update = '{}', upsert = FALSE)}}{Replace matching record(s) with value of the \code{update} argument.}
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Modify fields of matching record(s) with value of the \code{update} argument.}
+#'   \item{\code{use(collection, db)}}{Creates a [mongo] object representing a collection in a database, using the active connection}#'
 #' }
-#' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
-  client <- do.call(mongo_client_new, c(list(uri = url), options))
+  mongoclient <- mongo_client(url, verbose, options)
 
-  # workaround for missing 'mongoc_client_get_default_database'
-  if(missing(db) || is.null(db)){
-    url_db <- mongo_get_default_database(client)
-    if(length(url_db) && nchar(url_db))
-      db <- url_db
-  }
+  actual_db <-
+    if(missing(db) || is.null(db)){
+      url_db <- mongoclient$default_database()
+      if(length(url_db) && nchar(url_db))
+        db <- url_db
+    } else db
 
-  col <- mongo_collection_new(client, collection, db)
-  mongo_collection_command_simple(col, '{"ping":1}')
-  orig <- list(
-    name = tryCatch(mongo_collection_name(col), error = function(e){collection}),
-    db = db,
-    url = url,
-    options = options
-  )
-  if(length(options$pem_file) && file.exists(options$pem_file))
-    attr(orig, "pemdata") <- readLines(options$pem_file)
-  mongo_object(col, client, verbose = verbose, orig)
+  mongoclient$use(collection, actual_db)
 }
 
-mongo_object <- function(col, client, verbose, orig){
-  # Check if the ptr has died and automatically recreate it
-  check_col <- function(){
-    if(null_ptr(col)){
-      message("Connection lost. Trying to reconnect with mongo...")
-      if(length(orig$options$pem_file) && !file.exists(orig$options$pem_file)){
-        orig$options$pem_file <- tempfile()
-        writeLines(attr(orig, "pemdata"), orig$options$pem_file)
-      }
-      newclient <-  do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
-      newcol <- mongo_collection_new(newclient, orig$name, orig$db)
-      mongo_collection_command_simple(newcol, '{"ping":1}')
-      client <<- newclient
-      col <<- newcol
-    }
+mongo_object <- function(col_, mongo_client, db_name, collection_name, verbose, orig){
+
+  col <- col_
+
+  renewColl <- function() {
+    col <<- parent.env(mongo_client)$check_col(col, collection_name, db_name, orig)
   }
 
   # The reference object
   self <- local({
+    use <- function(collection, db = db_name){
+      renewColl()
+      mongo_client$use(collection, db)
+    }
+
     insert <- function(data, pagesize = 1000, stop_on_error = TRUE, ...){
-      check_col()
+      renewColl()
       if(is.data.frame(data)){
         mongo_stream_out(data, col, pagesize = pagesize, verbose = verbose, stop_on_error = stop_on_error, ...)
       } else if(is.list(data) && !is.null(names(data))){
@@ -160,7 +146,7 @@ mongo_object <- function(col, client, verbose, orig){
           el <- paste(which(!is_valid), collapse = ", ")
           stop("Argument 'data' contains strings that are not JSON objects at elements: ", el)
         }
-         mongo_collection_insert_page(col, data, stop_on_error = stop_on_error)
+        mongo_collection_insert_page(col, data, stop_on_error = stop_on_error)
       } else if(inherits(data, "bson")){
         mongo_collection_insert_bson(col, data, stop_on_error = stop_on_error)
       } else {
@@ -169,20 +155,20 @@ mongo_object <- function(col, client, verbose, orig){
     }
 
     find <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0, handler = NULL, pagesize = 1000){
-      check_col()
+      renewColl()
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
     iterate <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
-      check_col()
+      renewColl()
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
       # make sure 'col' does not go out of scope to prevent gc
       mongo_iterator(cur, col)
     }
 
     export <- function(con = stdout(), bson = FALSE){
-      check_col()
+      renewColl()
       if(isTRUE(bson)){
         mongo_dump(col, con, verbose = verbose)
       } else {
@@ -191,7 +177,7 @@ mongo_object <- function(col, client, verbose, orig){
     }
 
     import <- function(con, bson = FALSE){
-      check_col()
+      renewColl()
       if(isTRUE(bson)){
         mongo_restore(col, con, verbose = verbose)
       } else {
@@ -200,38 +186,38 @@ mongo_object <- function(col, client, verbose, orig){
     }
 
     aggregate <- function(pipeline = '{}', options = '{"allowDiskUse":true}', handler = NULL, pagesize = 1000){
-      check_col()
+      renewColl()
       cur <- mongo_collection_aggregate(col, pipeline, options)
       mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
     }
 
     count <- function(query = '{}'){
-      check_col()
+      renewColl()
       mongo_collection_count(col, query)
     }
 
     remove <- function(query, just_one = FALSE){
-      check_col()
+      renewColl()
       invisible(mongo_collection_remove(col, query, just_one))
     }
 
     drop <- function(){
-      check_col()
+      renewColl()
       invisible(mongo_collection_drop(col))
     }
 
     update <- function(query, update = '{"$set":{}}', filters = NULL, upsert = FALSE, multiple = FALSE){
-      check_col()
+      renewColl()
       mongo_collection_update(col, query, update, filters, upsert, multiple = multiple, replace = FALSE)
     }
 
     replace <- function(query, update = '{}', upsert = FALSE){
-      check_col()
+      renewColl()
       mongo_collection_update(col, query, update, upsert = upsert, replace = TRUE)
     }
 
     mapreduce <- function(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL){
-      check_col()
+      renewColl()
       cur <- mongo_collection_mapreduce(col, map = map, reduce = reduce, query = query,
         sort = sort, limit = limit, out = out, scope = scope)
       results <- mongo_stream_in(cur, verbose = FALSE)
@@ -242,37 +228,38 @@ mongo_object <- function(col, client, verbose, orig){
     }
 
     distinct <- function(key, query = '{}'){
-      check_col()
+      renewColl()
       out <- mongo_collection_distinct(col, key, query)
       jsonlite:::simplify(out$values)
     }
 
     info <- function(){
-      check_col()
+      renewColl()
       list(
         name = mongo_collection_name(col),
         stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
-        server = mongo_client_server_status(client)
+        server = mongo_client$server_status()
       )
     }
 
     rename <- function(name, db = NULL){
-      check_col()
+      renewColl()
       out <- mongo_collection_rename(col, db, name)
       orig <<- list(
         name =  tryCatch(mongo_collection_name(col), error = function(e){name}),
-        db = ifelse(is.null(db), orig$db, db),
+        db = ifelse(is.null(db), db_name, db),
         url = orig$url
       )
       orig
     }
 
     run <- function(command = '{"ping: 1}'){
+      renewColl()
       mongo_collection_command_simple(col, command)
     }
 
     index <- function(add = NULL, remove = NULL){
-      check_col()
+      renewColl()
       if(length(add))
         mongo_collection_create_index(col, add);
 
@@ -289,7 +276,19 @@ mongo_object <- function(col, client, verbose, orig){
 
 #' @export
 print.mongo <- function(x, ...){
-  parent.env(x)$check_col()
+  if( exists('mongo_client', parent.env(x)) ) {
+    parent.env(x)$renewColl()
+  } else {
+    print('type')
+    print(typeof(x))
+    print('attr')
+    print(ls(x))
+    print('pattr')
+    print(ls(parent.env(x)))
+    print('pattr2')
+    print(ls(parent.env(parent.env(x))))
+    parent.env(x)$renewColl()
+  }
   print.jeroen(x, title = paste0("<Mongo collection> '", mongo_collection_name(parent.env(x)$col), "'"))
 }
 

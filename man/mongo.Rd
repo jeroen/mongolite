@@ -3,7 +3,7 @@
 \name{mongo}
 \alias{mongo}
 \alias{mongolite}
-\title{MongoDB client}
+\title{MongoDB collection client}
 \usage{
 mongo(collection = "test", db = "test", url = "mongodb://localhost",
   verbose = FALSE, options = ssl_options())
@@ -49,6 +49,7 @@ is the best place to get started.
 \item{\code{run(comand = '{"ping: 1}')}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 \item{\code{replace(query, update = '{}', upsert = FALSE)}}{Replace matching record(s) with value of the \code{update} argument.}
 \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Modify fields of matching record(s) with value of the \code{update} argument.}
+\item{\code{use(collection, db)}}{Creates a \link{mongo} object representing a collection in a database, using the active connection}#'
 }
 }
 
@@ -123,6 +124,4 @@ dmd$drop()
 }
 \references{
 \href{https://jeroen.github.io/mongolite/}{Mongolite User Manual}
-
-Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 }
