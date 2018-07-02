@@ -4,6 +4,7 @@
  - Collection and cursor pointers now protect parent from GC
  - Make internal functions static
  - interate object gains a json() method
+ - Experimental GridFS support
 
 1.5
  - Change default value of 'filters' to NULL for MongoDB < 3.4
