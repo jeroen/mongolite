@@ -28,9 +28,11 @@
 BSON_BEGIN_DECLS
 
 
+#define MONGOC_READ_CONCERN_LEVEL_AVAILABLE "available"
 #define MONGOC_READ_CONCERN_LEVEL_LOCAL "local"
 #define MONGOC_READ_CONCERN_LEVEL_MAJORITY "majority"
 #define MONGOC_READ_CONCERN_LEVEL_LINEARIZABLE "linearizable"
+#define MONGOC_READ_CONCERN_LEVEL_SNAPSHOT "snapshot"
 
 typedef struct _mongoc_read_concern_t mongoc_read_concern_t;
 

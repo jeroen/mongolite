@@ -32,6 +32,8 @@
 
 BSON_BEGIN_DECLS
 
+/* forward decl */
+struct _mongoc_crud_opts_t;
 
 #define MONGOC_WRITE_COMMAND_DELETE 0
 #define MONGOC_WRITE_COMMAND_INSERT 1
@@ -49,6 +51,7 @@ struct _mongoc_bulk_write_flags_t {
    mongoc_write_bypass_document_validation_t bypass_document_validation;
    bool has_collation;
    bool has_multi_write;
+   bool has_array_filters;
 };
 
 
@@ -80,11 +83,21 @@ typedef struct {
    uint32_t n_writeConcernErrors;
    /* like [{"code": 64, "errmsg": "duplicate"}, ...] */
    bson_t writeConcernErrors;
+   /* like ["TransientTransactionError", ...] */
+   bson_t errorLabels;
    bool failed;    /* The command failed */
    bool must_stop; /* The stream may have been disconnected */
    bson_error_t error;
    uint32_t upsert_append_count;
 } mongoc_write_result_t;
+
+
+typedef enum {
+   MONGOC_WRITE_ERR_NONE,
+   MONGOC_WRITE_ERR_OTHER,
+   MONGOC_WRITE_ERR_RETRY,
+   MONGOC_WRITE_ERR_WRITE_CONCERN,
+} mongoc_write_err_type_t;
 
 
 const char *
@@ -97,8 +110,7 @@ _mongoc_write_command_destroy (mongoc_write_command_t *command);
 void
 _mongoc_write_command_init (bson_t *doc,
                             mongoc_write_command_t *command,
-                            const char *collection,
-                            const mongoc_write_concern_t *write_concern);
+                            const char *collection);
 void
 _mongoc_write_command_init_insert (mongoc_write_command_t *command,
                                    const bson_t *document,
@@ -107,6 +119,12 @@ _mongoc_write_command_init_insert (mongoc_write_command_t *command,
                                    int64_t operation_id,
                                    bool allow_bulk_op_insert);
 void
+_mongoc_write_command_init_insert_idl (mongoc_write_command_t *command,
+                                       const bson_t *document,
+                                       const bson_t *cmd_opts,
+                                       int64_t operation_id,
+                                       bool allow_bulk_op_insert);
+void
 _mongoc_write_command_init_delete (mongoc_write_command_t *command,
                                    const bson_t *selectors,
                                    const bson_t *cmd_opts,
@@ -114,12 +132,24 @@ _mongoc_write_command_init_delete (mongoc_write_command_t *command,
                                    mongoc_bulk_write_flags_t flags,
                                    int64_t operation_id);
 void
+_mongoc_write_command_init_delete_idl (mongoc_write_command_t *command,
+                                       const bson_t *selector,
+                                       const bson_t *cmd_opts,
+                                       const bson_t *opts,
+                                       int64_t operation_id);
+void
 _mongoc_write_command_init_update (mongoc_write_command_t *command,
                                    const bson_t *selector,
                                    const bson_t *update,
                                    const bson_t *opts,
                                    mongoc_bulk_write_flags_t flags,
                                    int64_t operation_id);
+void
+_mongoc_write_command_init_update_idl (mongoc_write_command_t *command,
+                                       const bson_t *selector,
+                                       const bson_t *update,
+                                       const bson_t *opts,
+                                       int64_t operation_id);
 void
 _mongoc_write_command_insert_append (mongoc_write_command_t *command,
                                      const bson_t *document);
@@ -149,6 +179,15 @@ _mongoc_write_command_execute (mongoc_write_command_t *command,
                                uint32_t offset,
                                mongoc_client_session_t *cs,
                                mongoc_write_result_t *result);
+void
+_mongoc_write_command_execute_idl (mongoc_write_command_t *command,
+                                   mongoc_client_t *client,
+                                   mongoc_server_stream_t *server_stream,
+                                   const char *database,
+                                   const char *collection,
+                                   uint32_t offset,
+                                   const struct _mongoc_crud_opts_t *crud,
+                                   mongoc_write_result_t *result);
 void
 _mongoc_write_result_init (mongoc_write_result_t *result);
 void
@@ -181,6 +220,10 @@ _mongoc_write_result_destroy (mongoc_write_result_t *result);
 void
 _append_array_from_command (mongoc_write_command_t *command, bson_t *bson);
 
+mongoc_write_err_type_t
+_mongoc_write_error_get_type (bool cmd_ret,
+                              const bson_error_t *cmd_err,
+                              const bson_t *reply);
 
 BSON_END_DECLS
 

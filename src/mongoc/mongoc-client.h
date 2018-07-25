@@ -76,6 +76,7 @@ typedef struct _mongoc_client_t mongoc_client_t;
 
 typedef struct _mongoc_client_session_t mongoc_client_session_t;
 typedef struct _mongoc_session_opt_t mongoc_session_opt_t;
+typedef struct _mongoc_transaction_opt_t mongoc_transaction_opt_t;
 
 /**
  * mongoc_stream_initiator_t:
@@ -207,7 +208,7 @@ MONGOC_EXPORT (bool)
 mongoc_client_get_server_status (mongoc_client_t *client,
                                  mongoc_read_prefs_t *read_prefs,
                                  bson_t *reply,
-                                 bson_error_t *error);
+                                 bson_error_t *error) BSON_GNUC_DEPRECATED;
 MONGOC_EXPORT (int32_t)
 mongoc_client_get_max_message_size (mongoc_client_t *client)
    BSON_GNUC_DEPRECATED;
@@ -255,6 +256,10 @@ MONGOC_EXPORT (bool)
 mongoc_client_set_error_api (mongoc_client_t *client, int32_t version);
 MONGOC_EXPORT (bool)
 mongoc_client_set_appname (mongoc_client_t *client, const char *appname);
+MONGOC_EXPORT (mongoc_change_stream_t *)
+mongoc_client_watch (mongoc_client_t *client,
+                     const bson_t *pipeline,
+                     const bson_t *opts);
 BSON_END_DECLS
 
 

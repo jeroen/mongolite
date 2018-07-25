@@ -42,15 +42,9 @@
 BSON_BEGIN_DECLS
 
 /* protocol versions this driver can speak */
-#define WIRE_VERSION_MIN 2
+#define WIRE_VERSION_MIN 3
 #define WIRE_VERSION_MAX 6
 
-/* first version that supported aggregation cursors */
-#define WIRE_VERSION_AGG_CURSOR 1
-/* first version that supported "insert", "update", "delete" commands */
-#define WIRE_VERSION_WRITE_CMD 2
-/* first version when SCRAM-SHA-1 replaced MONGODB-CR as default auth mech */
-#define WIRE_VERSION_SCRAM_DEFAULT 3
 /* first version that supported "find" and "getMore" commands */
 #define WIRE_VERSION_FIND_CMD 4
 /* first version with "killCursors" command */
@@ -67,6 +61,8 @@ BSON_BEGIN_DECLS
 #define WIRE_VERSION_COLLATION 5
 /* first version to support OP_MSG */
 #define WIRE_VERSION_OP_MSG 6
+/* first version to support array filters for "update" command */
+#define WIRE_VERSION_ARRAY_FILTERS 6
 /* first version to support retryable writes  */
 #define WIRE_VERSION_RETRY_WRITES 6
 
@@ -165,6 +161,7 @@ _mongoc_client_command_with_opts (mongoc_client_t *client,
                                   mongoc_command_mode_t mode,
                                   const bson_t *opts,
                                   mongoc_query_flags_t flags,
+                                  const mongoc_read_prefs_t *user_prefs,
                                   const mongoc_read_prefs_t *default_prefs,
                                   mongoc_read_concern_t *default_rc,
                                   mongoc_write_concern_t *default_wc,

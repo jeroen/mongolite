@@ -38,6 +38,12 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 /* Jailbreak Darwin Private API */
+/*
+ * An alternative to using SecIdentityCreate is to use
+ * SecIdentityCreateWithCertificate with a temporary keychain. However, doing so
+ * leads to memory bugs. Unfortunately, using this private API seems to be the
+ * best solution.
+ */
 SecIdentityRef
 SecIdentityCreate (CFAllocatorRef allocator,
                    SecCertificateRef certificate,
@@ -46,24 +52,49 @@ SecIdentityCreate (CFAllocatorRef allocator,
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "stream-secure_transport"
 
+char *
+_mongoc_cfstringref_to_cstring (CFStringRef str)
+{
+   CFIndex length;
+   CFStringEncoding encoding;
+   CFIndex max_size;
+   char *cs;
 
-void
+   if (!str) {
+      return NULL;
+   }
+
+   if (CFGetTypeID (str) != CFStringGetTypeID ()) {
+      return NULL;
+   }
+
+   length = CFStringGetLength (str);
+   encoding = kCFStringEncodingASCII;
+   max_size = CFStringGetMaximumSizeForEncoding (length, encoding) + 1;
+   cs = bson_malloc ((size_t) max_size);
+
+   if (CFStringGetCString (str, cs, max_size, encoding)) {
+      return cs;
+   }
+
+   bson_free (cs);
+   return NULL;
+}
+
+static void
 _bson_append_cftyperef (bson_string_t *retval, const char *label, CFTypeRef str)
 {
-   if (str && CFGetTypeID (str) == CFStringGetTypeID ()) {
-      CFIndex length = CFStringGetLength (str);
-      CFStringEncoding encoding = kCFStringEncodingASCII;
-      CFIndex maxSize =
-         CFStringGetMaximumSizeForEncoding (length, encoding) + 1;
+   char *cs;
 
-      char *cs = bson_malloc ((size_t) maxSize);
-      if (CFStringGetCString (str, cs, maxSize, encoding)) {
+   if (str) {
+      cs = _mongoc_cfstringref_to_cstring (str);
+
+      if (cs) {
          bson_string_append_printf (retval, "%s%s", label, cs);
+         bson_free (cs);
       } else {
          bson_string_append_printf (retval, "%s(null)", label);
       }
-
-      bson_free (cs);
    }
 }
 
@@ -336,10 +367,11 @@ mongoc_secure_transport_setup_certificate (
 
    id = SecIdentityCreate (kCFAllocatorDefault, cert, key);
    secure_transport->my_cert =
-      CFArrayCreateMutableCopy (kCFAllocatorDefault, (CFIndex) 2, items);
+      CFArrayCreateMutable (kCFAllocatorDefault, 2, &kCFTypeArrayCallBacks);
 
-   CFArraySetValueAtIndex (secure_transport->my_cert, 0, id);
-   CFArraySetValueAtIndex (secure_transport->my_cert, 1, cert);
+   CFArrayAppendValue (secure_transport->my_cert, id);
+   CFArrayAppendValue (secure_transport->my_cert, cert);
+   CFRelease (id);
 
    /*
     *  Secure Transport assumes the following:
@@ -382,10 +414,12 @@ mongoc_secure_transport_setup_ca (
                CFArrayAppendValue (anchors, CFArrayGetValueAtIndex (items, i));
             }
          }
-         secure_transport->anchors = CFRetain (anchors);
+         secure_transport->anchors = anchors;
          CFRelease (items);
       } else if (type == kSecItemTypeCertificate) {
-         secure_transport->anchors = CFRetain (items);
+         secure_transport->anchors = items;
+      } else {
+         CFRelease (items);
       }
 
       /* This should be SSLSetCertificateAuthorities But the /TLS/ tests fail
@@ -464,10 +498,8 @@ mongoc_secure_transport_write (SSLConnectionRef connection,
    switch (errno) {
    case EAGAIN:
       RETURN (errSSLWouldBlock);
-      break;
    default:
       RETURN (-36); /* ioErr */
-      break;
    }
 }
 #endif

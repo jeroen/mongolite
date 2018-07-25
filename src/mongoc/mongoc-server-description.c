@@ -42,6 +42,11 @@ mongoc_server_description_cleanup (mongoc_server_description_t *sd)
    BSON_ASSERT (sd);
 
    bson_destroy (&sd->last_is_master);
+   bson_destroy (&sd->hosts);
+   bson_destroy (&sd->passives);
+   bson_destroy (&sd->arbiters);
+   bson_destroy (&sd->tags);
+   bson_destroy (&sd->compressors);
 }
 
 /* Reset fields inside this sd, but keep same id, host information, and RTT,
@@ -68,6 +73,12 @@ mongoc_server_description_reset (mongoc_server_description_t *sd)
    bson_init (&sd->last_is_master);
    sd->has_is_master = false;
    sd->last_update_time_usec = bson_get_monotonic_time ();
+
+   bson_destroy (&sd->hosts);
+   bson_destroy (&sd->passives);
+   bson_destroy (&sd->arbiters);
+   bson_destroy (&sd->tags);
+   bson_destroy (&sd->compressors);
 
    bson_init (&sd->hosts);
    bson_init (&sd->passives);
@@ -117,6 +128,11 @@ mongoc_server_description_init (mongoc_server_description_t *sd,
 
    sd->connection_address = sd->host.host_and_port;
    bson_init (&sd->last_is_master);
+   bson_init (&sd->hosts);
+   bson_init (&sd->passives);
+   bson_init (&sd->arbiters);
+   bson_init (&sd->tags);
+   bson_init (&sd->compressors);
 
    mongoc_server_description_reset (sd);
 
@@ -143,6 +159,10 @@ void
 mongoc_server_description_destroy (mongoc_server_description_t *description)
 {
    ENTRY;
+
+   if (!description) {
+      EXIT;
+   }
 
    mongoc_server_description_cleanup (description);
 
@@ -181,7 +201,7 @@ mongoc_server_description_has_rs_member (mongoc_server_description_t *server,
       rs_members[2] = &server->passives;
 
       for (i = 0; i < 3; i++) {
-         bson_iter_init (&member_iter, rs_members[i]);
+         BSON_ASSERT (bson_iter_init (&member_iter, rs_members[i]));
 
          while (bson_iter_next (&member_iter)) {
             if (strcasecmp (address, bson_iter_utf8 (&member_iter, NULL)) ==
@@ -504,14 +524,23 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
    bson_copy_to (ismaster_response, &sd->last_is_master);
    sd->has_is_master = true;
 
-   bson_iter_init (&iter, &sd->last_is_master);
+   BSON_ASSERT (bson_iter_init (&iter, &sd->last_is_master));
 
    while (bson_iter_next (&iter)) {
       num_keys++;
       if (strcmp ("ok", bson_iter_key (&iter)) == 0) {
-         /* ismaster responses never have ok: 0, but spec requires we check */
-         if (!bson_iter_as_bool (&iter))
+         if (!bson_iter_as_bool (&iter)) {
+            /* it doesn't really matter what error API we use. the code and
+             * domain will be overwritten. */
+            (void) _mongoc_cmd_check_ok (
+               ismaster_response, MONGOC_ERROR_API_VERSION_2, &sd->error);
+            /* ismaster response returned ok: 0. According to auth spec: "If the
+             * isMaster of the MongoDB Handshake fails with an error, drivers
+             * MUST treat this an an authentication error." */
+            sd->error.domain = MONGOC_ERROR_CLIENT;
+            sd->error.code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
             goto failure;
+         }
       } else if (strcmp ("ismaster", bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_BOOL (&iter))
             goto failure;
@@ -573,17 +602,20 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
          if (!BSON_ITER_HOLDS_ARRAY (&iter))
             goto failure;
          bson_iter_array (&iter, &len, &bytes);
-         bson_init_static (&sd->hosts, bytes, len);
+         bson_destroy (&sd->hosts);
+         BSON_ASSERT (bson_init_static (&sd->hosts, bytes, len));
       } else if (strcmp ("passives", bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_ARRAY (&iter))
             goto failure;
          bson_iter_array (&iter, &len, &bytes);
-         bson_init_static (&sd->passives, bytes, len);
+         bson_destroy (&sd->passives);
+         BSON_ASSERT (bson_init_static (&sd->passives, bytes, len));
       } else if (strcmp ("arbiters", bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_ARRAY (&iter))
             goto failure;
          bson_iter_array (&iter, &len, &bytes);
-         bson_init_static (&sd->arbiters, bytes, len);
+         bson_destroy (&sd->arbiters);
+         BSON_ASSERT (bson_init_static (&sd->arbiters, bytes, len));
       } else if (strcmp ("primary", bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_UTF8 (&iter))
             goto failure;
@@ -600,7 +632,8 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
          if (!BSON_ITER_HOLDS_DOCUMENT (&iter))
             goto failure;
          bson_iter_document (&iter, &len, &bytes);
-         bson_init_static (&sd->tags, bytes, len);
+         bson_destroy (&sd->tags);
+         BSON_ASSERT (bson_init_static (&sd->tags, bytes, len));
       } else if (strcmp ("hidden", bson_iter_key (&iter)) == 0) {
          is_hidden = bson_iter_bool (&iter);
       } else if (strcmp ("lastWrite", bson_iter_key (&iter)) == 0) {
@@ -618,7 +651,8 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
          if (!BSON_ITER_HOLDS_ARRAY (&iter))
             goto failure;
          bson_iter_array (&iter, &len, &bytes);
-         bson_init_static (&sd->compressors, bytes, len);
+         bson_destroy (&sd->compressors);
+         BSON_ASSERT (bson_init_static (&sd->compressors, bytes, len));
       }
    }
 
@@ -688,6 +722,11 @@ mongoc_server_description_new_copy (
 
    copy->connection_address = copy->host.host_and_port;
    bson_init (&copy->last_is_master);
+   bson_init (&copy->hosts);
+   bson_init (&copy->passives);
+   bson_init (&copy->arbiters);
+   bson_init (&copy->tags);
+   bson_init (&copy->compressors);
 
    if (description->has_is_master) {
       /* calls mongoc_server_description_reset */
@@ -849,7 +888,7 @@ mongoc_server_description_filter_tags (
             continue;
          }
 
-         bson_iter_recurse (&rp_tagset_iter, &tag_set_iter);
+         BSON_ASSERT (bson_iter_recurse (&rp_tagset_iter, &tag_set_iter));
          sd_matched[i] = _match_tag_set (descriptions[i], &tag_set_iter);
          if (sd_matched[i]) {
             found = true;
@@ -948,7 +987,7 @@ mongoc_server_description_compressor_id (
 {
    int id;
    bson_iter_t iter;
-   bson_iter_init (&iter, &description->compressors);
+   BSON_ASSERT (bson_iter_init (&iter, &description->compressors));
 
    while (bson_iter_next (&iter)) {
       id = mongoc_compressor_name_to_id (bson_iter_utf8 (&iter, NULL));

@@ -35,7 +35,7 @@
 #include "mongoc-read-concern-private.h"
 #include "mongoc-write-concern-private.h"
 #include "mongoc-compression-private.h"
-
+#include "utlist.h"
 
 struct _mongoc_uri_t {
    char *str;
@@ -151,6 +151,27 @@ validate_srv_result (mongoc_uri_t *uri, const char *host, bson_error_t *error)
    return true;
 }
 
+bool
+mongoc_uri_append_host_and_port (mongoc_uri_t *uri,
+                                 const char *host_and_port,
+                                 bson_error_t *error)
+{
+   bool r;
+   mongoc_host_list_t *link_ = bson_malloc0 (sizeof (mongoc_host_list_t));
+   r = _mongoc_host_list_from_string_with_err (link_, host_and_port, error);
+   if (!r) {
+      bson_free (link_);
+      return false;
+   }
+
+   if (uri->is_srv && !validate_srv_result (uri, link_->host, error)) {
+      bson_free (link_);
+      return false;
+   }
+
+   LL_APPEND (uri->hosts, link_);
+   return true;
+}
 
 bool
 mongoc_uri_append_host (mongoc_uri_t *uri,
@@ -158,54 +179,20 @@ mongoc_uri_append_host (mongoc_uri_t *uri,
                         uint16_t port,
                         bson_error_t *error)
 {
-   mongoc_host_list_t *iter;
-   mongoc_host_list_t *link_;
-
-   if (strlen (host) > BSON_HOST_NAME_MAX) {
-      bson_set_error (error,
-                      MONGOC_ERROR_STREAM,
-                      MONGOC_ERROR_STREAM_NAME_RESOLUTION,
-                      "Hostname provided in URI is too long, max is %d chars",
-                      BSON_HOST_NAME_MAX);
+   bool r;
+   mongoc_host_list_t *link_ = bson_malloc0 (sizeof (mongoc_host_list_t));
+   r = _mongoc_host_list_from_hostport_with_err (link_, host, port, error);
+   if (!r) {
+      bson_free (link_);
       return false;
    }
 
-   if (uri->is_srv && !validate_srv_result (uri, host, error)) {
+   if (uri->is_srv && !validate_srv_result (uri, link_->host, error)) {
+      bson_free (link_);
       return false;
    }
 
-   link_ = (mongoc_host_list_t *) bson_malloc0 (sizeof *link_);
-   bson_strncpy (link_->host, host, sizeof link_->host);
-   if (strchr (host, ':')) {
-      bson_snprintf (link_->host_and_port,
-                     sizeof link_->host_and_port,
-                     "[%s]:%hu",
-                     host,
-                     port);
-      link_->family = AF_INET6;
-   } else if (strstr (host, ".sock")) {
-      bson_snprintf (
-         link_->host_and_port, sizeof link_->host_and_port, "%s", host);
-      link_->family = AF_UNIX;
-   } else {
-      bson_snprintf (link_->host_and_port,
-                     sizeof link_->host_and_port,
-                     "%s:%hu",
-                     host,
-                     port);
-      link_->family = AF_INET;
-   }
-   link_->host_and_port[sizeof link_->host_and_port - 1] = '\0';
-   link_->port = port;
-
-   if ((iter = uri->hosts)) {
-      for (; iter && iter->next; iter = iter->next) {
-      }
-      iter->next = link_;
-   } else {
-      uri->hosts = link_;
-   }
-
+   LL_APPEND (uri->hosts, link_);
    return true;
 }
 
@@ -390,94 +377,37 @@ mongoc_uri_parse_userpass (mongoc_uri_t *uri,
    return true;
 }
 
-static bool
-mongoc_uri_parse_host6 (mongoc_uri_t *uri, const char *str)
-{
-   uint16_t port = MONGOC_DEFAULT_PORT;
-   const char *portstr;
-   const char *end_host;
-   char *hostname;
-   bson_error_t error;
-   bool r;
-
-   if ((portstr = strrchr (str, ':')) && !strstr (portstr, "]")) {
-      if (!mongoc_parse_port (&port, portstr + 1)) {
-         return false;
-      }
-   }
-
-   hostname = scan_to_unichar (str + 1, ']', "", &end_host);
-
-   mongoc_uri_do_unescape (&hostname);
-   if (!hostname) {
-      return false;
-   }
-
-   mongoc_lowercase (hostname, hostname);
-   r = mongoc_uri_append_host (uri, hostname, port, &error);
-   if (!r) {
-      MONGOC_ERROR ("%s", error.message);
-   }
-
-   bson_free (hostname);
-
-   return r;
-}
-
-
 bool
-mongoc_uri_parse_host (mongoc_uri_t *uri, const char *str, bool downcase)
+mongoc_uri_parse_host (mongoc_uri_t *uri, const char *host_and_port_in)
 {
-   uint16_t port;
-   const char *end_host;
-   char *hostname;
-   bson_error_t error;
+   char *host_and_port = bson_strdup (host_and_port_in);
+   bson_error_t err = {0};
    bool r;
 
-   if (*str == '\0') {
-      MONGOC_WARNING ("Empty hostname in URI");
-      return false;
-   }
-
-   if (*str == '[' && strchr (str, ']')) {
-      return mongoc_uri_parse_host6 (uri, str);
-   }
-
-   if ((hostname = scan_to_unichar (str, ':', "?/,", &end_host))) {
-      end_host++;
-      if (!mongoc_parse_port (&port, end_host)) {
-         bson_free (hostname);
-         return false;
-      }
-   } else {
-      hostname = bson_strdup (str);
-      port = MONGOC_DEFAULT_PORT;
-   }
-
-   if (mongoc_uri_has_unescaped_chars (hostname, "/")) {
+   /* unescape host. It doesn't hurt including port. */
+   if (mongoc_uri_has_unescaped_chars (host_and_port, "/")) {
       MONGOC_WARNING ("Unix Domain Sockets must be escaped (e.g. / = %%2F)");
-      bson_free (hostname);
+      bson_free (host_and_port);
       return false;
    }
 
-   mongoc_uri_do_unescape (&hostname);
-   if (!hostname) {
+   mongoc_uri_do_unescape (&host_and_port);
+   if (!host_and_port) {
       /* invalid */
+      bson_free (host_and_port);
       return false;
    }
 
-   if (downcase) {
-      mongoc_lowercase (hostname, hostname);
-   }
+   r = mongoc_uri_append_host_and_port (uri, host_and_port, &err);
 
-   r = mongoc_uri_append_host (uri, hostname, port, &error);
    if (!r) {
-      MONGOC_ERROR ("%s", error.message);
+      MONGOC_ERROR ("%s", err.message);
+      bson_free (host_and_port);
+      return false;
    }
 
-   bson_free (hostname);
-
-   return r;
+   bson_free (host_and_port);
+   return true;
 }
 
 
@@ -548,11 +478,7 @@ mongoc_uri_parse_hosts (mongoc_uri_t *uri, const char *hosts)
          s = bson_strdup (next);
          next = NULL;
       }
-      if (ends_with (s, ".sock")) {
-         if (!mongoc_uri_parse_host (uri, s, false /* downcase */)) {
-            goto error;
-         }
-      } else if (!mongoc_uri_parse_host (uri, s, true /* downcase */)) {
+      if (!mongoc_uri_parse_host (uri, s)) {
          goto error;
       }
       bson_free (s);
@@ -563,7 +489,21 @@ error:
    return false;
 }
 
-
+/* -----------------------------------------------------------------------------
+ *
+ * mongoc_uri_parse_database --
+ *
+ *        Parse the database after @str. @str is expected to point after the
+ *        host list to the character immediately after the / in the uri string.
+ *        If no database is specified in the uri, e.g. the uri has a form like:
+ *        mongodb://localhost/?option=X then uri->database remains NULL after
+ *        parsing.
+ *
+ * Return:
+ *        True if the parsed database is valid. An empty database is considered
+ *        valid.
+ * -----------------------------------------------------------------------------
+ */
 static bool
 mongoc_uri_parse_database (mongoc_uri_t *uri, const char *str, const char **end)
 {
@@ -573,6 +513,13 @@ mongoc_uri_parse_database (mongoc_uri_t *uri, const char *str, const char **end)
    const char *tmp;
 
    if ((uri->database = scan_to_unichar (str, '?', "", &end_database))) {
+      if (strcmp (uri->database, "") == 0) {
+         /* no database is found, don't store the empty string. */
+         bson_free (uri->database);
+         uri->database = NULL;
+         /* but it is valid to have an empty database. */
+         return true;
+      }
       *end = end_database;
    } else if (*str) {
       uri->database = bson_strdup (str);
@@ -624,7 +571,11 @@ mongoc_uri_parse_auth_mechanism_properties (mongoc_uri_t *uri, const char *str)
    }
 
    /* append our auth properties to our credentials */
-   mongoc_uri_set_mechanism_properties (uri, &properties);
+   if (!mongoc_uri_set_mechanism_properties (uri, &properties)) {
+      bson_destroy (&properties);
+      return false;
+   }
+   bson_destroy (&properties);
    return true;
 }
 
@@ -918,6 +869,14 @@ mongoc_uri_parse_option (mongoc_uri_t *uri,
       } else {
          goto UNSUPPORTED_VALUE;
       }
+
+#ifndef MONGOC_ENABLE_CRYPTO
+      if (!strcmp (lkey, MONGOC_URI_RETRYWRITES)) {
+         /* retryWrites requires sessions, which require crypto - just warn */
+         MONGOC_WARNING (
+            "retryWrites not supported without an SSL crypto library");
+      }
+#endif
    } else if (!strcmp (lkey, MONGOC_URI_READPREFERENCETAGS)) {
       /* Allows providing this key multiple times */
       if (!mongoc_uri_parse_tags (uri, value)) {
@@ -1024,7 +983,6 @@ mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
 {
    bson_iter_t iter;
    const char *source = NULL;
-   const char *mechanism = mongoc_uri_get_auth_mechanism (uri);
 
    if (bson_iter_init_find_case (
           &iter, &uri->credentials, MONGOC_URI_AUTHSOURCE)) {
@@ -1032,9 +990,9 @@ mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
    }
 
    /* authSource with GSSAPI or X509 should always be external */
-   if (mechanism) {
-      if (!strcasecmp (mechanism, "GSSAPI") ||
-          !strcasecmp (mechanism, "MONGODB-X509")) {
+   if (mongoc_uri_get_auth_mechanism (uri)) {
+      if (!strcasecmp (mongoc_uri_get_auth_mechanism (uri), "GSSAPI") ||
+          !strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509")) {
          if (source) {
             if (strcasecmp (source, "$external")) {
                MONGOC_URI_ERROR (
@@ -1049,11 +1007,21 @@ mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
          }
       }
       /* MONGODB-X509 is the only mechanism that doesn't require username */
-      if (strcasecmp (mechanism, "MONGODB-X509")) {
+      if (strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509")) {
          if (!mongoc_uri_get_username (uri)) {
             MONGOC_URI_ERROR (error,
                               "'%s' authentication mechanism requires username",
-                              mechanism);
+                              mongoc_uri_get_auth_mechanism (uri));
+            return false;
+         }
+      }
+      /* MONGODB-X509 errors if a password is supplied. */
+      if (!strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509")) {
+         if (mongoc_uri_get_password (uri)) {
+            MONGOC_URI_ERROR (
+               error,
+               "'%s' authentication mechanism does not accept a password",
+               mongoc_uri_get_auth_mechanism (uri));
             return false;
          }
       }
@@ -1267,7 +1235,7 @@ mongoc_uri_get_mechanism_properties (const mongoc_uri_t *uri,
       const uint8_t *data = NULL;
 
       bson_iter_document (&iter, &len, &data);
-      bson_init_static (properties, data, len);
+      BSON_ASSERT (bson_init_static (properties, data, len));
 
       return true;
    }
@@ -1308,6 +1276,7 @@ mongoc_uri_set_mechanism_properties (mongoc_uri_t *uri,
 
       return true;
    } else {
+      bson_destroy (&tmp);
       return BSON_APPEND_DOCUMENT (
          &uri->credentials, MONGOC_URI_AUTHMECHANISMPROPERTIES, properties);
    }
@@ -1376,6 +1345,13 @@ _mongoc_uri_build_write_concern (mongoc_uri_t *uri, bson_error_t *error)
    }
 
    wtimeoutms = mongoc_uri_get_option_as_int32 (uri, MONGOC_URI_WTIMEOUTMS, 0);
+   if (wtimeoutms < 0) {
+      MONGOC_URI_ERROR (
+         error, "Unsupported wtimeoutMS value [w=%d]", wtimeoutms);
+      return false;
+   } else if (wtimeoutms > 0) {
+      mongoc_write_concern_set_wtimeout (write_concern, wtimeoutms);
+   }
 
    if (bson_iter_init_find_case (&iter, &uri->options, MONGOC_URI_JOURNAL) &&
        BSON_ITER_HOLDS_BOOL (&iter)) {
@@ -1399,9 +1375,6 @@ _mongoc_uri_build_write_concern (mongoc_uri_t *uri, bson_error_t *error)
          default:
             if (value > 0) {
                mongoc_write_concern_set_w (write_concern, value);
-               if (value > 1) {
-                  mongoc_write_concern_set_wtimeout (write_concern, wtimeoutms);
-               }
                break;
             }
             MONGOC_URI_ERROR (error, "Unsupported w value [w=%d]", value);
@@ -1414,7 +1387,6 @@ _mongoc_uri_build_write_concern (mongoc_uri_t *uri, bson_error_t *error)
             mongoc_write_concern_set_wmajority (write_concern, wtimeoutms);
          } else {
             mongoc_write_concern_set_wtag (write_concern, str);
-            mongoc_write_concern_set_wtimeout (write_concern, wtimeoutms);
          }
       } else {
          BSON_ASSERT (false);
@@ -1637,12 +1609,31 @@ const char *
 mongoc_uri_get_auth_source (const mongoc_uri_t *uri)
 {
    bson_iter_t iter;
+   const char *mechanism;
 
    BSON_ASSERT (uri);
 
    if (bson_iter_init_find_case (
           &iter, &uri->credentials, MONGOC_URI_AUTHSOURCE)) {
       return bson_iter_utf8 (&iter, NULL);
+   }
+
+   /* Auth spec:
+    * "For GSSAPI and MONGODB-X509 authMechanisms the authSource defaults to
+    * $external. For PLAIN the authSource defaults to the database name if
+    * supplied on the connection string or $external. For MONGODB-CR,
+    * SCRAM-SHA-1 and SCRAM-SHA-256 authMechanisms, the authSource defaults to
+    * the database name if supplied on the connection string or admin."
+    */
+   mechanism = mongoc_uri_get_auth_mechanism (uri);
+   if (mechanism) {
+      if (!strcasecmp (mechanism, "GSSAPI") ||
+          !strcasecmp (mechanism, "MONGODB-X509")) {
+         return "$external";
+      }
+      if (!strcasecmp (mechanism, "PLAIN")) {
+         return uri->database ? uri->database : "$external";
+      }
    }
 
    return uri->database ? uri->database : "admin";
@@ -2329,4 +2320,25 @@ mongoc_uri_set_option_as_utf8 (mongoc_uri_t *uri,
    }
 
    return true;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_uri_requires_auth_negotiation --
+ *
+ *       Returns true if auth mechanism is necessary for this uri. According
+ *       to the auth spec: "If an application provides a username but does
+ *       not provide an authentication mechanism, drivers MUST negotiate a
+ *       mechanism".
+ *
+ * Returns:
+ *       true if the driver should negotiate the auth mechanism for the uri
+ *
+ *--------------------------------------------------------------------------
+ */
+bool
+_mongoc_uri_requires_auth_negotiation (const mongoc_uri_t *uri)
+{
+   return mongoc_uri_get_username (uri) && !mongoc_uri_get_auth_mechanism (uri);
 }

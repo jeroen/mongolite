@@ -37,127 +37,170 @@
 #include "mongoc-util-private.h"
 
 /*
- * Global handshake data instance. Initialized at startup from mongoc_init ()
+ * Global handshake data instance. Initialized at startup from mongoc_init
  *
- * Can be modified by calls to mongoc_handshake_data_append ()
+ * Can be modified by calls to mongoc_handshake_data_append
  */
 static mongoc_handshake_t gMongocHandshake;
 
+/*
+ * Used for thread-safety in mongoc_handshake_data_append
+ */
+static mongoc_mutex_t gHandshakeLock;
 
-static uint32_t
-_get_config_bitfield (void)
+static void
+_set_bit (uint8_t *bf, uint32_t byte_count, uint32_t bit)
 {
-   uint32_t bf = 0;
+   uint32_t byte = bit / 8;
+   uint32_t bit_of_byte = (bit) % 8;
+   /* byte 0 is the last location in bf. */
+   bf[(byte_count - 1) - byte] |= 1u << bit_of_byte;
+}
+
+/* returns a hex string for all config flag bits, which must be freed. */
+char *
+_mongoc_handshake_get_config_hex_string (void)
+{
+   uint32_t byte_count;
+   uint8_t *bf;
+   bson_string_t *str;
+   int i;
+
+   byte_count = (LAST_MONGOC_MD_FLAG + 7) / 8; /* ceil (num_bits / 8) */
+   /* allocate enough bytes to fit all config bits. */
+   bf = (uint8_t *) bson_malloc0 (byte_count);
 
 #ifdef MONGOC_ENABLE_SSL_SECURE_CHANNEL
-   bf |= MONGOC_MD_FLAG_ENABLE_SSL_SECURE_CHANNEL;
+   _set_bit (bf, byte_count, MONGOC_ENABLE_SSL_SECURE_CHANNEL);
 #endif
 
 #ifdef MONGOC_ENABLE_CRYPTO_CNG
-   bf |= MONGOC_MD_FLAG_ENABLE_CRYPTO_CNG;
+   _set_bit (bf, byte_count, MONGOC_ENABLE_CRYPTO_CNG);
 #endif
 
 #ifdef MONGOC_ENABLE_SSL_SECURE_TRANSPORT
-   bf |= MONGOC_MD_FLAG_ENABLE_SSL_SECURE_TRANSPORT;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SSL_SECURE_TRANSPORT);
 #endif
 
 #ifdef MONGOC_ENABLE_CRYPTO_COMMON_CRYPTO
-   bf |= MONGOC_MD_FLAG_ENABLE_CRYPTO_COMMON_CRYPTO;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_CRYPTO_COMMON_CRYPTO);
 #endif
 
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
-   bf |= MONGOC_MD_FLAG_ENABLE_SSL_OPENSSL;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SSL_OPENSSL);
 #endif
 
 #ifdef MONGOC_ENABLE_CRYPTO_LIBCRYPTO
-   bf |= MONGOC_MD_FLAG_ENABLE_CRYPTO_LIBCRYPTO;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_CRYPTO_LIBCRYPTO);
 #endif
 
 #ifdef MONGOC_ENABLE_SSL
-   bf |= MONGOC_MD_FLAG_ENABLE_SSL;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SSL);
 #endif
 
 #ifdef MONGOC_ENABLE_CRYPTO
-   bf |= MONGOC_MD_FLAG_ENABLE_CRYPTO;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_CRYPTO);
 #endif
 
 #ifdef MONGOC_ENABLE_CRYPTO_SYSTEM_PROFILE
-   bf |= MONGOC_MD_FLAG_ENABLE_CRYPTO_SYSTEM_PROFILE;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_CRYPTO_SYSTEM_PROFILE);
 #endif
 
 #ifdef MONGOC_ENABLE_SASL
-   bf |= MONGOC_MD_FLAG_ENABLE_SASL;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SASL);
 #endif
 
 #ifdef MONGOC_HAVE_SASL_CLIENT_DONE
-   bf |= MONGOC_MD_FLAG_HAVE_SASL_CLIENT_DONE;
-#endif
-
-#ifdef MONGOC_HAVE_WEAK_SYMBOLS
-   bf |= MONGOC_MD_FLAG_HAVE_WEAK_SYMBOLS;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_HAVE_SASL_CLIENT_DONE);
 #endif
 
 #ifdef MONGOC_NO_AUTOMATIC_GLOBALS
-   bf |= MONGOC_MD_FLAG_NO_AUTOMATIC_GLOBALS;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_NO_AUTOMATIC_GLOBALS);
 #endif
 
 #ifdef MONGOC_EXPERIMENTAL_FEATURES
-   bf |= MONGOC_MD_FLAG_EXPERIMENTAL_FEATURES;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_EXPERIMENTAL_FEATURES);
 #endif
 
 #ifdef MONGOC_ENABLE_SSL_LIBRESSL
-   bf |= MONGOC_MD_FLAG_ENABLE_SSL_LIBRESSL;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SSL_LIBRESSL);
 #endif
 
 #ifdef MONGOC_ENABLE_SASL_CYRUS
-   bf |= MONGOC_MD_FLAG_ENABLE_SASL_CYRUS;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SASL_CYRUS);
 #endif
 
 #ifdef MONGOC_ENABLE_SASL_SSPI
-   bf |= MONGOC_MD_FLAG_ENABLE_SASL_SSPI;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SASL_SSPI);
 #endif
 
 #ifdef MONGOC_HAVE_SOCKLEN
-   bf |= MONGOC_MD_FLAG_HAVE_SOCKLEN;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_HAVE_SOCKLEN);
 #endif
 
 #ifdef MONGOC_ENABLE_COMPRESSION
-   bf |= MONGOC_MD_FLAG_ENABLE_COMPRESSION;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_COMPRESSION);
 #endif
 
 #ifdef MONGOC_ENABLE_COMPRESSION_SNAPPY
-   bf |= MONGOC_MD_FLAG_ENABLE_COMPRESSION_SNAPPY;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_COMPRESSION_SNAPPY);
 #endif
 
 #ifdef MONGOC_ENABLE_COMPRESSION_ZLIB
-   bf |= MONGOC_MD_FLAG_ENABLE_COMPRESSION_ZLIB;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_COMPRESSION_ZLIB);
 #endif
 
 #ifdef MONGOC_MD_FLAG_ENABLE_SASL_GSSAPI
-   bf |= MONGOC_MD_FLAG_ENABLE_SASL_GSSAPI;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SASL_GSSAPI);
 #endif
 
 #ifdef MONGOC_HAVE_RES_NSEARCH
-   bf |= MONGOC_MD_FLAG_ENABLE_RES_NSEARCH;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_RES_NSEARCH);
 #endif
 
 #ifdef MONGOC_HAVE_RES_NDESTROY
-   bf |= MONGOC_MD_FLAG_ENABLE_RES_NDESTROY;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_RES_NDESTROY);
 #endif
 
 #ifdef MONGOC_HAVE_RES_NCLOSE
-   bf |= MONGOC_MD_FLAG_ENABLE_RES_NCLOSE;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_RES_NCLOSE);
 #endif
 
 #ifdef MONGOC_HAVE_RES_SEARCH
-   bf |= MONGOC_MD_FLAG_ENABLE_RES_SEARCH;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_RES_SEARCH);
 #endif
 
 #ifdef MONGOC_HAVE_DNSAPI
-   bf |= MONGOC_MD_FLAG_ENABLE_DNSAPI;
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_DNSAPI);
 #endif
 
-   return bf;
+#ifdef MONGOC_HAVE_RDTSCP
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_RDTSCP);
+#endif
+
+#ifdef MONGOC_HAVE_SCHED_GETCPU
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_HAVE_SCHED_GETCPU);
+#endif
+
+#ifdef MONGOC_ENABLE_SHM_COUNTERS
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SHM_COUNTERS);
+#endif
+
+#ifdef MONGOC_TRACE
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_TRACE);
+#endif
+
+#ifdef MONGOC_ENABLE_ICU
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_ICU);
+#endif
+
+   str = bson_string_new ("0x");
+   for (i = 0; i < byte_count; i++) {
+      bson_string_append_printf (str, "%02x", bf[i]);
+   }
+   bson_free (bf);
+   /* free the bson_string_t, but keep the underlying char* alive. */
+   return bson_string_free (str, false);
 }
 
 static char *
@@ -325,10 +368,13 @@ static void
 _set_platform_string (mongoc_handshake_t *handshake)
 {
    bson_string_t *str;
+   char *config_str;
 
    str = bson_string_new ("");
 
-   bson_string_append_printf (str, "cfg=0x%x", _get_config_bitfield ());
+   config_str = _mongoc_handshake_get_config_hex_string ();
+   bson_string_append_printf (str, "cfg=%s", config_str);
+   bson_free (config_str);
 
 #ifdef _POSIX_VERSION
    bson_string_append_printf (str, " posix=%ld", _POSIX_VERSION);
@@ -371,6 +417,7 @@ _mongoc_handshake_init (void)
    _set_platform_string (_mongoc_handshake_get ());
 
    _mongoc_handshake_get ()->frozen = false;
+   mongoc_mutex_init (&gHandshakeLock);
 }
 
 void
@@ -379,37 +426,38 @@ _mongoc_handshake_cleanup (void)
    _free_system_info (_mongoc_handshake_get ());
    _free_driver_info (_mongoc_handshake_get ());
    _free_platform_string (_mongoc_handshake_get ());
+
+   mongoc_mutex_destroy (&gHandshakeLock);
 }
 
-static bool
+static void
 _append_platform_field (bson_t *doc, const char *platform)
 {
    int max_platform_str_size;
 
    /* Compute space left for platform field */
    max_platform_str_size =
-      HANDSHAKE_MAX_SIZE - (doc->len +
+      HANDSHAKE_MAX_SIZE - ((int) doc->len +
                             /* 1 byte for utf8 tag */
                             1 +
 
                             /* key size */
-                            strlen (HANDSHAKE_PLATFORM_FIELD) +
+                            (int) strlen (HANDSHAKE_PLATFORM_FIELD) +
                             1 +
 
                             /* 4 bytes for length of string */
                             4);
 
    if (max_platform_str_size <= 0) {
-      return false;
+      return;
    }
 
    max_platform_str_size =
-      BSON_MIN (max_platform_str_size, strlen (platform) + 1);
+      BSON_MIN (max_platform_str_size, (int) strlen (platform) + 1);
    bson_append_utf8 (
       doc, HANDSHAKE_PLATFORM_FIELD, -1, platform, max_platform_str_size - 1);
 
    BSON_ASSERT (doc->len <= HANDSHAKE_MAX_SIZE);
-   return true;
 }
 
 /*
@@ -483,7 +531,7 @@ _append_and_truncate (char **s, const char *suffix, int max_len)
 {
    char *old_str = *s;
    char *prefix;
-   const int delim_len = strlen (" / ");
+   const int delim_len = (int) strlen (" / ");
    int space_for_suffix;
 
    BSON_ASSERT (s);
@@ -494,8 +542,12 @@ _append_and_truncate (char **s, const char *suffix, int max_len)
       return;
    }
 
-   space_for_suffix = max_len - strlen (prefix) - delim_len;
-   BSON_ASSERT (space_for_suffix >= 0);
+   space_for_suffix = max_len - (int) strlen (prefix) - delim_len;
+
+   if (space_for_suffix <= 0) {
+      /* the old string already takes the whole allotted space */
+      return;
+   }
 
    *s = bson_strdup_printf ("%s / %.*s", prefix, space_for_suffix, suffix);
    BSON_ASSERT (strlen (*s) <= max_len);
@@ -518,10 +570,10 @@ mongoc_handshake_data_append (const char *driver_name,
                               const char *driver_version,
                               const char *platform)
 {
-   int max_size = 0;
+   mongoc_mutex_lock (&gHandshakeLock);
 
    if (_mongoc_handshake_get ()->frozen) {
-      MONGOC_ERROR ("Cannot set handshake more than once");
+      mongoc_mutex_unlock (&gHandshakeLock);
       return false;
    }
 
@@ -533,18 +585,13 @@ mongoc_handshake_data_append (const char *driver_name,
                          driver_version,
                          HANDSHAKE_DRIVER_VERSION_MAX);
 
-   max_size =
-      HANDSHAKE_MAX_SIZE -
-      -_mongoc_strlen_or_zero (_mongoc_handshake_get ()->os_type) -
-      _mongoc_strlen_or_zero (_mongoc_handshake_get ()->os_name) -
-      _mongoc_strlen_or_zero (_mongoc_handshake_get ()->os_version) -
-      _mongoc_strlen_or_zero (_mongoc_handshake_get ()->os_architecture) -
-      _mongoc_strlen_or_zero (_mongoc_handshake_get ()->driver_name) -
-      _mongoc_strlen_or_zero (_mongoc_handshake_get ()->driver_version);
+   /* allow practically any size for "platform", we'll trim it down in
+    * _mongoc_handshake_build_doc_with_application */
    _append_and_truncate (
-      &_mongoc_handshake_get ()->platform, platform, max_size);
+      &_mongoc_handshake_get ()->platform, platform, HANDSHAKE_MAX_SIZE);
 
    _mongoc_handshake_freeze ();
+   mongoc_mutex_unlock (&gHandshakeLock);
    return true;
 }
 
@@ -558,4 +605,42 @@ bool
 _mongoc_handshake_appname_is_valid (const char *appname)
 {
    return strlen (appname) <= MONGOC_HANDSHAKE_APPNAME_MAX;
+}
+
+void
+_mongoc_handshake_append_sasl_supported_mechs (const mongoc_uri_t *uri,
+                                               bson_t *cmd)
+{
+   const char *username;
+   char *db_user;
+   username = mongoc_uri_get_username (uri);
+   db_user =
+      bson_strdup_printf ("%s.%s", mongoc_uri_get_auth_source (uri), username);
+   bson_append_utf8 (cmd, "saslSupportedMechs", 18, db_user, -1);
+   bson_free (db_user);
+}
+
+void
+_mongoc_handshake_parse_sasl_supported_mechs (
+   const bson_t *ismaster,
+   mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs)
+{
+   bson_iter_t iter;
+   memset (sasl_supported_mechs, 0, sizeof (*sasl_supported_mechs));
+   if (bson_iter_init_find (&iter, ismaster, "saslSupportedMechs")) {
+      bson_iter_t array_iter;
+      if (BSON_ITER_HOLDS_ARRAY (&iter) &&
+          bson_iter_recurse (&iter, &array_iter)) {
+         while (bson_iter_next (&array_iter)) {
+            if (BSON_ITER_HOLDS_UTF8 (&array_iter)) {
+               const char *mechanism_name = bson_iter_utf8 (&array_iter, NULL);
+               if (0 == strcmp (mechanism_name, "SCRAM-SHA-256")) {
+                  sasl_supported_mechs->scram_sha_256 = true;
+               } else if (0 == strcmp (mechanism_name, "SCRAM-SHA-1")) {
+                  sasl_supported_mechs->scram_sha_1 = true;
+               }
+            }
+         }
+      }
+   }
 }

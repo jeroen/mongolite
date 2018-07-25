@@ -453,7 +453,7 @@ _mongoc_parse_wc_err (const bson_t *doc, bson_error_t *error)
        BSON_ITER_HOLDS_DOCUMENT (&iter)) {
       const char *errmsg = NULL;
       int32_t code = 0;
-      bson_iter_recurse (&iter, &inner);
+      BSON_ASSERT (bson_iter_recurse (&iter, &inner));
       while (bson_iter_next (&inner)) {
          if (BSON_ITER_IS_KEY (&inner, "code")) {
             code = bson_iter_int32 (&inner);
@@ -512,21 +512,30 @@ mongoc_write_concern_append (mongoc_write_concern_t *write_concern,
  *    with mongoc_write_concern_destroy().
  */
 mongoc_write_concern_t *
-_mongoc_write_concern_new_from_iter (bson_iter_t *iter, bson_error_t *error)
+_mongoc_write_concern_new_from_iter (const bson_iter_t *iter,
+                                     bson_error_t *error)
 {
    bson_iter_t inner;
    mongoc_write_concern_t *write_concern;
+   int32_t w;
 
    BSON_ASSERT (iter);
 
    write_concern = mongoc_write_concern_new ();
+   if (!BSON_ITER_HOLDS_DOCUMENT (iter)) {
+      goto fail;
+   }
 
    BSON_ASSERT (bson_iter_recurse (iter, &inner));
    while (bson_iter_next (&inner)) {
       if (BSON_ITER_IS_KEY (&inner, "w")) {
          if (BSON_ITER_HOLDS_INT32 (&inner)) {
-            mongoc_write_concern_set_w (write_concern,
-                                        bson_iter_int32 (&inner));
+            w = bson_iter_int32 (&inner);
+            if (w < MONGOC_WRITE_CONCERN_W_ERRORS_IGNORED) {
+               goto fail;
+            }
+
+            mongoc_write_concern_set_w (write_concern, w);
          } else if (BSON_ITER_HOLDS_UTF8 (&inner)) {
             if (!strcmp (bson_iter_utf8 (&inner, NULL), "majority")) {
                /* mongoc_write_concern_set_wmajority() only assigns wtimeout if

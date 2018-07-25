@@ -59,9 +59,6 @@ typedef struct _mongoc_cluster_t {
    int64_t operation_id;
    uint32_t request_id;
    uint32_t sockettimeoutms;
-   uint8_t scram_client_key[MONGOC_SCRAM_HASH_SIZE];
-   uint8_t scram_server_key[MONGOC_SCRAM_HASH_SIZE];
-   uint8_t scram_salted_password[MONGOC_SCRAM_HASH_SIZE];
    uint32_t socketcheckintervalms;
    mongoc_uri_t *uri;
    unsigned requires_auth : 1;
@@ -70,10 +67,10 @@ typedef struct _mongoc_cluster_t {
 
    mongoc_set_t *nodes;
    mongoc_array_t iov;
+
+   mongoc_scram_cache_t *scram_cache;
 } mongoc_cluster_t;
 
-bool
-mongoc_cluster_is_not_master_error (const bson_error_t *error);
 
 void
 mongoc_cluster_init (mongoc_cluster_t *cluster,
@@ -121,16 +118,22 @@ mongoc_cluster_try_recv (mongoc_cluster_t *cluster,
 mongoc_server_stream_t *
 mongoc_cluster_stream_for_reads (mongoc_cluster_t *cluster,
                                  const mongoc_read_prefs_t *read_prefs,
+                                 const mongoc_client_session_t *cs,
+                                 bson_t *reply,
                                  bson_error_t *error);
 
 mongoc_server_stream_t *
 mongoc_cluster_stream_for_writes (mongoc_cluster_t *cluster,
+                                  const mongoc_client_session_t *cs,
+                                  bson_t *reply,
                                   bson_error_t *error);
 
 mongoc_server_stream_t *
 mongoc_cluster_stream_for_server (mongoc_cluster_t *cluster,
                                   uint32_t server_id,
                                   bool reconnect_ok,
+                                  const mongoc_client_session_t *cs,
+                                  bson_t *reply,
                                   bson_error_t *error);
 
 bool

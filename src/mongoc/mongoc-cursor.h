@@ -53,7 +53,8 @@ mongoc_cursor_error_document (mongoc_cursor_t *cursor,
 MONGOC_EXPORT (void)
 mongoc_cursor_get_host (mongoc_cursor_t *cursor, mongoc_host_list_t *host);
 MONGOC_EXPORT (bool)
-mongoc_cursor_is_alive (const mongoc_cursor_t *cursor);
+mongoc_cursor_is_alive (const mongoc_cursor_t *cursor)
+   BSON_GNUC_DEPRECATED_FOR (mongoc_cursor_more);
 MONGOC_EXPORT (const bson_t *)
 mongoc_cursor_current (const mongoc_cursor_t *cursor);
 MONGOC_EXPORT (void)
@@ -81,6 +82,12 @@ MONGOC_EXPORT (mongoc_cursor_t *)
 mongoc_cursor_new_from_command_reply (struct _mongoc_client_t *client,
                                       bson_t *reply,
                                       uint32_t server_id)
+   BSON_GNUC_WARN_UNUSED_RESULT
+   BSON_GNUC_DEPRECATED_FOR (mongoc_cursor_new_from_command_reply_with_opts);
+MONGOC_EXPORT (mongoc_cursor_t *)
+mongoc_cursor_new_from_command_reply_with_opts (struct _mongoc_client_t *client,
+                                                bson_t *reply,
+                                                const bson_t *opts)
    BSON_GNUC_WARN_UNUSED_RESULT;
 
 BSON_END_DECLS

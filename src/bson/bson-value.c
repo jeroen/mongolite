@@ -53,9 +53,10 @@ bson_value_copy (const bson_value_t *src, /* IN */
       dst->value.v_binary.subtype = src->value.v_binary.subtype;
       dst->value.v_binary.data_len = src->value.v_binary.data_len;
       dst->value.v_binary.data = bson_malloc (src->value.v_binary.data_len);
-      memcpy (dst->value.v_binary.data,
-              src->value.v_binary.data,
-              dst->value.v_binary.data_len);
+      if (dst->value.v_binary.data_len) {
+         memcpy (dst->value.v_binary.data, src->value.v_binary.data,
+                 dst->value.v_binary.data_len);
+      }
       break;
    case BSON_TYPE_OID:
       bson_oid_copy (&src->value.v_oid, &dst->value.v_oid);
@@ -142,6 +143,10 @@ bson_value_copy (const bson_value_t *src, /* IN */
 void
 bson_value_destroy (bson_value_t *value) /* IN */
 {
+   if (!value) {
+      return;
+   }
+
    switch (value->value_type) {
    case BSON_TYPE_UTF8:
       bson_free (value->value.v_utf8.str);

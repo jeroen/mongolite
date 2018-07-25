@@ -207,8 +207,8 @@ _mongoc_socket_wait (mongoc_socket_t *sock, /* IN */
       if (ret > 0) {
 /* Something happened, so return that */
 #ifdef _WIN32
-         return (FD_ISSET (sock->sd, &read_fds)
-                 || FD_ISSET (sock->sd, &write_fds));
+         return (FD_ISSET (sock->sd, &read_fds) ||
+                 FD_ISSET (sock->sd, &write_fds));
 #else
          RETURN (0 != (pfd.revents & events));
 #endif
@@ -231,7 +231,10 @@ _mongoc_socket_wait (mongoc_socket_t *sock, /* IN */
             RETURN (false);
          }
       } else {
-/* ret == 0, poll timed out */
+         /* ret == 0, poll timed out */
+         if (timeout) {
+            mongoc_counter_streams_timeout_inc ();
+         }
 #ifdef _WIN32
          sock->errno_ = timeout ? WSAETIMEDOUT : EAGAIN;
 #else
@@ -668,7 +671,7 @@ mongoc_socket_accept_ex (mongoc_socket_t *sock, /* IN */
                          uint16_t *port)        /* OUT */
 {
    mongoc_socket_t *client;
-   struct sockaddr_in addr = {0};
+   struct sockaddr_storage addr = {0};
    mongoc_socklen_t addrlen = sizeof addr;
    bool try_again = false;
    bool failed = false;
@@ -714,7 +717,13 @@ again:
    client->sd = sd;
 
    if (port) {
-      *port = ntohs (addr.sin_port);
+      if (addr.ss_family == AF_INET) {
+         struct sockaddr_in *tmp = (struct sockaddr_in *) &addr;
+         *port = ntohs (tmp->sin_port);
+      } else {
+         struct sockaddr_in6 *tmp = (struct sockaddr_in6 *) &addr;
+         *port = ntohs (tmp->sin6_port);
+      }
    }
 
    if (!_mongoc_socket_setnodelay (client->sd)) {
@@ -1414,6 +1423,9 @@ mongoc_socket_sendv (mongoc_socket_t *sock,  /* IN */
          BSON_ASSERT (iovcnt - cur);
          BSON_ASSERT (iov[cur].iov_len);
       } else if (OPERATION_EXPIRED (expire_at)) {
+         if (expire_at > 0) {
+            mongoc_counter_streams_timeout_inc ();
+         }
          GOTO (CLEANUP);
       }
 
@@ -1443,7 +1455,7 @@ mongoc_socket_getsockname (mongoc_socket_t *sock,     /* IN */
 
    BSON_ASSERT (sock);
 
-   ret = getsockname (sock->sd, (mongoc_sockaddr_t *) addr, addrlen);
+   ret = getsockname (sock->sd, addr, addrlen);
 
    _mongoc_socket_capture_errno (sock);
 
@@ -1455,7 +1467,7 @@ char *
 mongoc_socket_getnameinfo (mongoc_socket_t *sock) /* IN */
 {
    /* getpeername parameter types vary, we check in CheckCompiler.m4 */
-   mongoc_sockaddr_t addr;
+   struct sockaddr_storage addr;
    mongoc_socklen_t len = (mongoc_socklen_t) sizeof addr;
    char *ret;
    char host[BSON_HOST_NAME_MAX + 1];
@@ -1464,13 +1476,17 @@ mongoc_socket_getnameinfo (mongoc_socket_t *sock) /* IN */
 
    BSON_ASSERT (sock);
 
-   if ((0 == getpeername (sock->sd, &addr, &len)) &&
-       (0 == getnameinfo (&addr, len, host, sizeof host, NULL, 0, 0))) {
-      ret = bson_strdup (host);
-      RETURN (ret);
+   if (getpeername (sock->sd, (struct sockaddr *) &addr, &len)) {
+      RETURN (NULL);
    }
 
-   RETURN (NULL);
+   if (getnameinfo (
+          (struct sockaddr *) &addr, len, host, sizeof host, NULL, 0, 0)) {
+      RETURN (NULL);
+   }
+
+   ret = bson_strdup (host);
+   RETURN (ret);
 }
 
 

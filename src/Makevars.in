@@ -1,17 +1,17 @@
-PKG_CPPFLAGS=-I. -Ijsonsl -Ibson -Imongoc -DBSON_COMPILATION -DMONGOC_COMPILATION \
-  @cflags@
+PKG_CPPFLAGS=-I. -Icommon -Ijsonsl -Ibson -Imongoc \
+	-DBSON_COMPILATION -DMONGOC_COMPILATION @cflags@
 
-LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o \
+LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
 	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
 	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
-	bson/bson-value.o  bson/bson.o bson/bson-decimal128.o jsonsl/jsonsl.o
+	bson/bson-value.o bson/bson.o bson/bson-decimal128.o jsonsl/jsonsl.o \
+	bson/bson-fnv.o
 
-LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
+LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
 	mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
-	mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor-cursorid.o \
-	mongoc/mongoc-cursor-transform.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
+	mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
 	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
 	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
 	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
@@ -30,7 +30,11 @@ LIBMONGOC=mongoc/mongoc-array.o mongoc/mongoc-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o \
 	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o mongoc/mongoc-cluster-cyrus.o \
 	mongoc/mongoc-compression.o mongoc/mongoc-cyrus.o mongoc/mongoc-write-command-legacy.o \
-	mongoc/mongoc-linux-distro-scanner.o mongoc/mongoc-stream-file.o
+	mongoc/mongoc-linux-distro-scanner.o mongoc/mongoc-stream-file.o \
+	mongoc/mongoc-opts.o mongoc/mongoc-opts-helpers.o \
+	mongoc/mongoc-cursor-cmd.o mongoc/mongoc-cursor-cmd-deprecated.o \
+	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
+	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o
 
 PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson @libs@ -lz
 STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a

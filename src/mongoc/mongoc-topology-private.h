@@ -49,6 +49,8 @@ typedef struct _mongoc_topology_t {
    int64_t local_threshold_msec;
    int64_t connect_timeout_msec;
    int64_t server_selection_timeout_msec;
+   /* defaults to 500ms, configurable by tests */
+   int64_t min_heartbeat_frequency_msec;
 
    mongoc_mutex_t mutex;
    mongoc_cond_t cond_client;
@@ -74,6 +76,9 @@ mongoc_topology_set_apm_callbacks (mongoc_topology_t *topology,
 
 void
 mongoc_topology_destroy (mongoc_topology_t *topology);
+
+void
+mongoc_topology_reconcile (mongoc_topology_t *topology);
 
 bool
 mongoc_topology_compatible (const mongoc_topology_description_t *td,
@@ -139,7 +144,14 @@ void
 _mongoc_topology_push_server_session (mongoc_topology_t *topology,
                                       mongoc_server_session_t *server_session);
 
-void
+bool
 _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd);
 
+void
+_mongoc_topology_do_blocking_scan (mongoc_topology_t *topology,
+                                   bson_error_t *error);
+const bson_t *
+_mongoc_topology_get_ismaster (mongoc_topology_t *topology);
+void
+_mongoc_topology_request_scan (mongoc_topology_t *topology);
 #endif

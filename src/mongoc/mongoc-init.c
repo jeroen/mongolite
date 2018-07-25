@@ -23,22 +23,21 @@
 
 #include "mongoc-handshake-private.h"
 
-#ifdef MONGOC_ENABLE_SSL
-#include "mongoc-scram-private.h"
-#include "mongoc-ssl.h"
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
 #include "mongoc-openssl-private.h"
 #elif defined(MONGOC_ENABLE_SSL_LIBRESSL)
 #include "tls.h"
 #endif
-#endif
 #include "mongoc-thread-private.h"
-
+#include "common-b64-private.h"
+#if defined(MONGOC_ENABLE_CRYPTO_CNG)
+#include "mongoc-crypto-private.h"
+#include "mongoc-crypto-cng-private.h"
+#endif
 
 #ifndef MONGOC_NO_AUTOMATIC_GLOBALS
 #pragma message( \
-   "Configure the driver with --disable-automatic-init-and-cleanup\
- (if using ./configure) or ENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF (with cmake).\
+   "Configure the driver with ENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF.\
  Automatic cleanup is deprecated and will be removed in version 2.0.")
 #endif
 
@@ -96,10 +95,6 @@ static MONGOC_ONCE_FUN (_mongoc_do_init)
    tls_init ();
 #endif
 
-#ifdef MONGOC_ENABLE_SSL
-   _mongoc_scram_startup ();
-#endif
-
 #ifdef MONGOC_ENABLE_SASL_CYRUS
    /* The following functions should not use tracing, as they may be invoked
     * before mongoc_log_set_handler() can complete. */
@@ -128,6 +123,10 @@ static MONGOC_ONCE_FUN (_mongoc_do_init)
 
       BSON_ASSERT (err == 0);
    }
+#endif
+
+#if defined(MONGOC_ENABLE_CRYPTO_CNG)
+   mongoc_crypto_cng_init ();
 #endif
 
    _mongoc_handshake_init ();
@@ -159,6 +158,10 @@ static MONGOC_ONCE_FUN (_mongoc_do_cleanup)
 
 #ifdef _WIN32
    WSACleanup ();
+#endif
+
+#if defined(MONGOC_ENABLE_CRYPTO_CNG)
+   mongoc_crypto_cng_cleanup ();
 #endif
 
    _mongoc_counters_cleanup ();
