@@ -6,14 +6,15 @@
 #' @export
 #' @param prefix string to prefix the collection name
 #' @examples # New GridFS
-#' \donttest{
 #' fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 #' input <- R.home('doc/NEWS.pdf')
 #' fs$upload(input)
-#' fs$download('NEWS.pdf', 'output.pdf')
-#' hashes <- tools::md5sum(c(input, 'output.pdf'))
-#' unlink('output.pdf')
-#' stopifnot(hashes[[1]] == hashes[[1]])
+#' fs$download('NEWS.pdf', file.path(tempdir(), 'output.pdf'))
+#' con <- file(file.path(tempdir(), 'output2.pdf'))
+#' fs$read('NEWS.pdf', con)
+#' hashes <- tools::md5sum(c(input, file.path(tempdir(), c('output.pdf', 'output2.pdf'))))
+#' unlink(file.path(tempdir(), c('output.pdf', 'output2.pdf')))
+#' stopifnot(length(unique(hashes)) == 1)
 #'
 #' # Insert Binary Data
 #' fs$write('iris3', serialize(datasets::iris3, NULL))
@@ -24,7 +25,6 @@
 #' # Show what we have
 #' fs$find()
 #' fs$drop()
-#' }
 gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", options = ssl_options()){
   client <- do.call(mongo_client_new, c(list(uri = url), options))
 
@@ -61,8 +61,12 @@ fs_object <- function(fs, client, orig){
     download <- function(name, path = name){
       mongo_gridfs_download(fs, name, path)
     }
-    read <- function(name){
-      mongo_gridfs_read(fs, name)
+    read <- function(name, con = NULL){
+      if(!length(con)){
+        mongo_gridfs_read_buf(fs, name)
+      } else {
+        mongo_gridfs_read_stream(fs, name, con)
+      }
     }
     write <- function(name, data, content_type = NULL, metadata = NULL){
       mongo_gridfs_write(fs, name, data, content_type, metadata)
@@ -138,7 +142,7 @@ mongo_gridfs_write <- function(fs, name, data, type, metadata){
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_read
-mongo_gridfs_read <- function(fs, name){
+mongo_gridfs_read_buf <- function(fs, name){
   out <- .Call(R_mongo_gridfs_read, fs, name)
   structure(as.list(out), names = c("id", "name", "type", "metadata", "data"))
 }
@@ -148,4 +152,23 @@ mongo_gridfs_remove <- function(fs, name){
   vapply(name, function(x){
     .Call(R_mongo_gridfs_remove, fs, x)
   }, character(1))
+}
+
+#' @useDynLib mongolite R_new_stream_ptr R_read_stream_ptr R_close_stream_ptr
+mongo_gridfs_read_stream <- function(fs, name, con){
+  stopifnot(inherits(con, "connection"))
+  if(!isOpen(con)){
+    open(con, 'wb')
+    on.exit(close(con))
+  }
+  stream <- .Call(R_new_stream_ptr, fs, name)
+  remaining <- attr(stream, 'size')
+  while(remaining > 0){
+    buf <- .Call(R_read_stream_ptr, stream, 1024)
+    remaining <- remaining - length(buf)
+    if(length(buf) < 1024 && remaining > 0)
+      stop("Stream read incomplete: ", remaining, " remaining")
+    writeBin(buf, con)
+  }
+  .Call(R_close_stream_ptr, stream)
 }

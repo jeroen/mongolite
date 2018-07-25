@@ -14,11 +14,10 @@ SEXP append_tail(SEXP el, SEXP tail){
   return SETCDR(tail, Rf_cons(el, R_NilValue));
 }
 
-SEXP get_id_and_destroy(mongoc_gridfs_file_t * file){
+SEXP get_file_id(mongoc_gridfs_file_t * file){
   bson_t val;
   bson_init (&val);
   BSON_APPEND_VALUE(&val, "id", mongoc_gridfs_file_get_id(file));
-  mongoc_gridfs_file_destroy (file);
   SEXP lst = bson2list(&val);
   return Rf_length(lst) ? VECTOR_ELT(bson2list(&val), 0) : R_NilValue;
 }
@@ -29,7 +28,9 @@ SEXP save_file_and_get_id(mongoc_gridfs_file_t * file){
     mongoc_gridfs_file_error(file, &err);
     stop(err.message);
   }
-  return get_id_and_destroy(file);
+  SEXP val = get_file_id(file);
+  mongoc_gridfs_file_destroy (file);
+  return val;
 }
 
 SEXP create_outlist(mongoc_gridfs_file_t * file, SEXP data){
@@ -37,7 +38,7 @@ SEXP create_outlist(mongoc_gridfs_file_t * file, SEXP data){
   SEXP filename = PROTECT(make_string(mongoc_gridfs_file_get_filename(file)));
   SEXP content_type = PROTECT(make_string(mongoc_gridfs_file_get_content_type(file)));
   SEXP metadata = PROTECT(bson_to_str(mongoc_gridfs_file_get_metadata(file)));
-  SEXP id = PROTECT(get_id_and_destroy(file));
+  SEXP id = PROTECT(get_file_id(file));
   SEXP out = Rf_list5(id, filename, content_type, metadata, data);
   UNPROTECT(5);
   return out;
@@ -82,7 +83,8 @@ SEXP R_mongo_gridfs_find(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
     sizes = append_tail(Rf_ScalarReal(mongoc_gridfs_file_get_length (file)), sizes);
     dates = append_tail(Rf_ScalarReal(mongoc_gridfs_file_get_upload_date (file)), dates);
     content_type = append_tail(make_string(mongoc_gridfs_file_get_content_type(file)), content_type);
-    ids = append_tail(get_id_and_destroy(file), ids);
+    ids = append_tail(get_file_id(file), ids);
+    mongoc_gridfs_file_destroy (file);
   }
   mongoc_gridfs_file_list_destroy (list);
   SEXP out = Rf_list5(CDR(a), CDR(b), CDR(c), CDR(d), CDR(e)); // CDR() drops sentinel node
@@ -144,7 +146,9 @@ SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
   if(mongoc_stream_read (stream, RAW(buf), size, -1, 0) < size)
     stop("Failed to read entire steam");
   mongoc_stream_destroy (stream);
-  return create_outlist(file, buf);
+  SEXP val = create_outlist(file, buf);
+  mongoc_gridfs_file_destroy (file);
+  return val;
 }
 
 SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
@@ -178,7 +182,9 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
   }
   fclose(fp);
   mongoc_stream_destroy (stream);
-  return create_outlist(file, path);
+  SEXP val = create_outlist(file, path);
+  mongoc_gridfs_file_destroy (file);
+  return val;
 }
 
 SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
@@ -189,5 +195,82 @@ SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
     stop("File not found. %s", err.message);
   if(!mongoc_gridfs_file_remove(file, &err))
     stop(err.message);
-  return get_id_and_destroy(file);
+  SEXP val = get_file_id(file);
+  mongoc_gridfs_file_destroy (file);
+  return val;
+}
+
+/* Connection Streaming API */
+
+typedef struct {
+  mongoc_stream_t * stream;
+  mongoc_gridfs_file_t * file;
+} filestream;
+
+static void fin_filestream(SEXP ptr){
+#ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE ("destorying stream.");
+#endif
+  if(!R_ExternalPtrAddr(ptr))
+    return;
+  filestream * filestream = R_ExternalPtrAddr(ptr);
+  if(filestream->stream)
+    mongoc_stream_destroy(filestream->stream);
+  if(filestream->file)
+    mongoc_gridfs_file_destroy(filestream->file);
+  free(filestream);
+  R_ClearExternalPtr(ptr);
+}
+
+static filestream * get_stream_ptr(SEXP ptr){
+  filestream * filestream = R_ExternalPtrAddr(ptr);
+  if(!filestream)
+    error("stream has been destroyed.");
+  return filestream;
+}
+
+SEXP R_new_stream_ptr(SEXP ptr_fs, SEXP name){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  bson_error_t err;
+  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
+  if(file == NULL)
+    stop("File not found. %s", err.message);
+
+  ssize_t size = mongoc_gridfs_file_get_length(file);
+  mongoc_stream_t *stream = mongoc_stream_gridfs_new (file);
+  if(!stream){
+    mongoc_gridfs_file_destroy(file);
+    stop("Failed to create mongoc_stream_gridfs_new");
+  }
+  filestream * filestream = malloc(sizeof filestream);
+  filestream->file = file;
+  filestream->stream = stream;
+  SEXP ptr = PROTECT(R_MakeExternalPtr(filestream, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(ptr, fin_filestream, 1);
+  setAttrib(ptr, R_ClassSymbol, mkString("filestream"));
+  setAttrib(ptr, install("size"), ScalarReal(size));
+  UNPROTECT(1);
+  return ptr;
+}
+
+SEXP R_read_stream_ptr(SEXP ptr, SEXP n){
+  double bufsize = Rf_asReal(n);
+  filestream * filestream = get_stream_ptr(ptr);
+  SEXP buf = PROTECT(Rf_allocVector(RAWSXP, bufsize));
+  ssize_t len = mongoc_stream_read (filestream->stream, RAW(buf), bufsize, -1, 0);
+  if(len < 0)
+    Rf_error("Error reading from stream");
+  if(len < bufsize){
+    SEXP orig = buf;
+    buf = Rf_allocVector(RAWSXP, len);
+    memcpy(RAW(buf), RAW(orig), len);
+  }
+  UNPROTECT(1);
+  return buf;
+}
+
+SEXP R_close_stream_ptr(SEXP ptr){
+  SEXP val = create_outlist(get_stream_ptr(ptr)->file, R_NilValue);
+  fin_filestream(ptr);
+  return val;
 }

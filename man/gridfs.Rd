@@ -22,14 +22,15 @@ Connect to a GridFS database.
 }
 \examples{
 # New GridFS
-\donttest{
 fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 input <- R.home('doc/NEWS.pdf')
 fs$upload(input)
-fs$download('NEWS.pdf', 'output.pdf')
-hashes <- tools::md5sum(c(input, 'output.pdf'))
-unlink('output.pdf')
-stopifnot(hashes[[1]] == hashes[[1]])
+fs$download('NEWS.pdf', file.path(tempdir(), 'output.pdf'))
+con <- file(file.path(tempdir(), 'output2.pdf'))
+fs$read('NEWS.pdf', con)
+hashes <- tools::md5sum(c(input, file.path(tempdir(), c('output.pdf', 'output2.pdf'))))
+unlink(file.path(tempdir(), c('output.pdf', 'output2.pdf')))
+stopifnot(length(unique(hashes)) == 1)
 
 # Insert Binary Data
 fs$write('iris3', serialize(datasets::iris3, NULL))
@@ -40,5 +41,4 @@ stopifnot(all.equal(iris4, datasets::iris3))
 # Show what we have
 fs$find()
 fs$drop()
-}
 }
