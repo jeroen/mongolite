@@ -167,10 +167,14 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
     int nbytes = mongoc_stream_read(stream, buf, 4096, -1, 0);
     if(nbytes == 0)
       break;
-    if(nbytes < 0)
+    if(nbytes < 0){
+      fclose(fp);
       stop("Error in mongoc_stream_readv()");
-    if (fwrite (buf, 1, nbytes, fp) != nbytes)
+    }
+    if (fwrite (buf, 1, nbytes, fp) != nbytes){
+      fclose(fp);
       stop("Failed to write to file");
+    }
   }
   fclose(fp);
   mongoc_stream_destroy (stream);
