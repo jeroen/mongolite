@@ -156,17 +156,20 @@ mongo_gridfs_remove <- function(fs, name){
 
 #' @useDynLib mongolite R_new_stream_ptr R_read_stream_ptr R_close_stream_ptr
 mongo_gridfs_read_stream <- function(fs, name, con){
+  if(length(con) && is.character(con))
+    con <- file(con, raw = TRUE)
   stopifnot(inherits(con, "connection"))
   if(!isOpen(con)){
     open(con, 'wb')
     on.exit(close(con))
   }
+  bufsize <- 1024 * 1024
   stream <- .Call(R_new_stream_ptr, fs, name)
   remaining <- attr(stream, 'size')
   while(remaining > 0){
-    buf <- .Call(R_read_stream_ptr, stream, 1024)
+    buf <- .Call(R_read_stream_ptr, stream, bufsize)
     remaining <- remaining - length(buf)
-    if(length(buf) < 1024 && remaining > 0)
+    if(length(buf) < bufsize && remaining > 0)
       stop("Stream read incomplete: ", remaining, " remaining")
     writeBin(buf, con)
   }

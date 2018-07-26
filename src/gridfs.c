@@ -237,6 +237,8 @@ SEXP R_new_stream_ptr(SEXP ptr_fs, SEXP name){
     stop("File not found. %s", err.message);
 
   ssize_t size = mongoc_gridfs_file_get_length(file);
+  if(size < 0)
+    stop("Invalid filesize: %d\n", size);
   mongoc_stream_t *stream = mongoc_stream_gridfs_new (file);
   if(!stream){
     mongoc_gridfs_file_destroy(file);
