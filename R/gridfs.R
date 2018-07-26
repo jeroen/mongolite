@@ -61,12 +61,8 @@ fs_object <- function(fs, client, orig){
     download <- function(name, path = name){
       mongo_gridfs_download(fs, name, path)
     }
-    read <- function(name, con = NULL){
-      if(!length(con)){
-        mongo_gridfs_read_buf(fs, name)
-      } else {
-        mongo_gridfs_read_stream(fs, name, con)
-      }
+    read <- function(name, con = NULL, progress = TRUE){
+      mongo_gridfs_read_stream(fs, name, con, progress)
     }
     write <- function(name, data, content_type = NULL, metadata = NULL){
       mongo_gridfs_write(fs, name, data, content_type, metadata)
@@ -156,17 +152,21 @@ mongo_gridfs_remove <- function(fs, name){
 
 #' @useDynLib mongolite R_new_stream_ptr R_read_stream_ptr R_close_stream_ptr
 mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
+  stream <- .Call(R_new_stream_ptr, fs, name)
+  size <- attr(stream, 'size')
   if(length(con) && is.character(con))
     con <- file(con, raw = TRUE)
+  if(!length(con)){
+    con <- rawConnection(raw(size), 'wb')
+    on.exit(close(con))
+  }
   stopifnot(inherits(con, "connection"))
   if(!isOpen(con)){
     open(con, 'wb')
     on.exit(close(con))
   }
+  remaining <- size
   bufsize <- 1024 * 1024
-  stream <- .Call(R_new_stream_ptr, fs, name)
-  total <- attr(stream, 'size')
-  remaining <- total
   while(remaining > 0){
     buf <- .Call(R_read_stream_ptr, stream, bufsize)
     remaining <- remaining - length(buf)
@@ -174,9 +174,12 @@ mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
       stop("Stream read incomplete: ", remaining, " remaining")
     writeBin(buf, con)
     if(isTRUE(progress))
-      cat(sprintf("\r[%s]: read %d bytes (%d%%)", name, (total - remaining), as.integer(100 * (total - remaining) / total)))
+      cat(sprintf("\r[%s]: read %d bytes (%d%%)", name, (size - remaining), as.integer(100 * (size - remaining) / size)))
   }
   if(isTRUE(progress))
-    cat(sprintf("\r[%s]: read %d bytes (done)\n", name, (total - remaining)))
-  .Call(R_close_stream_ptr, stream)
+    cat(sprintf("\r[%s]: read %d bytes (done)\n", name, (size - remaining)))
+  out <- .Call(R_close_stream_ptr, stream)
+  if(inherits(con, 'rawConnection'))
+    out$data <- rawConnectionValue(con)
+  return(out)
 }
