@@ -229,21 +229,15 @@ static filestream * get_stream_ptr(SEXP ptr){
   return filestream;
 }
 
-SEXP R_new_stream_ptr(SEXP ptr_fs, SEXP name){
-  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
-  bson_error_t err;
-  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
-  if(file == NULL)
-    stop("File not found. %s", err.message);
-
-  ssize_t size = mongoc_gridfs_file_get_length(file);
-  if(size < 0)
-    stop("Invalid filesize: %d\n", size);
+static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file){
   mongoc_stream_t *stream = mongoc_stream_gridfs_new (file);
   if(!stream){
     mongoc_gridfs_file_destroy(file);
     stop("Failed to create mongoc_stream_gridfs_new");
   }
+  double size = mongoc_gridfs_file_get_length(file);
+  if(size < 0)
+    size = NA_REAL;
   filestream * filestream = malloc(sizeof filestream);
   filestream->file = file;
   filestream->stream = stream;
@@ -255,7 +249,30 @@ SEXP R_new_stream_ptr(SEXP ptr_fs, SEXP name){
   return ptr;
 }
 
-SEXP R_read_stream_ptr(SEXP ptr, SEXP n){
+SEXP R_new_read_stream(SEXP ptr_fs, SEXP name){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  bson_error_t err;
+  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
+  if(file == NULL)
+    stop("File not found. %s", err.message);
+  return R_make_stream_ptr(file);
+}
+
+SEXP R_new_write_stream(SEXP ptr_fs, SEXP name, SEXP content_type, SEXP meta_ptr){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  mongoc_gridfs_file_opt_t opt = {0};
+  opt.filename = get_string(name);
+  mongoc_gridfs_file_t * file = mongoc_gridfs_create_file (fs, &opt);
+  if(file == NULL)
+    stop("Failure at mongoc_gridfs_create_file()");
+  if(Rf_length(content_type) && STRING_ELT(content_type, 0) != NA_STRING)
+    mongoc_gridfs_file_set_content_type(file, CHAR(STRING_ELT(content_type, 0)));
+  if(Rf_length(meta_ptr))
+    mongoc_gridfs_file_set_metadata(file, r2bson(meta_ptr));
+  return R_make_stream_ptr(file);
+}
+
+SEXP R_stream_read_chunk(SEXP ptr, SEXP n){
   double bufsize = Rf_asReal(n);
   filestream * filestream = get_stream_ptr(ptr);
   SEXP buf = PROTECT(Rf_allocVector(RAWSXP, bufsize));
@@ -271,7 +288,26 @@ SEXP R_read_stream_ptr(SEXP ptr, SEXP n){
   return buf;
 }
 
-SEXP R_close_stream_ptr(SEXP ptr){
+SEXP R_stream_write_chunk(SEXP ptr, SEXP buf){
+  ssize_t len = 0;
+  filestream * filestream = get_stream_ptr(ptr);
+  if(Rf_length(buf)){
+    len = mongoc_stream_write (filestream->stream, RAW(buf), Rf_length(buf), 0);
+    if(len < 0)
+      Rf_error("Error writing to stream");
+    if(len < Rf_length(buf))
+      Rf_error("Incomplete stream write");
+  } else {
+    if(!mongoc_gridfs_file_save (filestream->file)){
+      bson_error_t err;
+      mongoc_gridfs_file_error(filestream->file, &err);
+      stop(err.message);
+    }
+  }
+  return ScalarInteger(len);
+}
+
+SEXP R_stream_close(SEXP ptr){
   SEXP val = create_outlist(get_stream_ptr(ptr)->file, R_NilValue);
   fin_filestream(ptr);
   return val;

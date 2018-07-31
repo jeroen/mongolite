@@ -64,8 +64,8 @@ fs_object <- function(fs, client, orig){
     read <- function(name, con = NULL, progress = TRUE){
       mongo_gridfs_read_stream(fs, name, con, progress)
     }
-    write <- function(name, data, content_type = NULL, metadata = NULL){
-      mongo_gridfs_write(fs, name, data, content_type, metadata)
+    write <- function(name, con, content_type = NULL, metadata = NULL, progress = TRUE){
+      mongo_gridfs_write_stream(fs, name, con, content_type, metadata, progress)
     }
     remove <- function(name){
       mongo_gridfs_remove(fs, name)
@@ -150,9 +150,9 @@ mongo_gridfs_remove <- function(fs, name){
   }, character(1))
 }
 
-#' @useDynLib mongolite R_new_stream_ptr R_read_stream_ptr R_close_stream_ptr
+#' @useDynLib mongolite R_new_read_stream R_stream_read_chunk R_stream_close
 mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
-  stream <- .Call(R_new_stream_ptr, fs, name)
+  stream <- .Call(R_new_read_stream, fs, name)
   size <- attr(stream, 'size')
   if(length(con) && is.character(con))
     con <- file(con, raw = TRUE)
@@ -168,7 +168,7 @@ mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
   remaining <- size
   bufsize <- 1024 * 1024
   while(remaining > 0){
-    buf <- .Call(R_read_stream_ptr, stream, bufsize)
+    buf <- .Call(R_stream_read_chunk, stream, bufsize)
     remaining <- remaining - length(buf)
     if(length(buf) < bufsize && remaining > 0)
       stop("Stream read incomplete: ", remaining, " remaining")
@@ -178,8 +178,39 @@ mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
   }
   if(isTRUE(progress))
     cat(sprintf("\r[%s]: read %d bytes (done)\n", name, (size - remaining)))
-  out <- .Call(R_close_stream_ptr, stream)
+  out <- .Call(R_stream_close, stream)
   if(inherits(con, 'rawConnection'))
     out$data <- rawConnectionValue(con)
+  return(out)
+}
+
+#' @useDynLib mongolite R_new_write_stream R_stream_write_chunk R_stream_close
+mongo_gridfs_write_stream <- function(fs, name, con, type, metadata, progress = TRUE){
+  stream <- .Call(R_new_write_stream, fs, name, type, metadata)
+  size <- attr(stream, 'size')
+  if(length(con) && is.character(con))
+    con <- file(con, raw = TRUE)
+  if(is.raw(con)){
+    con <- rawConnection(con, 'rb')
+    on.exit(close(con))
+  }
+  stopifnot(inherits(con, "connection"))
+  if(!isOpen(con)){
+    open(con, 'rb')
+    on.exit(close(con))
+  }
+  total <- 0
+  bufsize <- 1024 * 1024
+  repeat {
+    buf <- readBin(con, raw(), bufsize)
+    total <- total + .Call(R_stream_write_chunk, stream, buf)
+    if(!length(buf))
+      break
+    if(isTRUE(progress))
+      cat(sprintf("\r[%s]: written %d bytes", name, total))
+  }
+  if(isTRUE(progress))
+    cat(sprintf("\r[%s]: written %d bytes (done)\n", name, total))
+  out <- .Call(R_stream_close, stream)
   return(out)
 }
