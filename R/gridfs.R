@@ -123,7 +123,8 @@ mongo_gridfs_download <- function(fs, name, path){
   stopifnot(length(name) == length(path))
   out <- rep(NA, length(name))
   for(i in seq_along(name)){
-    out <- .Call(R_mongo_gridfs_download, fs, name[i], path[i])
+    res <- .Call(R_mongo_gridfs_download, fs, name[i], path[i])
+    out[i] <- res$id
   }
   structure(out, names = name)
 }
@@ -186,8 +187,11 @@ mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
 
 #' @useDynLib mongolite R_new_write_stream R_stream_write_chunk R_stream_close
 mongo_gridfs_write_stream <- function(fs, name, con, type, metadata, progress = TRUE){
+  stopifnot(is.character(name))
+  type <- as.character(type)
+  metadata <- if(length(metadata))
+    bson_or_json(metadata)
   stream <- .Call(R_new_write_stream, fs, name, type, metadata)
-  size <- attr(stream, 'size')
   if(length(con) && is.character(con))
     con <- file(con, raw = TRUE)
   if(is.raw(con)){

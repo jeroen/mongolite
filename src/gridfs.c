@@ -35,12 +35,20 @@ SEXP save_file_and_get_id(mongoc_gridfs_file_t * file){
 
 SEXP create_outlist(mongoc_gridfs_file_t * file, SEXP data){
   PROTECT(data);
-  SEXP filename = PROTECT(make_string(mongoc_gridfs_file_get_filename(file)));
-  SEXP content_type = PROTECT(make_string(mongoc_gridfs_file_get_content_type(file)));
-  SEXP metadata = PROTECT(bson_to_str(mongoc_gridfs_file_get_metadata(file)));
-  SEXP id = PROTECT(get_file_id(file));
-  SEXP out = Rf_list5(id, filename, content_type, metadata, data);
-  UNPROTECT(5);
+  SEXP out = PROTECT(allocVector(VECSXP, 5));
+  SET_VECTOR_ELT(out, 0, get_file_id(file));
+  SET_VECTOR_ELT(out, 1, make_string(mongoc_gridfs_file_get_filename(file)));
+  SET_VECTOR_ELT(out, 2, make_string(mongoc_gridfs_file_get_content_type(file)));
+  SET_VECTOR_ELT(out, 3, bson_to_str(mongoc_gridfs_file_get_metadata(file)));
+  SET_VECTOR_ELT(out, 4, data);
+  SEXP nms = PROTECT(allocVector(STRSXP, 5));
+  Rf_setAttrib(out, R_NamesSymbol, nms);
+  SET_STRING_ELT(nms, 0, mkChar("id"));
+  SET_STRING_ELT(nms, 1, mkChar("name"));
+  SET_STRING_ELT(nms, 2, mkChar("type"));
+  SET_STRING_ELT(nms, 3, mkChar("metadata"));
+  SET_STRING_ELT(nms, 4, mkChar("data"));
+  UNPROTECT(2);
   return out;
 }
 
