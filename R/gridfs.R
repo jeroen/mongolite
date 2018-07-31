@@ -174,10 +174,10 @@ mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
       stop("Stream read incomplete: ", remaining, " remaining")
     writeBin(buf, con)
     if(isTRUE(progress))
-      cat(sprintf("\r[%s]: read %d bytes (%d%%)", name, (size - remaining), as.integer(100 * (size - remaining) / size)))
+      cat(sprintf("\r[%s]: read %s (%d%%)     ", name, as_size(size - remaining), as.integer(100 * (size - remaining) / size)))
   }
   if(isTRUE(progress))
-    cat(sprintf("\r[%s]: read %d bytes (done)\n", name, (size - remaining)))
+    cat(sprintf("\r[%s]: read %s (done)\n", name, as_size(size - remaining)))
   out <- .Call(R_stream_close, stream)
   if(inherits(con, 'rawConnection'))
     out$data <- rawConnectionValue(con)
@@ -207,10 +207,14 @@ mongo_gridfs_write_stream <- function(fs, name, con, type, metadata, progress = 
     if(!length(buf))
       break
     if(isTRUE(progress))
-      cat(sprintf("\r[%s]: written %d bytes", name, total))
+      cat(sprintf("\r[%s]: written %s     ", name, as_size(total)))
   }
   if(isTRUE(progress))
-    cat(sprintf("\r[%s]: written %d bytes (done)\n", name, total))
+    cat(sprintf("\r[%s]: written %s (done)\n", name, as_size(total)))
   out <- .Call(R_stream_close, stream)
   return(out)
+}
+
+as_size <- function(n) {
+  format(structure(n, class="object_size"), units="auto", standard = "SI", digits = 2L)
 }
