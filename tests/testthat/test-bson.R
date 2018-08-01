@@ -9,16 +9,19 @@ roundtrip_json <- function(testdata){
   jsonlite::toJSON(out, raw = "mongo", collapse = FALSE, always_decimal = TRUE, digits = NA, na = "string", POSIXt = "mongo")
 }
 
-roundtrip_test <- function(testdata){
+roundtrip_test <- function(testdata, spec_name) {
   json <- roundtrip_json(testdata)
   for(i in which(!is.na(testdata$valid$canonical_extjson))){
     x <- jsonlite::fromJSON(testdata$valid$canonical_extjson[i], simplifyVector = T)
     y <- jsonlite::fromJSON(json[i], simplifyVector = T)
-    expect_equal(x, y)
+    expect_equal(x, y, info = sprintf(
+      "Error in JSON roundtrip for valid %s entry \"%s\" (%d).",
+      spec_name, testdata$valid$description[i], i
+    ))
   }
 }
 
-iterate_test <- function(testdata){
+iterate_test <- function(testdata, spec_name) {
   m2 <- mongo(verbose = FALSE)
   on.exit(try(m2$drop(), silent = TRUE))
   lapply(testdata$valid$canonical_bson, function(bin){
@@ -27,11 +30,15 @@ iterate_test <- function(testdata){
   })
   # start iterator
   iter <- m2$iterate()
-  invisible(lapply(testdata$valid$canonical_bson, function(bin){
+  for (i in 1:length(testdata$valid$canonical_bson)) {
+    bin <- testdata$valid$canonical_bson[i]
     bson <- mongolite:::raw_to_bson(mongolite:::hex2bin(bin))
     list <- mongolite:::bson_to_list(bson)
-    expect_equal(list, iter$one())
-  }))
+    expect_equal(list, iter$one(), info = sprintf(
+      "Error in BSON roundtrip for valid %s entry \"%s\" (%d).",
+      spec_name, testdata$valid$description[i], i
+    ))
+  }
 }
 
 parse_number <- function(x){
@@ -42,62 +49,62 @@ parse_number <- function(x){
 
 test_that("roundtrip array", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/array.json")
-  iterate_test(testdata)
-  roundtrip_test(testdata)
+  iterate_test(testdata, "array")
+  roundtrip_test(testdata, "array")
 })
 
 test_that("roundtrip binary", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/binary.json")
-  iterate_test(testdata)
-  roundtrip_test(testdata)
+  iterate_test(testdata, "binary")
+  roundtrip_test(testdata, "binary")
 })
 
 test_that("roundtrip boolean", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/boolean.json")
-  iterate_test(testdata)
-  roundtrip_test(testdata)
+  iterate_test(testdata, "boolean")
+  roundtrip_test(testdata, "boolean")
 })
 
 test_that("roundtrip datetime", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/datetime.json")
-  iterate_test(testdata)
+  iterate_test(testdata, "datetime")
 
   # Temporary workaround for date parsing bug in mongo-c-driver 1.5.x
   testdata$valid$canonical_extjson <- sub("1960", "1980", testdata$valid$canonical_extjson)
-  roundtrip_test(testdata)
+  roundtrip_test(testdata, "datetime")
 })
 
 test_that("roundtrip document", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/document.json")
-  iterate_test(testdata)
+  iterate_test(testdata, "document")
 
   # Remove test with empty column name.
   testdata$valid = testdata$valid[-2:-3,]
-  roundtrip_test(testdata)
+  roundtrip_test(testdata, "document")
 })
 
 test_that("roundtrip double", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/double.json")
-  iterate_test(testdata)
+  iterate_test(testdata, "double")
 
-  roundtrip_test(testdata)
+  roundtrip_test(testdata, "double")
 })
 
 test_that("roundtrip int32", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/int32.json")
-  iterate_test(testdata)
-  roundtrip_test(testdata)
+  iterate_test(testdata, "int32")
+  roundtrip_test(testdata, "int32")
 })
 
 test_that("roundtrip string", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/string.json")
-  iterate_test(testdata)
-  roundtrip_test(testdata)
+  iterate_test(testdata, "string")
+  roundtrip_test(testdata, "string")
 })
 
 test_that("roundtrip timestamp", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/timestamp.json")
-  iterate_test(testdata)
+  iterate_test(testdata, "timestamp")
 
   # test only timestamp
   a <- jsonlite::fromJSON(testdata$valid$canonical_extjson)$a[["$timestamp"]]
@@ -114,7 +121,7 @@ test_that("roundtrip dec128", {
       y <- jsonlite::fromJSON(json[i], simplifyVector = FALSE)$d
       expect_equal(parse_number(x), parse_number(y))
     }
-    iterate_test(testdata)
+    iterate_test(testdata, "dec128")
   }
 })
 
