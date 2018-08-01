@@ -118,47 +118,6 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type,
   return save_file_and_get_id(file);
 }
 
-SEXP R_mongo_gridfs_write(SEXP ptr_fs, SEXP name, SEXP data, SEXP content_type, SEXP meta_ptr){
-  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
-  mongoc_gridfs_file_opt_t opt = {0};
-  opt.filename = get_string(name);
-  mongoc_gridfs_file_t * file = mongoc_gridfs_create_file(fs, &opt);
-  if(file == NULL)
-    stop("Failure at mongoc_gridfs_create_file()");
-
-  mongoc_iovec_t iov = {0};
-  iov.iov_len = Rf_length(data);
-  iov.iov_base = RAW(data);
-  if(mongoc_gridfs_file_writev(file, &iov, 1, 0) < iov.iov_len)
-    stop("Failure at mongoc_gridfs_file_writev");
-  if(Rf_length(content_type) && STRING_ELT(content_type, 0) != NA_STRING)
-    mongoc_gridfs_file_set_content_type(file, CHAR(STRING_ELT(content_type, 0)));
-  if(Rf_length(meta_ptr))
-    mongoc_gridfs_file_set_metadata(file, r2bson(meta_ptr));
-  return save_file_and_get_id(file);
-}
-
-SEXP R_mongo_gridfs_read(SEXP ptr_fs, SEXP name){
-  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
-  bson_error_t err;
-  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
-  if(file == NULL)
-    stop("File not found. %s", err.message);
-
-  ssize_t size = mongoc_gridfs_file_get_length(file);
-  mongoc_stream_t * stream = mongoc_stream_gridfs_new (file);
-  if(!stream)
-    stop("Failed to create mongoc_stream_gridfs_new");
-
-  SEXP buf = Rf_allocVector(RAWSXP, size);
-  if(mongoc_stream_read (stream, RAW(buf), size, -1, 0) < size)
-    stop("Failed to read entire steam");
-  mongoc_stream_destroy (stream);
-  SEXP val = create_outlist(file, buf);
-  mongoc_gridfs_file_destroy (file);
-  return val;
-}
-
 SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_error_t err;

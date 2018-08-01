@@ -28,9 +28,10 @@ or \link{url}. These methods support a progress counter and can be interrupted
 if needed. These methods are recommended for reading or writing single files.
 
 The \code{fs$upload()} and \code{fs$download()} methods on the other hand copy directly
-between GridFS and your local disk. This API may be a little bit faster and is
-vectorized to transfer many files at once. However individual transfers cannot
-be interrupted and will block R until completed.
+between GridFS and your local disk. This API is vectorized so it can transfer
+many files at once. However individual transfers cannot be interrupted and will
+block R until completed. This API is only recommended to upload/download a large
+number of small files.
 
 Modifying files in GridFS is currently unsupported: uploading a file with the
 same name will generate a new file.

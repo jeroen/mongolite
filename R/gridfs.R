@@ -9,9 +9,10 @@
 #' if needed. These methods are recommended for reading or writing single files.
 #'
 #' The `fs$upload()` and `fs$download()` methods on the other hand copy directly
-#' between GridFS and your local disk. This API may be a little bit faster and is
-#' vectorized to transfer many files at once. However individual transfers cannot
-#' be interrupted and will block R until completed.
+#' between GridFS and your local disk. This API is vectorized so it can transfer
+#' many files at once. However individual transfers cannot be interrupted and will
+#' block R until completed. This API is only recommended to upload/download a large
+#' number of small files.
 #'
 #' Modifying files in GridFS is currently unsupported: uploading a file with the
 #' same name will generate a new file.
@@ -153,21 +154,6 @@ mongo_gridfs_download <- function(fs, name, path){
     out[i] <- res$id
   }
   structure(out, names = name)
-}
-
-#' @useDynLib mongolite R_mongo_gridfs_write
-mongo_gridfs_write <- function(fs, name, data, type, metadata){
-  stopifnot(is.raw(data))
-  stopifnot(is.character(name))
-  metadata <- if(length(metadata))
-    bson_or_json(metadata)
-  .Call(R_mongo_gridfs_write, fs, name, data, type, metadata)
-}
-
-#' @useDynLib mongolite R_mongo_gridfs_read
-mongo_gridfs_read_buf <- function(fs, name){
-  out <- .Call(R_mongo_gridfs_read, fs, name)
-  structure(as.list(out), names = c("id", "name", "type", "metadata", "data"))
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_remove
