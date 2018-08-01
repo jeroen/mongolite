@@ -48,7 +48,7 @@ SEXP create_outlist(mongoc_gridfs_file_t * file, SEXP data){
   SET_STRING_ELT(nms, 2, mkChar("type"));
   SET_STRING_ELT(nms, 3, mkChar("metadata"));
   SET_STRING_ELT(nms, 4, mkChar("data"));
-  UNPROTECT(2);
+  UNPROTECT(3);
   return out;
 }
 

@@ -18,8 +18,38 @@ gridfs(db = "test", url = "mongodb://localhost", prefix = "fs",
 \item{options}{additional connection options such as SSL keys/certs.}
 }
 \description{
-Connect to a GridFS database.
+Connect to a GridFS database to search, read, write and delete files.
 }
+\details{
+We support two interfaces for sending/receiving data from/to GridFS. The
+\code{fs$read()} and \code{fs$write()} methods are the most flexible and can send data
+from/to an R connection, such as a \link{file}, \link[=socketConnection]{socket}
+or \link{url}. These methods support a progress counter and can be interrupted
+if needed. These methods are recommended for reading or writing single files.
+
+The \code{fs$upload()} and \code{fs$download()} methods on the other hand copy directly
+between GridFS and your local disk. This API may be a little bit faster and is
+vectorized to transfer many files at once. However individual transfers cannot
+be interrupted and will block R until completed.
+
+Modifying files in GridFS is currently unsupported: uploading a file with the
+same name will generate a new file.
+}
+\section{Methods}{
+
+\describe{
+\item{\code{find(filter = "{}", options = "{}")}}{Search and list files in the GridFS}
+\item{\code{download(name, path = name)}}{Download one or more files from GridFS to disk}
+\item{\code{upload(path, name = basename(path), content_type = NULL, metadata = NULL)}}{Upload one or more files from disk to GridFS. Metadata is an optional JSON string.}
+\item{\code{read(name, con = NULL, progress = TRUE)}}{Reads a single file from GridFS into a writable R \link{connection}.
+If \code{con} is a string it is treated as a filepath; if it is \code{NULL} then the output is buffered in memory and returned as a \link{raw} vector.}
+\item{\code{write(name, con, content_type = NULL, metadata = NULL, progress = TRUE)}}{Stream write a single file into GridFS from a readable R \link{connection}.
+If \code{con} is a string it is treated as a filepath; it may also be a \link{raw} vector containing the data to upload. Metadata is an optional JSON string.}
+\item{\code{remove(name)}}{Remove a single file from the GridFS}
+\item{\code{drop()}}{Removes the entire GridFS collection, including all files}
+}
+}
+
 \examples{
 # New GridFS
 fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
