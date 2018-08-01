@@ -82,7 +82,7 @@ fs_object <- function(fs, client, orig){
     find <-  function(filter = '{}', options = '{}'){
       mongo_gridfs_find(fs, filter, options)
     }
-    upload <- function(path, name = basename(path), content_type = NULL, metadata = NULL){
+    upload <- function(path, name = path, content_type = NULL, metadata = NULL){
       mongo_gridfs_upload(fs, name, path, content_type, metadata)
     }
     download <- function(name, path = name){
@@ -130,6 +130,9 @@ mongo_gridfs_find <- function(fs, filter, opts){
 mongo_gridfs_upload <- function(fs, name, path, type, metadata){
   stopifnot(is.character(name))
   path <- normalizePath(path, mustWork = TRUE)
+  is_dir <- file.info(path)$isdir
+  if(any(is_dir))
+    stop(sprintf("Upload contains directories, you can only upload files (%s)", paste(path[is_dir], collapse = ", ")))
   stopifnot(length(name) == length(path))
   id <- rep(NA, length(name))
   if(is.null(type))
@@ -147,13 +150,13 @@ mongo_gridfs_upload <- function(fs, name, path, type, metadata){
 mongo_gridfs_download <- function(fs, name, path){
   stopifnot(is.character(name))
   path <- normalizePath(path, mustWork = FALSE)
+  lapply(path, function(x){ dir.create(dirname(x), showWarnings = FALSE, recursive = TRUE)})
   stopifnot(length(name) == length(path))
-  out <- rep(NA, length(name))
+  out <- vector("list", length(name))
   for(i in seq_along(name)){
-    res <- .Call(R_mongo_gridfs_download, fs, name[i], path[i])
-    out[i] <- res$id
+    out[[i]] <- .Call(R_mongo_gridfs_download, fs, name[i], path[i])
   }
-  structure(out, names = name)
+  do.call(rbind.data.frame, out)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_remove
