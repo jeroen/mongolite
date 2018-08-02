@@ -2,6 +2,7 @@
  - Update mongo-c-driver to upstream 1.12.0
  - Stable GridFS support! See ?gridfs
  - Compiler warnings for GCC 8
+ - Fixed bson spec unit tests (Aaron Jacobs)
 
 1.6
  - Update mongo-c-driver to upstream 1.9.2

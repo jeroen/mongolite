@@ -12,7 +12,7 @@ test_that("insert data", {
 })
 
 test_that("remove data", {
-  m$remove('{}', multiple = TRUE)
+  m$remove('{}')
   expect_equal(m$count(), 0L)
   expect_true(m$drop())
 })
