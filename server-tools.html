@@ -211,115 +211,55 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="running-commands" class="section level2">
 <h2><span class="header-section-number">7.1</span> Running Commands</h2>
 <p>For mongodb operations that mongolite currently does not implement, you can still use the raw database command using the <code>run()</code> method:</p>
-<div class="sourceCode" id="cb165"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb165-1" data-line-number="1">col &lt;-<span class="st"> </span><span class="kw">mongo</span>()</a>
-<a class="sourceLine" id="cb165-2" data-line-number="2">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;ping&quot;: 1}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb164"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb164-1" data-line-number="1">col &lt;-<span class="st"> </span><span class="kw">mongo</span>()</a>
+<a class="sourceLine" id="cb164-2" data-line-number="2">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;ping&quot;: 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; $ok
 #&gt; [1] 1</code></pre>
-<div class="sourceCode" id="cb167"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb167-1" data-line-number="1"><span class="kw">str</span>(col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listCollections&quot;:1}&#39;</span>))</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; List of 2
-#&gt;  $ cursor:List of 3
-#&gt;   ..$ id        : num 0
-#&gt;   ..$ ns        : chr &quot;test.$cmd.listCollections&quot;
-#&gt;   ..$ firstBatch:List of 5
-#&gt;   .. ..$ :List of 5
-#&gt;   .. .. ..$ name   : chr &quot;mtcars&quot;
-#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
-#&gt;   .. .. ..$ options: Named list()
-#&gt;   .. .. ..$ info   :List of 2
-#&gt;   .. .. .. ..$ readOnly: logi FALSE
-#&gt;   .. .. .. ..$ uuid    : raw [1:16] c2 36 7b 65 ...
-#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
-#&gt;   .. .. ..$ idIndex:List of 4
-#&gt;   .. .. .. ..$ v   : int 2
-#&gt;   .. .. .. ..$ key :List of 1
-#&gt;   .. .. .. .. ..$ _id: int 1
-#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
-#&gt;   .. .. .. ..$ ns  : chr &quot;test.mtcars&quot;
-#&gt;   .. ..$ :List of 5
-#&gt;   .. .. ..$ name   : chr &quot;flights&quot;
-#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
-#&gt;   .. .. ..$ options: Named list()
-#&gt;   .. .. ..$ info   :List of 2
-#&gt;   .. .. .. ..$ readOnly: logi FALSE
-#&gt;   .. .. .. ..$ uuid    : raw [1:16] cc c3 2b e3 ...
-#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
-#&gt;   .. .. ..$ idIndex:List of 4
-#&gt;   .. .. .. ..$ v   : int 2
-#&gt;   .. .. .. ..$ key :List of 1
-#&gt;   .. .. .. .. ..$ _id: int 1
-#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
-#&gt;   .. .. .. ..$ ns  : chr &quot;test.flights&quot;
-#&gt;   .. ..$ :List of 5
-#&gt;   .. .. ..$ name   : chr &quot;issues&quot;
-#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
-#&gt;   .. .. ..$ options: Named list()
-#&gt;   .. .. ..$ info   :List of 2
-#&gt;   .. .. .. ..$ readOnly: logi FALSE
-#&gt;   .. .. .. ..$ uuid    : raw [1:16] d5 72 54 c5 ...
-#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
-#&gt;   .. .. ..$ idIndex:List of 4
-#&gt;   .. .. .. ..$ v   : int 2
-#&gt;   .. .. .. ..$ key :List of 1
-#&gt;   .. .. .. .. ..$ _id: int 1
-#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
-#&gt;   .. .. .. ..$ ns  : chr &quot;test.issues&quot;
-#&gt;   .. ..$ :List of 5
-#&gt;   .. .. ..$ name   : chr &quot;subjects&quot;
-#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
-#&gt;   .. .. ..$ options: Named list()
-#&gt;   .. .. ..$ info   :List of 2
-#&gt;   .. .. .. ..$ readOnly: logi FALSE
-#&gt;   .. .. .. ..$ uuid    : raw [1:16] 5f be 09 df ...
-#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
-#&gt;   .. .. ..$ idIndex:List of 4
-#&gt;   .. .. .. ..$ v   : int 2
-#&gt;   .. .. .. ..$ key :List of 1
-#&gt;   .. .. .. .. ..$ _id: int 1
-#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
-#&gt;   .. .. .. ..$ ns  : chr &quot;test.subjects&quot;
-#&gt;   .. ..$ :List of 5
-#&gt;   .. .. ..$ name   : chr &quot;diamonds&quot;
-#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
-#&gt;   .. .. ..$ options: Named list()
-#&gt;   .. .. ..$ info   :List of 2
-#&gt;   .. .. .. ..$ readOnly: logi FALSE
-#&gt;   .. .. .. ..$ uuid    : raw [1:16] a8 e2 1c ae ...
-#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
-#&gt;   .. .. ..$ idIndex:List of 4
-#&gt;   .. .. .. ..$ v   : int 2
-#&gt;   .. .. .. ..$ key :List of 1
-#&gt;   .. .. .. .. ..$ _id: int 1
-#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
-#&gt;   .. .. .. ..$ ns  : chr &quot;test.diamonds&quot;
-#&gt;  $ ok    : num 1</code></pre>
+<div class="sourceCode" id="cb166"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb166-1" data-line-number="1">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listCollections&quot;:1}&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; $cursor
+#&gt; $cursor$id
+#&gt; [1] 0
+#&gt; 
+#&gt; $cursor$ns
+#&gt; [1] &quot;test.$cmd.listCollections&quot;
+#&gt; 
+#&gt; $cursor$firstBatch
+#&gt;       name       type info.readOnly                                                      info.uuid idIndex.v
+#&gt; 1   mtcars collection         FALSE b9, 29, 55, a0, dc, 10, 44, 76, 8c, 61, 7a, 02, 1b, 22, b8, 8c         2
+#&gt; 2  flights collection         FALSE 6f, 99, 82, 4a, d3, d5, 43, e5, 9c, 80, 5b, 18, 7c, 72, f3, a1         2
+#&gt; 3   issues collection         FALSE 01, 4f, 87, e5, db, 23, 40, 8e, b4, 24, 7a, 54, ab, ca, af, 99         2
+#&gt; 4 subjects collection         FALSE d5, 51, 9e, 4c, 5f, e2, 4a, 62, 8f, 52, 6e, 74, a9, 39, 2d, 9c         2
+#&gt; 5 diamonds collection         FALSE 84, 76, 53, e2, 67, ce, 4a, ad, 94, 47, 89, e1, 85, 6b, 49, 36         2
+#&gt;   idIndex._id idIndex.name    idIndex.ns
+#&gt; 1           1         _id_   test.mtcars
+#&gt; 2           1         _id_  test.flights
+#&gt; 3           1         _id_   test.issues
+#&gt; 4           1         _id_ test.subjects
+#&gt; 5           1         _id_ test.diamonds
+#&gt; 
+#&gt; 
+#&gt; $ok
+#&gt; [1] 1</code></pre>
 <p>Some commands can only be run on the <code>admin</code> database:</p>
-<div class="sourceCode" id="cb169"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb169-1" data-line-number="1">admin &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">db =</span> <span class="st">&quot;admin&quot;</span>)</a>
-<a class="sourceLine" id="cb169-2" data-line-number="2"><span class="kw">str</span>(admin<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listDatabases&quot;:1}&#39;</span>))</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; List of 3
-#&gt;  $ databases:List of 4
-#&gt;   ..$ :List of 3
-#&gt;   .. ..$ name      : chr &quot;admin&quot;
-#&gt;   .. ..$ sizeOnDisk: num 32768
-#&gt;   .. ..$ empty     : logi FALSE
-#&gt;   ..$ :List of 3
-#&gt;   .. ..$ name      : chr &quot;config&quot;
-#&gt;   .. ..$ sizeOnDisk: num 73728
-#&gt;   .. ..$ empty     : logi FALSE
-#&gt;   ..$ :List of 3
-#&gt;   .. ..$ name      : chr &quot;local&quot;
-#&gt;   .. ..$ sizeOnDisk: num 65536
-#&gt;   .. ..$ empty     : logi FALSE
-#&gt;   ..$ :List of 3
-#&gt;   .. ..$ name      : chr &quot;test&quot;
-#&gt;   .. ..$ sizeOnDisk: num 14524416
-#&gt;   .. ..$ empty     : logi FALSE
-#&gt;  $ totalSize: num 14696448
-#&gt;  $ ok       : num 1</code></pre>
+<div class="sourceCode" id="cb168"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb168-1" data-line-number="1">admin &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">db =</span> <span class="st">&quot;admin&quot;</span>)</a>
+<a class="sourceLine" id="cb168-2" data-line-number="2">admin<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listDatabases&quot;:1}&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; $databases
+#&gt;     name sizeOnDisk empty
+#&gt; 1  admin      32768 FALSE
+#&gt; 2 config      73728 FALSE
+#&gt; 3  local      65536 FALSE
+#&gt; 4   test    3203072 FALSE
+#&gt; 
+#&gt; $totalSize
+#&gt; [1] 3375104
+#&gt; 
+#&gt; $ok
+#&gt; [1] 1</code></pre>
 </div>
 <div id="server-info" class="section level2">
 <h2><span class="header-section-number">7.2</span> Server Info</h2>
 <p>Some server information is available in the <code>$info()</code> method:</p>
-<div class="sourceCode" id="cb171"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb171-1" data-line-number="1">col<span class="op">$</span><span class="kw">info</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb170"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb170-1" data-line-number="1">col<span class="op">$</span><span class="kw">info</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 3
 #&gt;  $ collection: chr &quot;test&quot;
 #&gt;  $ stats     : NULL
@@ -328,10 +268,10 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt;   ..$ version                  : chr &quot;4.0.0&quot;
 #&gt;   ..$ process                  : chr &quot;mongod&quot;
 #&gt;   ..$ pid                      : num 799
-#&gt;   ..$ uptime                   : num 6973
-#&gt;   ..$ uptimeMillis             : num 6972881
-#&gt;   ..$ uptimeEstimate           : num 6972
-#&gt;   ..$ localTime                : POSIXct[1:1], format: &quot;2018-08-02 22:38:23&quot;
+#&gt;   ..$ uptime                   : num 13477
+#&gt;   ..$ uptimeMillis             : num 13476592
+#&gt;   ..$ uptimeEstimate           : num 13476
+#&gt;   ..$ localTime                : POSIXct[1:1], format: &quot;2018-08-03 00:26:47&quot;
 #&gt;   ..$ asserts                  :List of 5
 #&gt;   ..$ connections              :List of 3
 #&gt;   ..$ extra_info               :List of 2

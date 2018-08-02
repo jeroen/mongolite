@@ -7,14 +7,14 @@ For mongodb operations that mongolite currently does not implement, you can stil
 ```{r}
 col <- mongo()
 col$run('{"ping": 1}')
-str(col$run('{"listCollections":1}'))
+col$run('{"listCollections":1}')
 ```
 
 Some commands can only be run on the `admin` database:
 
 ```{r}
 admin <- mongo(db = "admin")
-str(admin$run('{"listDatabases":1}'))
+admin$run('{"listDatabases":1}')
 ```
 
 
