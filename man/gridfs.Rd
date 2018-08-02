@@ -44,7 +44,7 @@ same name will generate a new file.
 \item{\code{upload(path, name = basename(path), content_type = NULL, metadata = NULL)}}{Upload one or more files from disk to GridFS. Metadata is an optional JSON string.}
 \item{\code{read(name, con = NULL, progress = TRUE)}}{Reads a single file from GridFS into a writable R \link{connection}.
 If \code{con} is a string it is treated as a filepath; if it is \code{NULL} then the output is buffered in memory and returned as a \link{raw} vector.}
-\item{\code{write(name, con, content_type = NULL, metadata = NULL, progress = TRUE)}}{Stream write a single file into GridFS from a readable R \link{connection}.
+\item{\code{write(con, name, content_type = NULL, metadata = NULL, progress = TRUE)}}{Stream write a single file into GridFS from a readable R \link{connection}.
 If \code{con} is a string it is treated as a filepath; it may also be a \link{raw} vector containing the data to upload. Metadata is an optional JSON string.}
 \item{\code{remove(name)}}{Remove a single file from the GridFS}
 \item{\code{drop()}}{Removes the entire GridFS collection, including all files}
