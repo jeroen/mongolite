@@ -73,7 +73,23 @@ test_that("roundtrip binary", {
   # Avoid running tests which fail due to unimplemented $type checking.
   testdata$valid <- testdata$valid[1:9,]
   iterate_test(testdata, "binary")
-  roundtrip_test(testdata, "binary")
+
+  # Avoid new canonical format by directly comparing base64-encoded values.
+  # NOTE: This may change if `jsonlite`'s implementation changes. In that case,
+  # we could fall back on using roundtrip_test().
+  key <- testdata$test_key
+  json <- roundtrip_json(testdata)
+  for(i in which(!is.na(testdata$valid$canonical_extjson))) {
+    x <- jsonlite::fromJSON(testdata$valid$canonical_extjson[i],
+                            simplifyVector = TRUE)[[key]]
+    x <- x$`$binary`$base64
+    y <- jsonlite::fromJSON(json[i], simplifyVector = TRUE)[[key]]
+    y <- y$`$binary`
+    expect_equal(x, y, info = sprintf(
+      "Error in JSON roundtrip for valid %s entry \"%s\" (%d).",
+      "binary", testdata$valid$description[i], i
+    ))
+  }
 })
 
 test_that("roundtrip boolean", {
