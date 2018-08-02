@@ -27,7 +27,7 @@ The manual page tells us that `mongo()` supports the following arguments:
  - `db`: name of the database to connect to. Defaults to `"test"`.
  - `url`: address of the MongoDB server in standard [URI Format](https://docs.mongodb.com/manual/reference/connection-string/).
  - `verbose`: if `TRUE`, emits some extra output
- - `options`: additinoal connection options such as SSL keys/certs.
+ - `options`: additional connection options such as SSL keys/certs.
  
 The `url` parameter contains a special URI format which defines the server address
 and additional connection options. 
@@ -74,7 +74,7 @@ However it is recommended to use SSL instead of plain text when authenticating w
 ```{r, eval = FALSE}
 # Or over SSL
 m <- mongo(url = paste0(URI, "&ssl=true"), options = 
-             ssl_options(ca = "auth/ca.crt", allow_invalid_hostname = TRUE))
+             ssl_options(ca = ".auth/ca.crt", allow_invalid_hostname = TRUE))
 m$find()
 ```
 
@@ -95,7 +95,7 @@ To use X509 authentication the Mongo URI needs `ssl=true&authMechanism=MONGODB-X
 HOST <- "ldaptest.10gen.cc"
 USER <- "CN=client,OU=kerneluser,O=10Gen,L=New York City,ST=New York,C=US"
 URI <- sprintf("mongodb://%s@%s/x509?ssl=true&authMechanism=MONGODB-X509", USER, HOST)
-OPTS <- ssl_options(cert = "auth/client.pem", key = "auth/key.pem", ca = "auth/ca.crt", allow_invalid_hostname = TRUE)
+OPTS <- ssl_options(cert = ".auth/client.pem", key = ".auth/key.pem", ca = ".auth/ca.crt", allow_invalid_hostname = TRUE)
 m <- mongo(url = URI, options = OPTS)
 m$find()
 ```
@@ -165,6 +165,7 @@ Check `man ssh` for more ssh options It is also possible to run this command dir
 
 ```{r}
 system("ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -fN -p22")
+Sys.sleep(1)
 ```
 
 Once tunnel has been established, we can connect to our our ssh client which will tunnel traffic to our MongoDB server. In our example we run the ssh client on our localhost port 9999:
@@ -176,6 +177,8 @@ con$insert(mtcars)
 
 ```{r echo = FALSE}
 con$drop()
+rm(con)
+gc()
 system("pkill ssh")
 ```
 
@@ -211,7 +214,7 @@ defaults here, only specify these if you know what you are doing.
 
 ### Read Preference
 
-The **Read Preference** paremeter specifies if the client should connect to the 
+The **Read Preference** parameter specifies if the client should connect to the 
 primary node (default) or a secondary node in the replica set. 
 
 ```r

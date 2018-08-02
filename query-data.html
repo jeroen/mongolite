@@ -7,7 +7,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>Mongolite User Manual</title>
   <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
-  <meta name="generator" content="bookdown 0.5.10 and GitBook 2.6.7">
+  <meta name="generator" content="bookdown 0.7 and GitBook 2.6.7">
 
   <meta property="og:title" content="Mongolite User Manual" />
   <meta property="og:type" content="book" />
@@ -50,7 +50,7 @@
 <style type="text/css">
 a.sourceLine { display: inline-block; line-height: 1.25; }
 a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
-a.sourceLine:empty { height: 1.2em; position: absolute; }
+a.sourceLine:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode { white-space: pre; position: relative; }
 div.sourceCode { margin: 1em 0; }
@@ -63,13 +63,11 @@ code.sourceCode { white-space: pre-wrap; }
 a.sourceLine { text-indent: -1em; padding-left: 1em; }
 }
 pre.numberSource a.sourceLine
-  { position: relative; }
-pre.numberSource a.sourceLine:empty
-  { position: absolute; }
+  { position: relative; left: -4em; }
 pre.numberSource a.sourceLine::before
   { content: attr(data-line-number);
-    position: absolute; left: -5em; text-align: right; vertical-align: baseline;
-    border: none; pointer-events: all;
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
     -webkit-touch-callout: none; -webkit-user-select: none;
     -khtml-user-select: none; -moz-user-select: none;
     -ms-user-select: none; user-select: none;
@@ -178,8 +176,14 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
 <li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
 </ul></li>
+<li class="chapter" data-level="7" data-path="gridfs.html"><a href="gridfs.html"><i class="fa fa-check"></i><b>7</b> GridFS</a><ul>
+<li class="chapter" data-level="7.1" data-path="gridfs.html"><a href="gridfs.html#connecting-to-gridfs"><i class="fa fa-check"></i><b>7.1</b> Connecting to GridFS</a></li>
+<li class="chapter" data-level="7.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>7.2</b> GridFS Methods</a></li>
+<li class="chapter" data-level="7.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>7.3</b> Read / Write</a></li>
+<li class="chapter" data-level="7.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>7.4</b> Vectorized Upload/Download</a></li>
+</ul></li>
 <li class="divider"></li>
-<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
 
 </ul>
 
@@ -200,10 +204,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
             <section class="normal" id="section-">
 <div id="query-data" class="section level1">
 <h1><span class="header-section-number">Chapter 3</span> Query Data</h1>
-<p>This chapter will cover basic techniques for reading data from MongoDB. To exemplify this chapter we start by creating a new collection <strong>diamonds</strong> and insert an example dataset from the <strong>ggplot2</strong> package.</p>
-<div class="sourceCode" id="cb53"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb53-1" data-line-number="1"><span class="co"># create collection with example data</span></a>
-<a class="sourceLine" id="cb53-2" data-line-number="2">dmd &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;diamonds&quot;</span>)</a>
-<a class="sourceLine" id="cb53-3" data-line-number="3">dmd<span class="op">$</span><span class="kw">insert</span>(ggplot2<span class="op">::</span>diamonds)</a></code></pre></div>
+<p>This chapter will cover basic techniques for reading data from MongoDB. To exemplify this chapter
+we start by creating a new collection <strong>diamonds</strong> and insert an example dataset from the <strong>ggplot2</strong> package.</p>
+<div class="sourceCode" id="cb54"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb54-1" data-line-number="1"><span class="co"># create collection with example data</span></a>
+<a class="sourceLine" id="cb54-2" data-line-number="2">dmd &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;diamonds&quot;</span>)</a>
+<a class="sourceLine" id="cb54-3" data-line-number="3">dmd<span class="op">$</span><span class="kw">insert</span>(ggplot2<span class="op">::</span>diamonds)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 5
 #&gt;  $ nInserted  : num 53940
 #&gt;  $ nMatched   : num 0
@@ -211,18 +216,18 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt;  $ nUpserted  : num 0
 #&gt;  $ writeErrors: list()</code></pre>
 <p>The next chapter explains inserting data in more detail. For now let’s verify all our data was inserted:</p>
-<div class="sourceCode" id="cb55"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb55-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">count</span>() <span class="op">==</span><span class="st"> </span><span class="kw">nrow</span>(ggplot2<span class="op">::</span>diamonds)</a></code></pre></div>
+<div class="sourceCode" id="cb56"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb56-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">count</span>() <span class="op">==</span><span class="st"> </span><span class="kw">nrow</span>(ggplot2<span class="op">::</span>diamonds)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] TRUE</code></pre>
 <p>Seems good!</p>
 <div id="query-syntax" class="section level2">
 <h2><span class="header-section-number">3.1</span> Query syntax</h2>
 <p>MongoDB uses <a href="https://docs.mongodb.com/manual/tutorial/query-documents/">JSON based syntax</a> to query documents. The empty query <code>{}</code> means: select all data. The same query parameter is used for multiple operations such as <code>find()</code>, <code>iterate()</code>, <code>count()</code>, <code>remove()</code> and <code>update()</code>. We need to specify the JSON query as a string in R.</p>
-<div class="sourceCode" id="cb57"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb57-1" data-line-number="1"><span class="co"># Get all records</span></a>
-<a class="sourceLine" id="cb57-2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>(<span class="st">&#39;{}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb58"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb58-1" data-line-number="1"><span class="co"># Get all records</span></a>
+<a class="sourceLine" id="cb58-2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>(<span class="st">&#39;{}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 53940</code></pre>
-<div class="sourceCode" id="cb59"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb59-1" data-line-number="1"><span class="co"># Read all the data back into R</span></a>
-<a class="sourceLine" id="cb59-2" data-line-number="2">alldata &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{}&#39;</span>)</a>
-<a class="sourceLine" id="cb59-3" data-line-number="3"><span class="kw">print</span>(alldata)</a></code></pre></div>
+<div class="sourceCode" id="cb60"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb60-1" data-line-number="1"><span class="co"># Read all the data back into R</span></a>
+<a class="sourceLine" id="cb60-2" data-line-number="2">alldata &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{}&#39;</span>)</a>
+<a class="sourceLine" id="cb60-3" data-line-number="3"><span class="kw">print</span>(alldata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;       carat       cut color clarity depth table price     x     y     z
 #&gt; 1      0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
 #&gt; 2      0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
@@ -236,8 +241,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 10     0.23 Very Good     H     VS1  59.4  61.0   338  4.00  4.05  2.39
 #&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 53930 rows ]</code></pre>
 <p>To query all rows where <code>cut == &quot;Premium&quot; AND price &lt; 1000</code> you would run:</p>
-<div class="sourceCode" id="cb61"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb61-1" data-line-number="1">premium_diamonds &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>)</a>
-<a class="sourceLine" id="cb61-2" data-line-number="2"><span class="kw">print</span>(premium_diamonds)</a></code></pre></div>
+<div class="sourceCode" id="cb62"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb62-1" data-line-number="1">premium_diamonds &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>)</a>
+<a class="sourceLine" id="cb62-2" data-line-number="2"><span class="kw">print</span>(premium_diamonds)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;      carat     cut color clarity depth table price    x    y    z
 #&gt; 1     0.21 Premium     E     SI1  59.8  61.0   326 3.89 3.84 2.31
 #&gt; 2     0.29 Premium     I     VS2  62.4  58.0   334 4.20 4.23 2.63
@@ -251,34 +256,35 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 10    0.30 Premium     J     SI2  59.3  61.0   405 4.43 4.38 2.61
 #&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 3190 rows ]</code></pre>
 <p>We can confirm that we get the same subset in R:</p>
-<div class="sourceCode" id="cb63"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb63-1" data-line-number="1"><span class="kw">nrow</span>(premium_diamonds)</a></code></pre></div>
+<div class="sourceCode" id="cb64"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb64-1" data-line-number="1"><span class="kw">nrow</span>(premium_diamonds)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 3200</code></pre>
-<div class="sourceCode" id="cb65"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb65-1" data-line-number="1"><span class="kw">nrow</span>(<span class="kw">subset</span>(ggplot2<span class="op">::</span>diamonds, cut <span class="op">==</span><span class="st"> &quot;Premium&quot;</span> <span class="op">&amp;</span><span class="st"> </span>price <span class="op">&lt;</span><span class="st"> </span><span class="dv">1000</span>))</a></code></pre></div>
+<div class="sourceCode" id="cb66"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb66-1" data-line-number="1"><span class="kw">nrow</span>(<span class="kw">subset</span>(ggplot2<span class="op">::</span>diamonds, cut <span class="op">==</span><span class="st"> &quot;Premium&quot;</span> <span class="op">&amp;</span><span class="st"> </span>price <span class="op">&lt;</span><span class="st"> </span><span class="dv">1000</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 3200</code></pre>
-<p>To learn more about mongo data queries, study the <a href="https://docs.mongodb.com/manual/tutorial/query-documents/">Mongo Query Documents</a> manual.</p>
+<p>To learn more about mongo data queries, study the
+<a href="https://docs.mongodb.com/manual/tutorial/query-documents/">Mongo Query Documents</a> manual.</p>
 </div>
 <div id="filter-fields" class="section level2">
 <h2><span class="header-section-number">3.2</span> Filter fields</h2>
 <p>The <code>fields</code> parameter filters specific columns from the output. Let’s continue our example above:</p>
-<div class="sourceCode" id="cb67"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb67-1" data-line-number="1">test &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(</a>
-<a class="sourceLine" id="cb67-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, </a>
-<a class="sourceLine" id="cb67-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;cut&quot; : true, &quot;clarity&quot; : true}&#39;</span>,</a>
-<a class="sourceLine" id="cb67-4" data-line-number="4">  <span class="dt">limit =</span> <span class="dv">5</span></a>
-<a class="sourceLine" id="cb67-5" data-line-number="5">)</a>
-<a class="sourceLine" id="cb67-6" data-line-number="6"><span class="kw">print</span>(test)</a></code></pre></div>
+<div class="sourceCode" id="cb68"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb68-1" data-line-number="1">test &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(</a>
+<a class="sourceLine" id="cb68-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, </a>
+<a class="sourceLine" id="cb68-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;cut&quot; : true, &quot;clarity&quot; : true}&#39;</span>,</a>
+<a class="sourceLine" id="cb68-4" data-line-number="4">  <span class="dt">limit =</span> <span class="dv">5</span></a>
+<a class="sourceLine" id="cb68-5" data-line-number="5">)</a>
+<a class="sourceLine" id="cb68-6" data-line-number="6"><span class="kw">print</span>(test)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id     cut clarity
-#&gt; 1 5a3bca42ad86a461df2f14bc Premium     SI1
-#&gt; 2 5a3bca42ad86a461df2f14be Premium     VS2
-#&gt; 3 5a3bca42ad86a461df2f14c7 Premium     SI1
-#&gt; 4 5a3bca42ad86a461df2f14c9 Premium     SI2
-#&gt; 5 5a3bca42ad86a461df2f14ca Premium      I1</code></pre>
+#&gt; 1 5b631b7b81864590dd3c573c Premium     SI1
+#&gt; 2 5b631b7b81864590dd3c573e Premium     VS2
+#&gt; 3 5b631b7b81864590dd3c5747 Premium     SI1
+#&gt; 4 5b631b7b81864590dd3c5749 Premium     SI2
+#&gt; 5 5b631b7b81864590dd3c574a Premium      I1</code></pre>
 <p>By default mongo always includes the <code>id</code> field. To prevent this we need to explicitly disable it:</p>
-<div class="sourceCode" id="cb69"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb69-1" data-line-number="1">test &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(</a>
-<a class="sourceLine" id="cb69-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, </a>
-<a class="sourceLine" id="cb69-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;cut&quot; : true, &quot;clarity&quot; : true, &quot;_id&quot;: false}&#39;</span>,</a>
-<a class="sourceLine" id="cb69-4" data-line-number="4">  <span class="dt">limit =</span> <span class="dv">5</span></a>
-<a class="sourceLine" id="cb69-5" data-line-number="5">)</a>
-<a class="sourceLine" id="cb69-6" data-line-number="6"><span class="kw">print</span>(test)</a></code></pre></div>
+<div class="sourceCode" id="cb70"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb70-1" data-line-number="1">test &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(</a>
+<a class="sourceLine" id="cb70-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, </a>
+<a class="sourceLine" id="cb70-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;cut&quot; : true, &quot;clarity&quot; : true, &quot;_id&quot;: false}&#39;</span>,</a>
+<a class="sourceLine" id="cb70-4" data-line-number="4">  <span class="dt">limit =</span> <span class="dv">5</span></a>
+<a class="sourceLine" id="cb70-5" data-line-number="5">)</a>
+<a class="sourceLine" id="cb70-6" data-line-number="6"><span class="kw">print</span>(test)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;       cut clarity
 #&gt; 1 Premium     SI1
 #&gt; 2 Premium     VS2
@@ -289,8 +295,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </div>
 <div id="sort-and-limit" class="section level2">
 <h2><span class="header-section-number">3.3</span> Sort and limit</h2>
-<p>The <code>sort</code> paramter allows us to order the output, and <code>limit</code> restricts the number records that will be returned. For example to return the 7 most expensive <strong>premium</strong> diamonds in the data we sort by price in descending order:</p>
-<div class="sourceCode" id="cb71"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb71-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;}&#39;</span>, <span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot;: -1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">7</span>)</a></code></pre></div>
+<p>The <code>sort</code> parameter allows us to order the output, and <code>limit</code> restricts the number records that will be returned. For example to return the 7 most expensive <strong>premium</strong> diamonds in the data we sort by price in descending order:</p>
+<div class="sourceCode" id="cb72"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb72-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;}&#39;</span>, <span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot;: -1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">7</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   carat     cut color clarity depth table price    x    y    z
 #&gt; 1  2.29 Premium     I     VS2  60.8    60 18823 8.50 8.47 5.16
 #&gt; 2  2.29 Premium     I     SI1  61.8    59 18797 8.52 8.45 5.24
@@ -304,36 +310,36 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="indexing" class="section level2">
 <h2><span class="header-section-number">3.4</span> Indexing</h2>
 <p>By default a collection only has an index for <code>_id</code>, which means that selecting or sorting by any other field is relatively slow.</p>
-<div class="sourceCode" id="cb73"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb73-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
+<div class="sourceCode" id="cb74"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb74-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.002   0.000   0.107</code></pre>
+#&gt;   0.002   0.000   0.094</code></pre>
 <p>By adding an index, the field gets presorted and selecting or sorting it is almost immediate:</p>
-<div class="sourceCode" id="cb75"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb75-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb76"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb76-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
 #&gt; 1 2       1        NA    _id_ test.diamonds
 #&gt; 2 2      NA         1 price_1 test.diamonds</code></pre>
-<div class="sourceCode" id="cb77"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb77-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
+<div class="sourceCode" id="cb78"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb78-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.002   0.000   0.005</code></pre>
+#&gt;   0.002   0.001   0.005</code></pre>
 <p>In order to speed up queries involving multiple fields, you need to add a cross-index which intersects both fields:</p>
-<div class="sourceCode" id="cb79"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb79-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb80"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb80-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price key.depth    name            ns
 #&gt; 1 2       1        NA        NA    _id_ test.diamonds
 #&gt; 2 2      NA         1        NA price_1 test.diamonds
 #&gt; 3 2      NA        NA         1 depth_1 test.diamonds</code></pre>
-<div class="sourceCode" id="cb81"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb81-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1, &quot;price&quot; : 1}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb82"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb82-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1, &quot;price&quot; : 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price key.depth            name            ns
 #&gt; 1 2       1        NA        NA            _id_ test.diamonds
 #&gt; 2 2      NA         1        NA         price_1 test.diamonds
 #&gt; 3 2      NA        NA         1         depth_1 test.diamonds
 #&gt; 4 2      NA         1         1 depth_1_price_1 test.diamonds</code></pre>
 <p>To remove indices from the collection, use the <code>name</code> as listed above:</p>
-<div class="sourceCode" id="cb83"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb83-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">remove =</span> <span class="st">&#39;depth_1_price_1&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb84"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb84-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">remove =</span> <span class="st">&#39;depth_1_price_1&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price key.depth    name            ns
 #&gt; 1 2       1        NA        NA    _id_ test.diamonds
 #&gt; 2 2      NA         1        NA price_1 test.diamonds
 #&gt; 3 2      NA        NA         1 depth_1 test.diamonds</code></pre>
-<div class="sourceCode" id="cb85"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb85-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">remove =</span> <span class="st">&#39;depth_1&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb86"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb86-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">remove =</span> <span class="st">&#39;depth_1&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
 #&gt; 1 2       1        NA    _id_ test.diamonds
 #&gt; 2 2      NA         1 price_1 test.diamonds</code></pre>
@@ -342,13 +348,13 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h2><span class="header-section-number">3.5</span> Iterating</h2>
 <p>The <code>find()</code> method automatically simplifies the collection into a data frame, but sometimes you need more fine-grained control. The <code>iterate()</code> method allows you to perform a query, but read the records one-by-one without simplification.</p>
 <p>The iterator has methods <code>one()</code>, <code>batch(n)</code> which allow you to step through a single or <code>n</code> records at the time. When the iterator is exhausted it will return <code>NULL</code>. Lets run the same query as above using the iterator interface:</p>
-<div class="sourceCode" id="cb87"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb87-1" data-line-number="1"><span class="co"># perform query and return the iterator</span></a>
-<a class="sourceLine" id="cb87-2" data-line-number="2">it &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">iterate</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;}&#39;</span>, <span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot;: -1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">7</span>)</a>
-<a class="sourceLine" id="cb87-3" data-line-number="3"></a>
-<a class="sourceLine" id="cb87-4" data-line-number="4"><span class="co"># read records from  the iterator</span></a>
-<a class="sourceLine" id="cb87-5" data-line-number="5"><span class="cf">while</span>(<span class="op">!</span><span class="kw">is.null</span>(x &lt;-<span class="st"> </span>it<span class="op">$</span><span class="kw">one</span>())){</a>
-<a class="sourceLine" id="cb87-6" data-line-number="6">  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot;Found %.2f carat diamond for $%d</span><span class="ch">\n</span><span class="st">&quot;</span>, x<span class="op">$</span>carat, x<span class="op">$</span>price))</a>
-<a class="sourceLine" id="cb87-7" data-line-number="7">}</a></code></pre></div>
+<div class="sourceCode" id="cb88"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb88-1" data-line-number="1"><span class="co"># perform query and return the iterator</span></a>
+<a class="sourceLine" id="cb88-2" data-line-number="2">it &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">iterate</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;}&#39;</span>, <span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot;: -1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">7</span>)</a>
+<a class="sourceLine" id="cb88-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb88-4" data-line-number="4"><span class="co"># read records from  the iterator</span></a>
+<a class="sourceLine" id="cb88-5" data-line-number="5"><span class="cf">while</span>(<span class="op">!</span><span class="kw">is.null</span>(x &lt;-<span class="st"> </span>it<span class="op">$</span><span class="kw">one</span>())){</a>
+<a class="sourceLine" id="cb88-6" data-line-number="6">  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot;Found %.2f carat diamond for $%d</span><span class="ch">\n</span><span class="st">&quot;</span>, x<span class="op">$</span>carat, x<span class="op">$</span>price))</a>
+<a class="sourceLine" id="cb88-7" data-line-number="7">}</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; Found 2.29 carat diamond for $18823
 #&gt; Found 2.29 carat diamond for $18797
 #&gt; Found 2.00 carat diamond for $18795
@@ -360,57 +366,79 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </div>
 <div id="select-by-date" class="section level2">
 <h2><span class="header-section-number">3.6</span> Select by date</h2>
-<p>In order to query by timestamp we must make sure dates are in proper <strong>UTC datetime</strong> format. When inserting data via R this means the column must be in <code>POSIXct</code> type.</p>
-<div class="sourceCode" id="cb89"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb89-1" data-line-number="1"><span class="co"># Get some example data</span></a>
-<a class="sourceLine" id="cb89-2" data-line-number="2">mydata &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">fromJSON</span>(<span class="st">&quot;https://api.github.com/repos/jeroen/mongolite/issues&quot;</span>)</a>
-<a class="sourceLine" id="cb89-3" data-line-number="3">mydata<span class="op">$</span>title &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="kw">substr</span>(mydata<span class="op">$</span>title, <span class="dv">1</span>, <span class="dv">40</span>), <span class="st">&quot;...&quot;</span>)</a>
-<a class="sourceLine" id="cb89-4" data-line-number="4">mydata<span class="op">$</span>created_at &lt;-<span class="st"> </span><span class="kw">strptime</span>(mydata<span class="op">$</span>created_at, <span class="st">&quot;%Y-%m-%dT%H:%M:%SZ&quot;</span>, <span class="st">&#39;UTC&#39;</span>)</a>
-<a class="sourceLine" id="cb89-5" data-line-number="5">mydata<span class="op">$</span>closed_at &lt;-<span class="st"> </span><span class="kw">strptime</span>(mydata<span class="op">$</span>closed_at, <span class="st">&quot;%Y-%m-%dT%H:%M:%SZ&quot;</span>, <span class="st">&#39;UTC&#39;</span>)</a>
-<a class="sourceLine" id="cb89-6" data-line-number="6"></a>
-<a class="sourceLine" id="cb89-7" data-line-number="7"><span class="co"># Insert into mongo</span></a>
-<a class="sourceLine" id="cb89-8" data-line-number="8">issues &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;issues&quot;</span>)</a>
-<a class="sourceLine" id="cb89-9" data-line-number="9">issues<span class="op">$</span><span class="kw">insert</span>(mydata)</a></code></pre></div>
+<p>In order to query by timestamp we must make sure dates are in proper <strong>UTC datetime</strong> format. When inserting data via R this means
+the column must be in <code>POSIXct</code> type.</p>
+<div class="sourceCode" id="cb90"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb90-1" data-line-number="1"><span class="co"># Get some example data</span></a>
+<a class="sourceLine" id="cb90-2" data-line-number="2">mydata &lt;-<span class="st"> </span>jsonlite<span class="op">::</span><span class="kw">fromJSON</span>(<span class="st">&quot;https://api.github.com/repos/jeroen/mongolite/issues&quot;</span>)</a>
+<a class="sourceLine" id="cb90-3" data-line-number="3">mydata<span class="op">$</span>title &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="kw">substr</span>(mydata<span class="op">$</span>title, <span class="dv">1</span>, <span class="dv">40</span>), <span class="st">&quot;...&quot;</span>)</a>
+<a class="sourceLine" id="cb90-4" data-line-number="4">mydata<span class="op">$</span>created_at &lt;-<span class="st"> </span><span class="kw">strptime</span>(mydata<span class="op">$</span>created_at, <span class="st">&quot;%Y-%m-%dT%H:%M:%SZ&quot;</span>, <span class="st">&#39;UTC&#39;</span>)</a>
+<a class="sourceLine" id="cb90-5" data-line-number="5">mydata<span class="op">$</span>closed_at &lt;-<span class="st"> </span><span class="kw">strptime</span>(mydata<span class="op">$</span>closed_at, <span class="st">&quot;%Y-%m-%dT%H:%M:%SZ&quot;</span>, <span class="st">&#39;UTC&#39;</span>)</a>
+<a class="sourceLine" id="cb90-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb90-7" data-line-number="7"><span class="co"># Insert into mongo</span></a>
+<a class="sourceLine" id="cb90-8" data-line-number="8">issues &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;issues&quot;</span>)</a>
+<a class="sourceLine" id="cb90-9" data-line-number="9">issues<span class="op">$</span><span class="kw">insert</span>(mydata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 5
-#&gt;  $ nInserted  : num 17
+#&gt;  $ nInserted  : num 30
 #&gt;  $ nMatched   : num 0
 #&gt;  $ nRemoved   : num 0
 #&gt;  $ nUpserted  : num 0
 #&gt;  $ writeErrors: list()</code></pre>
 <p>Selecting by date is done via the <code>&quot;$date&quot;</code> operator. For example to select dates which were created after January 1st, 2017:</p>
-<div class="sourceCode" id="cb91"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb91-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(</a>
-<a class="sourceLine" id="cb91-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;created_at&quot;: { &quot;$gte&quot; : { &quot;$date&quot; : &quot;2017-01-01T00:00:00Z&quot; }}}&#39;</span>,</a>
-<a class="sourceLine" id="cb91-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;created_at&quot; : true, &quot;user.login&quot; : true, &quot;title&quot;:true, &quot;_id&quot;: false}&#39;</span></a>
-<a class="sourceLine" id="cb91-4" data-line-number="4">)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;                                         title         login          created_at
-#&gt; 1       Insert issue with numeric rownames...        jcaude 2017-09-29 11:25:50
-#&gt; 2 Request return type as JSON instead of d...     xiaodaigh 2017-09-25 15:51:37
-#&gt; 3 When do a find() I get Error: Elements n...     xiaodaigh 2017-09-19 13:29:57
-#&gt; 4  Is possible to support connection pool?...      smartguo 2017-08-29 04:34:07
-#&gt; 5            Query Issue with Aggregation ... koushiksaha89 2017-05-25 09:52:11
-#&gt; 6                      colum has arraylist...  yueming-Chen 2017-05-04 06:25:33
-#&gt; 7 Adding NaN and Infinity values to databa...    LauraPalas 2017-04-20 18:20:16
-#&gt; 8 How to &quot;show databases&quot; and &quot;show collec...  kingsnakexxx 2017-03-31 04:05:58
-#&gt; 9 Switching collection without creating ne...         jhan1 2017-03-21 11:31:42</code></pre>
+<div class="sourceCode" id="cb92"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb92-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(</a>
+<a class="sourceLine" id="cb92-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;created_at&quot;: { &quot;$gte&quot; : { &quot;$date&quot; : &quot;2017-01-01T00:00:00Z&quot; }}}&#39;</span>,</a>
+<a class="sourceLine" id="cb92-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;created_at&quot; : true, &quot;user.login&quot; : true, &quot;title&quot;:true, &quot;_id&quot;: false}&#39;</span></a>
+<a class="sourceLine" id="cb92-4" data-line-number="4">)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                                          title          login          created_at
+#&gt; 1   Moves to canonical extended JSON output...       atheriel 2018-08-02 00:27:48
+#&gt; 2  Updates the specification tests to match...       atheriel 2018-08-01 21:28:49
+#&gt; 3               Request for Query Modifiers...    DavidHeslip 2018-07-24 12:23:27
+#&gt; 4  fixed json default parameter in run func...       LRAbbade 2018-07-11 16:27:03
+#&gt; 5  Why can not I install mongolite packages...  ChangMinSeung 2018-07-07 06:24:32
+#&gt; 6        Error: Unimplemented BSON type 14 ...  stevepetersen 2018-07-01 03:50:14
+#&gt; 7  Add database name to mongo info function...      Serenthia 2018-06-22 18:19:37
+#&gt; 8  Get database name of a connection to a n...      Serenthia 2018-06-21 23:54:15
+#&gt; 9       How to write R NULL value in Mongo?... gonzalezivan90 2018-06-21 22:41:51
+#&gt; 10 How do I close the connection with mongo...  brunoroquette 2018-06-05 18:47:20
+#&gt; 11                  decimals rounding issue...     tomfid1983 2018-05-21 18:49:04
+#&gt; 12 Looking for document to show sample abou...     psramkumar 2018-05-18 11:00:49
+#&gt; 13          How do I create a unique index?...         bidwbb 2018-04-19 19:55:22
+#&gt; 14 undefined symbol: _mongoc_linux_distro_s...         jet456 2018-04-18 20:09:04
+#&gt; 15 Installation failure in alpine linux (Do...        blmayer 2018-04-13 22:11:43
+#&gt; 16  Mongolite connection just stop working....   gliesian-llc 2018-04-02 15:39:50
+#&gt; 17              Get information from GridFS...  FidelCastillo 2018-03-23 10:49:28
+#&gt; 18 Documentation doesn&#39;t match implementati...      joerixaop 2018-02-19 17:10:01
+#&gt; 19            No error on broken connection...         jeroen 2018-01-29 14:39:03
+#&gt; 20               Remove mongolab references...       rlondner 2018-01-11 20:17:44
+#&gt; 21   Unable to install: missing zlib.h file...    rodgersk410 2018-01-02 21:51:11
+#&gt; 22 Reusing the same connection for several ...      mredaelli 2017-12-29 11:56:17
+#&gt; 23       Insert issue with numeric rownames...         jcaude 2017-09-29 11:25:50
+#&gt; 24 Request return type as JSON instead of d...      xiaodaigh 2017-09-25 15:51:37
+#&gt; 25 When do a find() I get Error: Elements n...      xiaodaigh 2017-09-19 13:29:57
+#&gt; 26  Is possible to support connection pool?...       smartguo 2017-08-29 04:34:07
+#&gt; 27            Query Issue with Aggregation ...  koushiksaha89 2017-05-25 09:52:11
+#&gt; 28                      colum has arraylist...   yueming-Chen 2017-05-04 06:25:33
+#&gt; 29 Adding NaN and Infinity values to databa...     LauraPalas 2017-04-20 18:20:16
+#&gt; 30 How to &quot;show databases&quot; and &quot;show collec...   kingsnakexxx 2017-03-31 04:05:58</code></pre>
 <p>Note that confusingly, what R calls a <em>Date</em> is not a timestamp but rather a string which only contains the date (Y-M-D) part of a timestamp. This type cannot be queried in MongoDB.</p>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#date">manual</a> for details.</p>
 </div>
 <div id="select-by-id" class="section level2">
 <h2><span class="header-section-number">3.7</span> Select by ID</h2>
 <p>Each record inserted into MongoDB is automatically assigned an <code>&quot;_id&quot;</code> value.</p>
-<div class="sourceCode" id="cb93"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb93-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">fields=</span> <span class="st">&#39;{&quot;created_at&quot;:true, &quot;_id&quot;:true}&#39;</span>, <span class="dt">limit =</span> <span class="dv">10</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb94"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb94-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">fields=</span> <span class="st">&#39;{&quot;created_at&quot;:true, &quot;_id&quot;:true}&#39;</span>, <span class="dt">limit =</span> <span class="dv">10</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                         _id          created_at
-#&gt; 1  5a3bca46ad86a461df2fe770 2017-09-29 11:25:50
-#&gt; 2  5a3bca46ad86a461df2fe771 2017-09-25 15:51:37
-#&gt; 3  5a3bca46ad86a461df2fe772 2017-09-19 13:29:57
-#&gt; 4  5a3bca46ad86a461df2fe773 2017-08-29 04:34:07
-#&gt; 5  5a3bca46ad86a461df2fe774 2017-05-25 09:52:11
-#&gt; 6  5a3bca46ad86a461df2fe775 2017-05-04 06:25:33
-#&gt; 7  5a3bca46ad86a461df2fe776 2017-04-20 18:20:16
-#&gt; 8  5a3bca46ad86a461df2fe777 2017-03-31 04:05:58
-#&gt; 9  5a3bca46ad86a461df2fe778 2017-03-21 11:31:42
-#&gt; 10 5a3bca46ad86a461df2fe779 2016-12-21 15:50:14</code></pre>
+#&gt; 1  5b631b8081864590dd3d29f0 2018-08-02 00:27:48
+#&gt; 2  5b631b8081864590dd3d29f1 2018-08-01 21:28:49
+#&gt; 3  5b631b8081864590dd3d29f2 2018-07-24 12:23:27
+#&gt; 4  5b631b8081864590dd3d29f3 2018-07-11 16:27:03
+#&gt; 5  5b631b8081864590dd3d29f4 2018-07-07 06:24:32
+#&gt; 6  5b631b8081864590dd3d29f5 2018-07-01 03:50:14
+#&gt; 7  5b631b8081864590dd3d29f6 2018-06-22 18:19:37
+#&gt; 8  5b631b8081864590dd3d29f7 2018-06-21 23:54:15
+#&gt; 9  5b631b8081864590dd3d29f8 2018-06-21 22:41:51
+#&gt; 10 5b631b8081864590dd3d29f9 2018-06-05 18:47:20</code></pre>
 <p>Use the <code>{&quot;$oid&quot;}</code> operator (similar to <code>ObjectId()</code> in mongo) to select a record by it’s ID, for example:</p>
-<div class="sourceCode" id="cb95"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb95-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{&quot;_id&quot; : {&quot;$oid&quot;:&quot;58a83a6aba7cb2070210433e&quot;}}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb96"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb96-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{&quot;_id&quot; : {&quot;$oid&quot;:&quot;58a83a6aba7cb2070210433e&quot;}}&#39;</span>)</a></code></pre></div>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#oid">manual</a> for syntax details.</p>
 
 </div>
@@ -439,10 +467,11 @@ gitbook.start({
 "facebook": true,
 "twitter": true,
 "google": false,
+"linkedin": false,
 "weibo": false,
 "instapper": false,
 "vk": false,
-"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+"all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"]
 },
 "fontsettings": {
 "theme": "white",

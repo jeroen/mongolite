@@ -7,7 +7,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>Mongolite User Manual</title>
   <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
-  <meta name="generator" content="bookdown 0.5.10 and GitBook 2.6.7">
+  <meta name="generator" content="bookdown 0.7 and GitBook 2.6.7">
 
   <meta property="og:title" content="Mongolite User Manual" />
   <meta property="og:type" content="book" />
@@ -50,7 +50,7 @@
 <style type="text/css">
 a.sourceLine { display: inline-block; line-height: 1.25; }
 a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
-a.sourceLine:empty { height: 1.2em; position: absolute; }
+a.sourceLine:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode { white-space: pre; position: relative; }
 div.sourceCode { margin: 1em 0; }
@@ -63,13 +63,11 @@ code.sourceCode { white-space: pre-wrap; }
 a.sourceLine { text-indent: -1em; padding-left: 1em; }
 }
 pre.numberSource a.sourceLine
-  { position: relative; }
-pre.numberSource a.sourceLine:empty
-  { position: absolute; }
+  { position: relative; left: -4em; }
 pre.numberSource a.sourceLine::before
   { content: attr(data-line-number);
-    position: absolute; left: -5em; text-align: right; vertical-align: baseline;
-    border: none; pointer-events: all;
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
     -webkit-touch-callout: none; -webkit-user-select: none;
     -khtml-user-select: none; -moz-user-select: none;
     -ms-user-select: none; user-select: none;
@@ -178,8 +176,14 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
 <li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
 </ul></li>
+<li class="chapter" data-level="7" data-path="gridfs.html"><a href="gridfs.html"><i class="fa fa-check"></i><b>7</b> GridFS</a><ul>
+<li class="chapter" data-level="7.1" data-path="gridfs.html"><a href="gridfs.html#connecting-to-gridfs"><i class="fa fa-check"></i><b>7.1</b> Connecting to GridFS</a></li>
+<li class="chapter" data-level="7.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>7.2</b> GridFS Methods</a></li>
+<li class="chapter" data-level="7.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>7.3</b> Read / Write</a></li>
+<li class="chapter" data-level="7.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>7.4</b> Vectorized Upload/Download</a></li>
+</ul></li>
 <li class="divider"></li>
-<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
 
 </ul>
 
@@ -222,7 +226,9 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt;  $mapreduce(map, reduce, query = &quot;{}&quot;, sort = &quot;{}&quot;, limit = 0, out = NULL, scope = NULL) 
 #&gt;  $remove(query, just_one = FALSE) 
 #&gt;  $rename(name, db = NULL) 
-#&gt;  $update(query, update = &quot;{\&quot;$set\&quot;:{}}&quot;, filters = &quot;[]&quot;, upsert = FALSE, multiple = FALSE)</code></pre>
+#&gt;  $replace(query, update = &quot;{}&quot;, upsert = FALSE) 
+#&gt;  $run(command = &quot;{\&quot;ping\&quot;: 1}&quot;) 
+#&gt;  $update(query, update = &quot;{\&quot;$set\&quot;:{}}&quot;, filters = NULL, upsert = FALSE, multiple = FALSE)</code></pre>
 <p>The R manual page for the <code>mongo()</code> function gives some brief descriptions as well.</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb14-1" data-line-number="1">?mongo</a></code></pre></div>
 <p>The manual page tells us that <code>mongo()</code> supports the following arguments:</p>
@@ -231,11 +237,14 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li><code>db</code>: name of the database to connect to. Defaults to <code>&quot;test&quot;</code>.</li>
 <li><code>url</code>: address of the MongoDB server in standard <a href="https://docs.mongodb.com/manual/reference/connection-string/">URI Format</a>.</li>
 <li><code>verbose</code>: if <code>TRUE</code>, emits some extra output</li>
-<li><code>options</code>: additinoal connection options such as SSL keys/certs.</li>
+<li><code>options</code>: additional connection options such as SSL keys/certs.</li>
 </ul>
-<p>The <code>url</code> parameter contains a special URI format which defines the server address and additional connection options.</p>
+<p>The <code>url</code> parameter contains a special URI format which defines the server address
+and additional connection options.</p>
 <pre><code>mongodb://[username:password@]host1[:port1][,host2[:port2],...[/[database][?options]]</code></pre>
-<p>The <a href="https://docs.mongodb.com/manual/reference/connection-string/">Mongo Connection String Manual</a> gives an overview of the connection string syntax and options. Below the most important options for using mongolite.</p>
+<p>The <a href="https://docs.mongodb.com/manual/reference/connection-string/">Mongo Connection String Manual</a>
+gives an overview of the connection string syntax and options.
+Below the most important options for using mongolite.</p>
 <div id="dns-seedlist-connection-format" class="section level3">
 <h3><span class="header-section-number">2.1.1</span> DNS Seedlist Connection Format</h3>
 <p>New in <code>mongolite 1.3</code> is support for <a href="https://docs.mongodb.com/manual/reference/connection-string/#dns-seedlist-connection-format">seedlist</a> URLs with the <code>mongodb+srv://</code> prefix. This indicates that before connecting, the client should lookup the actual host addresses and parameters from the DNS <a href="https://en.wikipedia.org/wiki/SRV_record">SRV</a> or <a href="https://en.wikipedia.org/wiki/TXT_record">TXT</a> record.</p>
@@ -267,7 +276,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>However it is recommended to use SSL instead of plain text when authenticating with a username/password:</p>
 <div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb20-1" data-line-number="1"><span class="co"># Or over SSL</span></a>
 <a class="sourceLine" id="cb20-2" data-line-number="2">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="kw">paste0</span>(URI, <span class="st">&quot;&amp;ssl=true&quot;</span>), <span class="dt">options =</span> </a>
-<a class="sourceLine" id="cb20-3" data-line-number="3">             <span class="kw">ssl_options</span>(<span class="dt">ca =</span> <span class="st">&quot;auth/ca.crt&quot;</span>, <span class="dt">allow_invalid_hostname =</span> <span class="ot">TRUE</span>))</a>
+<a class="sourceLine" id="cb20-3" data-line-number="3">             <span class="kw">ssl_options</span>(<span class="dt">ca =</span> <span class="st">&quot;.auth/ca.crt&quot;</span>, <span class="dt">allow_invalid_hostname =</span> <span class="ot">TRUE</span>))</a>
 <a class="sourceLine" id="cb20-4" data-line-number="4">m<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 </div>
 <div id="x509" class="section level3">
@@ -281,14 +290,16 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <a class="sourceLine" id="cb22-2" data-line-number="2">HOST &lt;-<span class="st"> &quot;ldaptest.10gen.cc&quot;</span></a>
 <a class="sourceLine" id="cb22-3" data-line-number="3">USER &lt;-<span class="st"> &quot;CN=client,OU=kerneluser,O=10Gen,L=New York City,ST=New York,C=US&quot;</span></a>
 <a class="sourceLine" id="cb22-4" data-line-number="4">URI &lt;-<span class="st"> </span><span class="kw">sprintf</span>(<span class="st">&quot;mongodb://%s@%s/x509?ssl=true&amp;authMechanism=MONGODB-X509&quot;</span>, USER, HOST)</a>
-<a class="sourceLine" id="cb22-5" data-line-number="5">OPTS &lt;-<span class="st"> </span><span class="kw">ssl_options</span>(<span class="dt">cert =</span> <span class="st">&quot;auth/client.pem&quot;</span>, <span class="dt">key =</span> <span class="st">&quot;auth/key.pem&quot;</span>, <span class="dt">ca =</span> <span class="st">&quot;auth/ca.crt&quot;</span>, <span class="dt">allow_invalid_hostname =</span> <span class="ot">TRUE</span>)</a>
+<a class="sourceLine" id="cb22-5" data-line-number="5">OPTS &lt;-<span class="st"> </span><span class="kw">ssl_options</span>(<span class="dt">cert =</span> <span class="st">&quot;.auth/client.pem&quot;</span>, <span class="dt">key =</span> <span class="st">&quot;.auth/key.pem&quot;</span>, <span class="dt">ca =</span> <span class="st">&quot;.auth/ca.crt&quot;</span>, <span class="dt">allow_invalid_hostname =</span> <span class="ot">TRUE</span>)</a>
 <a class="sourceLine" id="cb22-6" data-line-number="6">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> URI, <span class="dt">options =</span> OPTS)</a>
 <a class="sourceLine" id="cb22-7" data-line-number="7">m<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 </div>
 <div id="kerberos" class="section level3">
 <h3><span class="header-section-number">2.2.3</span> Kerberos</h3>
 <p><em><strong>Note</strong>: Windows uses <code>SSPI</code> for Kerberos authentication. This section does not apply</em>.</p>
-<p>Kerberos authentication on Linux requires installation of a Kerberos client. On OS-X Kerberos is already installed by default. On Ubuntu/Debian we need:</p>
+<p>Kerberos authentication on Linux requires installation of a Kerberos client.
+On OS-X Kerberos is already installed by default.
+On Ubuntu/Debian we need:</p>
 <pre><code>sudo apt-get install krb5-user libsasl2-modules-gssapi-mit</code></pre>
 <p>Next, create or edit <code>/etc/krbs5.conf</code> and add our server under <code>[realms]</code> for example:</p>
 <pre><code>[realms]
@@ -321,7 +332,8 @@ klist</code></pre>
 <li><code>-i/some/path/id_rsa</code> authenticate with ssh using a private key</li>
 </ul>
 <p>Check <code>man ssh</code> for more ssh options It is also possible to run this command directly from R:</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb29-1" data-line-number="1"><span class="kw">system</span>(<span class="st">&quot;ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -fN -p22&quot;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb29-1" data-line-number="1"><span class="kw">system</span>(<span class="st">&quot;ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -fN -p22&quot;</span>)</a>
+<a class="sourceLine" id="cb29-2" data-line-number="2"><span class="kw">Sys.sleep</span>(<span class="dv">1</span>)</a></code></pre></div>
 <p>Once tunnel has been established, we can connect to our our ssh client which will tunnel traffic to our MongoDB server. In our example we run the ssh client on our localhost port 9999:</p>
 <div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb30-1" data-line-number="1">con &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@localhost:9999/jeroen_test&quot;</span>)</a>
 <a class="sourceLine" id="cb30-2" data-line-number="2">con<span class="op">$</span><span class="kw">insert</span>(mtcars)</a></code></pre></div>
@@ -331,12 +343,16 @@ klist</code></pre>
 #&gt;  $ nRemoved   : num 0
 #&gt;  $ nUpserted  : num 0
 #&gt;  $ writeErrors: list()</code></pre>
+<pre><code>#&gt;           used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
+#&gt; Ncells  577742 30.9    1155447 61.8         NA  1101401 58.9
+#&gt; Vcells 1182601  9.1    8388608 64.0      16384  2068129 15.8</code></pre>
 <p>If you want to setup a tunnel client on Windows and you do not have the <code>ssh</code> program, you can an SSH client like putty to setup the tunnel. See <a href="http://realprogrammers.com/how_to/set_up_an_ssh_tunnel_with_putty.html">this example</a>.</p>
 </div>
 <div id="ssl-options" class="section level2">
 <h2><span class="header-section-number">2.4</span> SSL options</h2>
-<p>For security reasons, SSL options can not be configured in the URI but have to be set manually via the <code>options</code> parameter. The <code>ssl_options</code> function shows the default values:</p>
-<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb32-1" data-line-number="1"><span class="kw">ssl_options</span>()</a></code></pre></div>
+<p>For security reasons, SSL options can not be configured in the URI but have to be set
+manually via the <code>options</code> parameter. The <code>ssl_options</code> function shows the default values:</p>
+<div class="sourceCode" id="cb33"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb33-1" data-line-number="1"><span class="kw">ssl_options</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 6
 #&gt;  $ pem_file              : NULL
 #&gt;  $ ca_file               : NULL
@@ -345,33 +361,40 @@ klist</code></pre>
 #&gt;  $ allow_invalid_hostname: logi FALSE
 #&gt;  $ weak_cert_validation  : logi FALSE</code></pre>
 <p>You can use this function to specify connection SSL options:</p>
-<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb34-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost?ssl=true&quot;</span>, </a>
-<a class="sourceLine" id="cb34-2" data-line-number="2">  <span class="dt">options =</span> <span class="kw">ssl_options</span>(<span class="dt">cert =</span> <span class="st">&quot;~/client.crt&quot;</span>, <span class="dt">key =</span> <span class="st">&quot;~/id_rsa.pem&quot;</span>))</a></code></pre></div>
-<p>The MongoDB <a href="https://docs.mongodb.com/manual/tutorial/configure-ssl-clients/">SSL client manual</a> has more detailed descriptions on the various options.</p>
+<div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb35-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost?ssl=true&quot;</span>, </a>
+<a class="sourceLine" id="cb35-2" data-line-number="2">  <span class="dt">options =</span> <span class="kw">ssl_options</span>(<span class="dt">cert =</span> <span class="st">&quot;~/client.crt&quot;</span>, <span class="dt">key =</span> <span class="st">&quot;~/id_rsa.pem&quot;</span>))</a></code></pre></div>
+<p>The MongoDB <a href="https://docs.mongodb.com/manual/tutorial/configure-ssl-clients/">SSL client manual</a>
+has more detailed descriptions on the various options.</p>
 </div>
 <div id="replica-options" class="section level2">
 <h2><span class="header-section-number">2.5</span> Replica Options</h2>
-<p>The URI accepts a few special keys when connecting to a replicaset. The <a href="https://docs.mongodb.com/manual/reference/connection-string/">connection-string manual</a> is the canonical source for all parameters. Most users should stick with the defaults here, only specify these if you know what you are doing.</p>
+<p>The URI accepts a few special keys when connecting to a replicaset. The
+<a href="https://docs.mongodb.com/manual/reference/connection-string/">connection-string manual</a>
+is the canonical source for all parameters. Most users should stick with the
+defaults here, only specify these if you know what you are doing.</p>
 <div id="read-preference" class="section level3">
 <h3><span class="header-section-number">2.5.1</span> Read Preference</h3>
-<p>The <strong>Read Preference</strong> paremeter specifies if the client should connect to the primary node (default) or a secondary node in the replica set.</p>
-<div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb35-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://host.example.com/?readPreference=secondary&quot;</span>)</a></code></pre></div>
+<p>The <strong>Read Preference</strong> parameter specifies if the client should connect to the
+primary node (default) or a secondary node in the replica set.</p>
+<div class="sourceCode" id="cb36"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb36-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://host.example.com/?readPreference=secondary&quot;</span>)</a></code></pre></div>
 </div>
 <div id="write-concern" class="section level3">
 <h3><span class="header-section-number">2.5.2</span> Write Concern</h3>
-<p>The <strong>Write Concern</strong> parameter is used to specify the level of acknowledgement that the write operation has propagated to a number of server nodes. The url string parameter is the letter <code>w</code>.</p>
-<div class="sourceCode" id="cb36"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb36-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://host.example.com/?w=2&quot;</span>)</a></code></pre></div>
+<p>The <strong>Write Concern</strong> parameter is used to specify the level of acknowledgement that
+the write operation has propagated to a number of server nodes. The url string parameter
+is the letter <code>w</code>.</p>
+<div class="sourceCode" id="cb37"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb37-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://host.example.com/?w=2&quot;</span>)</a></code></pre></div>
 <p>Note that specifying this parameter to 2 on a server that is not a replicaset will result in an error when trying to write:</p>
-<div class="sourceCode" id="cb37"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb37-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?w=2&quot;</span>)</a>
-<a class="sourceLine" id="cb37-2" data-line-number="2">m<span class="op">$</span><span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot; : &quot;bar&quot;}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb38"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb38-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?w=2&quot;</span>)</a>
+<a class="sourceLine" id="cb38-2" data-line-number="2">m<span class="op">$</span><span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot; : &quot;bar&quot;}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; Error: cannot use &#39;w&#39; &gt; 1 when a host is not replicated</code></pre>
 </div>
 <div id="read-concern" class="section level3">
 <h3><span class="header-section-number">2.5.3</span> Read Concern</h3>
 <p>Finally, <strong>Read Concern</strong> allows clients to choose a level of isolation for their reads from replica sets. The default value <code>local</code> returns the instance’s most recent data, but provides no guarantee that the data has been written to a majority of the replica set members (i.e. may be rolled back).</p>
 <p>On the other hand, if we specify <code>majority</code> the server will only return data that has been propagated to the majority of nodes.</p>
-<div class="sourceCode" id="cb39"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb39-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?readConcernLevel=majority&quot;</span>)</a>
-<a class="sourceLine" id="cb39-2" data-line-number="2">m<span class="op">$</span><span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot;: 123}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb40"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb40-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?readConcernLevel=majority&quot;</span>)</a>
+<a class="sourceLine" id="cb40-2" data-line-number="2">m<span class="op">$</span><span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot;: 123}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 6
 #&gt;  $ nInserted  : int 1
 #&gt;  $ nMatched   : int 0
@@ -379,7 +402,7 @@ klist</code></pre>
 #&gt;  $ nRemoved   : int 0
 #&gt;  $ nUpserted  : int 0
 #&gt;  $ writeErrors: list()</code></pre>
-<div class="sourceCode" id="cb41"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb41-1" data-line-number="1">m<span class="op">$</span><span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot;: 456}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb42"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb42-1" data-line-number="1">m<span class="op">$</span><span class="kw">insert</span>(<span class="st">&#39;{&quot;foo&quot;: 456}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 6
 #&gt;  $ nInserted  : int 1
 #&gt;  $ nMatched   : int 0
@@ -388,17 +411,17 @@ klist</code></pre>
 #&gt;  $ nUpserted  : int 0
 #&gt;  $ writeErrors: list()</code></pre>
 <p>In the case of our local single-node server this is never the case. Therefore we see that the server does not return any data that meets the majority level.</p>
-<div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb43-1" data-line-number="1">m<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb44"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb44-1" data-line-number="1">m<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 2</code></pre>
-<div class="sourceCode" id="cb45"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb45-1" data-line-number="1">m<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb46"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb46-1" data-line-number="1">m<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   foo
 #&gt; 1 123
 #&gt; 2 456</code></pre>
 <p>The data is definitely there though, it just doesn’t meet the <code>majority</code> criterium. If we create a new connection with level <code>local</code> we do get to see our data:</p>
-<div class="sourceCode" id="cb47"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb47-1" data-line-number="1">m2 &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?readConcernLevel=local&quot;</span>)</a>
-<a class="sourceLine" id="cb47-2" data-line-number="2">m2<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb48"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb48-1" data-line-number="1">m2 &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?readConcernLevel=local&quot;</span>)</a>
+<a class="sourceLine" id="cb48-2" data-line-number="2">m2<span class="op">$</span><span class="kw">count</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 2</code></pre>
-<div class="sourceCode" id="cb49"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb49-1" data-line-number="1">m2<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb50"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb50-1" data-line-number="1">m2<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   foo
 #&gt; 1 123
 #&gt; 2 456</code></pre>
@@ -412,7 +435,7 @@ klist</code></pre>
 <li><code>bigint_as_char</code> set to <code>TRUE</code> to parse int64 numbers as strings rather than doubles (R does not support large integers natively)</li>
 </ul>
 <p>The default values are:</p>
-<div class="sourceCode" id="cb51"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb51-1" data-line-number="1"><span class="kw">mongo_options</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb52"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb52-1" data-line-number="1"><span class="kw">mongo_options</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; $log_level
 #&gt; [1] &quot;INFO&quot;
 #&gt; 
@@ -449,10 +472,11 @@ gitbook.start({
 "facebook": true,
 "twitter": true,
 "google": false,
+"linkedin": false,
 "weibo": false,
 "instapper": false,
 "vk": false,
-"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+"all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"]
 },
 "fontsettings": {
 "theme": "white",

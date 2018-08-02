@@ -77,7 +77,7 @@ The default value for the `field` argument is `'{"_id" : 0}'` i.e. all columns, 
 
 ## Sort and limit
 
-The `sort` paramter allows us to order the output, and `limit` restricts the number records that will be returned. For example to return the 7 most expensive __premium__ diamonds in the data we sort by price in descending order:
+The `sort` parameter allows us to order the output, and `limit` restricts the number records that will be returned. For example to return the 7 most expensive __premium__ diamonds in the data we sort by price in descending order:
 
 ```{r}
 dmd$find('{"cut" : "Premium"}', sort = '{"price": -1}', limit = 7)

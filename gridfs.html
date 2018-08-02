@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html >
+
+<head>
+
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Mongolite User Manual</title>
+  <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
+  <meta name="generator" content="bookdown 0.7 and GitBook 2.6.7">
+
+  <meta property="og:title" content="Mongolite User Manual" />
+  <meta property="og:type" content="book" />
+  
+  
+  <meta property="og:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  <meta name="github-repo" content="jeroen/mongolite" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Mongolite User Manual" />
+  
+  <meta name="twitter:description" content="A brief introduction to MongoDB and mongolite for R users" />
+  
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  
+  
+<link rel="prev" href="calculation.html">
+
+<script src="libs/jquery-2.2.3/jquery.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+
+<style type="text/css">
+a.sourceLine { display: inline-block; line-height: 1.25; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource a.sourceLine
+  { position: relative; left: -4em; }
+pre.numberSource a.sourceLine::before
+  { content: attr(data-line-number);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
+@media screen {
+a.sourceLine::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><a href="./">Mongolite User Manual</a></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Getting Started</a><ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#requirements-linux-mac"><i class="fa fa-check"></i><b>1.1</b> Requirements (Linux / Mac)</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#install-mongolite-in-r"><i class="fa fa-check"></i><b>1.2</b> Install mongolite in R</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#run-local-mongod"><i class="fa fa-check"></i><b>1.3</b> Run local mongod</a></li>
+<li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#testing-with-ssl"><i class="fa fa-check"></i><b>1.4</b> Testing with SSL</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html"><i class="fa fa-check"></i><b>2</b> Connecting to MongoDB</a><ul>
+<li class="chapter" data-level="2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#mongo-uri-format"><i class="fa fa-check"></i><b>2.1</b> Mongo URI Format</a><ul>
+<li class="chapter" data-level="2.1.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#dns-seedlist-connection-format"><i class="fa fa-check"></i><b>2.1.1</b> DNS Seedlist Connection Format</a></li>
+</ul></li>
+<li class="chapter" data-level="2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#authentication"><i class="fa fa-check"></i><b>2.2</b> Authentication</a><ul>
+<li class="chapter" data-level="2.2.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ldap"><i class="fa fa-check"></i><b>2.2.1</b> LDAP</a></li>
+<li class="chapter" data-level="2.2.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#x509"><i class="fa fa-check"></i><b>2.2.2</b> X509</a></li>
+<li class="chapter" data-level="2.2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#kerberos"><i class="fa fa-check"></i><b>2.2.3</b> Kerberos</a></li>
+</ul></li>
+<li class="chapter" data-level="2.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssh-tunnel"><i class="fa fa-check"></i><b>2.3</b> SSH Tunnel</a></li>
+<li class="chapter" data-level="2.4" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#ssl-options"><i class="fa fa-check"></i><b>2.4</b> SSL options</a></li>
+<li class="chapter" data-level="2.5" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#replica-options"><i class="fa fa-check"></i><b>2.5</b> Replica Options</a><ul>
+<li class="chapter" data-level="2.5.1" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#read-preference"><i class="fa fa-check"></i><b>2.5.1</b> Read Preference</a></li>
+<li class="chapter" data-level="2.5.2" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#write-concern"><i class="fa fa-check"></i><b>2.5.2</b> Write Concern</a></li>
+<li class="chapter" data-level="2.5.3" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#read-concern"><i class="fa fa-check"></i><b>2.5.3</b> Read Concern</a></li>
+</ul></li>
+<li class="chapter" data-level="2.6" data-path="connecting-to-mongodb.html"><a href="connecting-to-mongodb.html#global-options"><i class="fa fa-check"></i><b>2.6</b> Global options</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="query-data.html"><a href="query-data.html"><i class="fa fa-check"></i><b>3</b> Query Data</a><ul>
+<li class="chapter" data-level="3.1" data-path="query-data.html"><a href="query-data.html#query-syntax"><i class="fa fa-check"></i><b>3.1</b> Query syntax</a></li>
+<li class="chapter" data-level="3.2" data-path="query-data.html"><a href="query-data.html#filter-fields"><i class="fa fa-check"></i><b>3.2</b> Filter fields</a></li>
+<li class="chapter" data-level="3.3" data-path="query-data.html"><a href="query-data.html#sort-and-limit"><i class="fa fa-check"></i><b>3.3</b> Sort and limit</a></li>
+<li class="chapter" data-level="3.4" data-path="query-data.html"><a href="query-data.html#indexing"><i class="fa fa-check"></i><b>3.4</b> Indexing</a></li>
+<li class="chapter" data-level="3.5" data-path="query-data.html"><a href="query-data.html#iterating"><i class="fa fa-check"></i><b>3.5</b> Iterating</a></li>
+<li class="chapter" data-level="3.6" data-path="query-data.html"><a href="query-data.html#select-by-date"><i class="fa fa-check"></i><b>3.6</b> Select by date</a></li>
+<li class="chapter" data-level="3.7" data-path="query-data.html"><a href="query-data.html#select-by-id"><i class="fa fa-check"></i><b>3.7</b> Select by ID</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="manipulate-data.html"><a href="manipulate-data.html"><i class="fa fa-check"></i><b>4</b> Manipulate Data</a><ul>
+<li class="chapter" data-level="4.1" data-path="manipulate-data.html"><a href="manipulate-data.html#insert"><i class="fa fa-check"></i><b>4.1</b> Insert</a></li>
+<li class="chapter" data-level="4.2" data-path="manipulate-data.html"><a href="manipulate-data.html#remove"><i class="fa fa-check"></i><b>4.2</b> Remove</a></li>
+<li class="chapter" data-level="4.3" data-path="manipulate-data.html"><a href="manipulate-data.html#update-upsert"><i class="fa fa-check"></i><b>4.3</b> Update / Upsert</a></li>
+<li class="chapter" data-level="4.4" data-path="manipulate-data.html"><a href="manipulate-data.html#array-filters"><i class="fa fa-check"></i><b>4.4</b> Array Filters</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="import-export.html"><a href="import-export.html"><i class="fa fa-check"></i><b>5</b> Import / Export</a><ul>
+<li class="chapter" data-level="5.1" data-path="import-export.html"><a href="import-export.html#json"><i class="fa fa-check"></i><b>5.1</b> JSON</a></li>
+<li class="chapter" data-level="5.2" data-path="import-export.html"><a href="import-export.html#via-jsonlite"><i class="fa fa-check"></i><b>5.2</b> Via jsonlite</a></li>
+<li class="chapter" data-level="5.3" data-path="import-export.html"><a href="import-export.html#streaming"><i class="fa fa-check"></i><b>5.3</b> Streaming</a></li>
+<li class="chapter" data-level="5.4" data-path="import-export.html"><a href="import-export.html#bson"><i class="fa fa-check"></i><b>5.4</b> BSON</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
+<li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+</ul></li>
+<li class="chapter" data-level="7" data-path="gridfs.html"><a href="gridfs.html"><i class="fa fa-check"></i><b>7</b> GridFS</a><ul>
+<li class="chapter" data-level="7.1" data-path="gridfs.html"><a href="gridfs.html#connecting-to-gridfs"><i class="fa fa-check"></i><b>7.1</b> Connecting to GridFS</a></li>
+<li class="chapter" data-level="7.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>7.2</b> GridFS Methods</a></li>
+<li class="chapter" data-level="7.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>7.3</b> Read / Write</a></li>
+<li class="chapter" data-level="7.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>7.4</b> Vectorized Upload/Download</a></li>
+</ul></li>
+<li class="divider"></li>
+<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">Mongolite User Manual</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="gridfs" class="section level1">
+<h1><span class="header-section-number">Chapter 7</span> GridFS</h1>
+<p>A recent addition to <code>mongolite</code> is support for <a href="https://docs.mongodb.com/manual/core/gridfs/">GridFS</a>. A GridFS is a special type of collection for storing binary data such as files. To the user, a GridFS looks very much like a key-value store which supports potentially very large values.</p>
+<div class="figure">
+<img src="mongobook_files/gifs/screen.gif" alt="screencast" />
+<p class="caption">screencast</p>
+</div>
+<div id="connecting-to-gridfs" class="section level2">
+<h2><span class="header-section-number">7.1</span> Connecting to GridFS</h2>
+<p>The GridFS API is different from normal Mongo collections. Connecting works similar as with regular <code>mongo()</code> with one important difference: instead of specifying a <code>collection</code> name, we need to set a name <code>prefix</code>:</p>
+<div class="sourceCode" id="cb164"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb164-1" data-line-number="1"><span class="kw">library</span>(mongolite)</a>
+<a class="sourceLine" id="cb164-2" data-line-number="2">fs &lt;-<span class="st"> </span><span class="kw">gridfs</span>(<span class="dt">db =</span> <span class="st">&quot;test&quot;</span>, <span class="dt">prefix =</span> <span class="st">&quot;fs&quot;</span>)</a></code></pre></div>
+<p>Under the hood, GridFS stores files in two collections. In the case of <code>prefix = &quot;fs&quot;</code>:</p>
+<ul>
+<li><code>fs.chunks</code> stores the binary chunks.</li>
+<li><code>fs.files</code> stores the file metadata.</li>
+</ul>
+<p>Hence the <code>prefix</code> identifies the GridFS <code>.chunks</code> and <code>.files</code> data collections that make up the GridFS table.</p>
+</div>
+<div id="gridfs-methods" class="section level2">
+<h2><span class="header-section-number">7.2</span> GridFS Methods</h2>
+<p>To get an overview of available methods, print the gridfs object. The methods are described in the <code>?gridfs</code> manual page.</p>
+<div class="sourceCode" id="cb165"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb165-1" data-line-number="1"><span class="kw">print</span>(fs)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; &lt;gridfs&gt; 
+#&gt;  $download(name, path = &quot;.&quot;) 
+#&gt;  $drop() 
+#&gt;  $find(filter = &quot;{}&quot;, options = &quot;{}&quot;) 
+#&gt;  $read(name, con = NULL, progress = TRUE) 
+#&gt;  $remove(name) 
+#&gt;  $upload(path, name = basename(path), content_type = NULL, metadata = NULL) 
+#&gt;  $write(con, name, content_type = NULL, metadata = NULL, progress = TRUE)</code></pre>
+<p>The basic API supports the following operations:</p>
+<ul>
+<li>Write (upload) new files into GridFS</li>
+<li>Read (download) files from GridFS</li>
+<li>Find (list) files in the GridFS</li>
+<li>Delete a file</li>
+</ul>
+<p>Note that updating (modifying) files in GridFS is currently unsupported: uploading a file with the same name will generate a new file.</p>
+</div>
+<div id="read-write" class="section level2">
+<h2><span class="header-section-number">7.3</span> Read / Write</h2>
+<p>The <code>fs$read()</code> and <code>fs$write()</code> methods send data from/to an R <a href="https://stackoverflow.com/questions/30445875/what-exactly-is-a-connection-in-r">connection</a>, such as a file, socket or url. This is the recommended way to to send/receive data with GridFS. You get a nice progress counter and the transfer can be interrupted if needed.</p>
+<p>Both <code>read()</code> and <code>write()</code> methods have a <code>con</code> argument that specifies the input or output connection. You can also pass a string, which is treated as a file path. Here we stream a file from a URL:</p>
+<div class="sourceCode" id="cb167"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb167-1" data-line-number="1"><span class="co"># Stream data from a URL into GridFS</span></a>
+<a class="sourceLine" id="cb167-2" data-line-number="2">con &lt;-<span class="st"> </span><span class="kw">url</span>(<span class="st">&#39;https://cloud.r-project.org/src/base/R-3/R-3.5.1.tar.gz&#39;</span>)</a>
+<a class="sourceLine" id="cb167-3" data-line-number="3">fs<span class="op">$</span><span class="kw">write</span>(con, <span class="st">&#39;source.tar.gz&#39;</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>, </a>
+<a class="sourceLine" id="cb167-4" data-line-number="4">         <span class="dt">metadata =</span> <span class="st">&#39;{&quot;This is&quot; : &quot;just a test&quot;}&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; $id
+#&gt; [1] &quot;5b631bb881864590dd424e58&quot;
+#&gt; 
+#&gt; $name
+#&gt; [1] &quot;source.tar.gz&quot;
+#&gt; 
+#&gt; $size
+#&gt; [1] 29812849
+#&gt; 
+#&gt; $date
+#&gt; [1] &quot;2018-08-02 16:56:56 CEST&quot;
+#&gt; 
+#&gt; $type
+#&gt; [1] NA
+#&gt; 
+#&gt; $metadata
+#&gt; [1] &quot;{ \&quot;This is\&quot; : \&quot;just a test\&quot; }&quot;</code></pre>
+<p>In addition, for <code>fs$write()</code> you can set <code>con</code> to a raw vector with data to upload.</p>
+<div class="sourceCode" id="cb169"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb169-1" data-line-number="1">buf &lt;-<span class="st"> </span><span class="kw">serialize</span>(mtcars, <span class="ot">NULL</span>)</a>
+<a class="sourceLine" id="cb169-2" data-line-number="2">fs<span class="op">$</span><span class="kw">write</span>(buf, <span class="st">&quot;mtcars&quot;</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; $id
+#&gt; [1] &quot;5b631bba81864590dd424e59&quot;
+#&gt; 
+#&gt; $name
+#&gt; [1] &quot;mtcars&quot;
+#&gt; 
+#&gt; $size
+#&gt; [1] 3798
+#&gt; 
+#&gt; $date
+#&gt; [1] &quot;2018-08-02 16:56:58 CEST&quot;
+#&gt; 
+#&gt; $type
+#&gt; [1] NA
+#&gt; 
+#&gt; $metadata
+#&gt; [1] NA</code></pre>
+<p>The <code>fs$find()</code> method shows a list of files:</p>
+<div class="sourceCode" id="cb171"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb171-1" data-line-number="1"><span class="co"># List files in the GridFS</span></a>
+<a class="sourceLine" id="cb171-2" data-line-number="2">fs<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                         id          name     size                date type                      metadata
+#&gt; 1 5b631bb881864590dd424e58 source.tar.gz 29812849 2018-08-02 16:56:56 &lt;NA&gt; { &quot;This is&quot; : &quot;just a test&quot; }
+#&gt; 2 5b631bba81864590dd424e59        mtcars     3798 2018-08-02 16:56:58 &lt;NA&gt;                          &lt;NA&gt;</code></pre>
+<p>We can read the data to disk using <code>fs$read()</code>:</p>
+<div class="sourceCode" id="cb173"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb173-1" data-line-number="1"><span class="co"># Stream the file from GridFS to disk</span></a>
+<a class="sourceLine" id="cb173-2" data-line-number="2">out &lt;-<span class="st"> </span>fs<span class="op">$</span><span class="kw">read</span>(<span class="st">&#39;source.tar.gz&#39;</span>, <span class="kw">file</span>(<span class="st">&#39;source.tar.gz&#39;</span>), <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb173-3" data-line-number="3"><span class="kw">file.info</span>(<span class="st">&#39;source.tar.gz&#39;</span>)<span class="op">$</span>size</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] 29812849</code></pre>
+<div class="sourceCode" id="cb175"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb175-1" data-line-number="1"><span class="co"># Cleanup</span></a>
+<a class="sourceLine" id="cb175-2" data-line-number="2"><span class="kw">unlink</span>(<span class="st">&#39;source.tar.gz&#39;</span>)</a></code></pre></div>
+<p>For <code>fs$read()</code> you can set <code>con</code> to <code>NULL</code> in which case the file will be buffered in memory and returned as a raw vector. This is useful for e.g. unserializing R objects.</p>
+<div class="sourceCode" id="cb176"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb176-1" data-line-number="1">out &lt;-<span class="st"> </span>fs<span class="op">$</span><span class="kw">read</span>(<span class="st">&#39;mtcars&#39;</span>, <span class="dt">con =</span> <span class="ot">NULL</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb176-2" data-line-number="2">df &lt;-<span class="st"> </span><span class="kw">unserialize</span>(out<span class="op">$</span>data)</a>
+<a class="sourceLine" id="cb176-3" data-line-number="3"><span class="kw">head</span>(df)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                    mpg cyl disp  hp drat    wt  qsec vs am gear carb
+#&gt; Mazda RX4         21.0   6  160 110 3.90 2.620 16.46  0  1    4    4
+#&gt; Mazda RX4 Wag     21.0   6  160 110 3.90 2.875 17.02  0  1    4    4
+#&gt; Datsun 710        22.8   4  108  93 3.85 2.320 18.61  1  1    4    1
+#&gt; Hornet 4 Drive    21.4   6  258 110 3.08 3.215 19.44  1  0    3    1
+#&gt; Hornet Sportabout 18.7   8  360 175 3.15 3.440 17.02  0  0    3    2
+#&gt; Valiant           18.1   6  225 105 2.76 3.460 20.22  1  0    3    1</code></pre>
+<p>When done we trash the GridFS:</p>
+<div class="sourceCode" id="cb178"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb178-1" data-line-number="1">fs<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] TRUE</code></pre>
+</div>
+<div id="vectorized-uploaddownload" class="section level2">
+<h2><span class="header-section-number">7.4</span> Vectorized Upload/Download</h2>
+<p>The <code>fs$upload()</code> and <code>fs$download()</code> methods provide an alternative API specifically for transferring files between GridFS and your local disk. This API is vectorized so you can transfer many files at once. However transfers cannot be interrupted and will block R until completed. This API is only recommended to upload/download a large number of small files.</p>
+<div class="sourceCode" id="cb180"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb180-1" data-line-number="1"><span class="co"># Start a new GridFS and upload all files from this book</span></a>
+<a class="sourceLine" id="cb180-2" data-line-number="2">mb &lt;-<span class="st"> </span>mongolite<span class="op">::</span><span class="kw">gridfs</span>(<span class="dt">prefix =</span> <span class="st">&#39;mongobook&#39;</span>)</a>
+<a class="sourceLine" id="cb180-3" data-line-number="3">mb<span class="op">$</span><span class="kw">upload</span>(<span class="kw">list.files</span>(<span class="st">&quot;.&quot;</span>, <span class="dt">recursive =</span> <span class="ot">TRUE</span>))</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                          id               name  size                date             type metadata
+#&gt; 1  5b631bbb81864590dd424e5b      _bookdown.yml    89 2018-08-02 16:56:59             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 2  5b631bbb81864590dd424e5c          _build.sh    80 2018-08-02 16:56:59 application/x-sh     &lt;NA&gt;
+#&gt; 3  5b631bbb81864590dd424e5d        _output.yml   342 2018-08-02 16:56:59             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 4  5b631bbb81864590dd424e5e  01-connecting.Rmd  9155 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 5  5b631bbb81864590dd424e5f     02-queries.Rmd  5998 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 6  5b631bbb81864590dd424e60      03-insert.Rmd  3121 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 7  5b631bbb81864590dd424e61      04-export.Rmd  2039 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 8  5b631bbb81864590dd424e62 05-calculation.Rmd  2194 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 9  5b631bbb81864590dd424e63      06-gridfs.Rmd  3885 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 10 5b631bbb81864590dd424e64          index.Rmd  3539 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 11 5b631bbb81864590dd424e65      fighist-1.png 48856 2018-08-02 16:56:59        image/png     &lt;NA&gt;
+#&gt; 12 5b631bbb81864590dd424e66     figstats-1.png 50284 2018-08-02 16:56:59        image/png     &lt;NA&gt;
+#&gt; 13 5b631bbb81864590dd424e67      mongobook.Rmd 30182 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 14 5b631bbb81864590dd424e68    mongobook.Rproj   277 2018-08-02 16:56:59             &lt;NA&gt;     &lt;NA&gt;
+#&gt;                                                                                      path
+#&gt; 1                               /Users/jeroen/workspace/mongobook/mongobook/_bookdown.yml
+#&gt; 2                                   /Users/jeroen/workspace/mongobook/mongobook/_build.sh
+#&gt; 3                                 /Users/jeroen/workspace/mongobook/mongobook/_output.yml
+#&gt; 4                           /Users/jeroen/workspace/mongobook/mongobook/01-connecting.Rmd
+#&gt; 5                              /Users/jeroen/workspace/mongobook/mongobook/02-queries.Rmd
+#&gt; 6                               /Users/jeroen/workspace/mongobook/mongobook/03-insert.Rmd
+#&gt; 7                               /Users/jeroen/workspace/mongobook/mongobook/04-export.Rmd
+#&gt; 8                          /Users/jeroen/workspace/mongobook/mongobook/05-calculation.Rmd
+#&gt; 9                               /Users/jeroen/workspace/mongobook/mongobook/06-gridfs.Rmd
+#&gt; 10                                  /Users/jeroen/workspace/mongobook/mongobook/index.Rmd
+#&gt; 11  /Users/jeroen/workspace/mongobook/mongobook/mongobook_files/figure-html/fighist-1.png
+#&gt; 12 /Users/jeroen/workspace/mongobook/mongobook/mongobook_files/figure-html/figstats-1.png
+#&gt; 13                              /Users/jeroen/workspace/mongobook/mongobook/mongobook.Rmd
+#&gt; 14                            /Users/jeroen/workspace/mongobook/mongobook/mongobook.Rproj
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 18 rows ]</code></pre>
+<p>In the same way we can download all files in one command:</p>
+<div class="sourceCode" id="cb182"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb182-1" data-line-number="1">files &lt;-<span class="st"> </span>mb<span class="op">$</span><span class="kw">find</span>()</a>
+<a class="sourceLine" id="cb182-2" data-line-number="2"><span class="kw">dir.create</span>(<span class="st">&#39;outputfiles&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; Warning in dir.create(&quot;outputfiles&quot;): &#39;outputfiles&#39; already exists</code></pre>
+<div class="sourceCode" id="cb184"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb184-1" data-line-number="1">mb<span class="op">$</span><span class="kw">download</span>(files<span class="op">$</span>name, <span class="st">&#39;outputfiles&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                          id               name  size                date             type metadata
+#&gt; 1  5b631bbb81864590dd424e5b      _bookdown.yml    89 2018-08-02 16:56:59             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 2  5b631bbb81864590dd424e5c          _build.sh    80 2018-08-02 16:56:59 application/x-sh     &lt;NA&gt;
+#&gt; 3  5b631bbb81864590dd424e5d        _output.yml   342 2018-08-02 16:56:59             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 4  5b631bbb81864590dd424e5e  01-connecting.Rmd  9155 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 5  5b631bbb81864590dd424e5f     02-queries.Rmd  5998 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 6  5b631bbb81864590dd424e60      03-insert.Rmd  3121 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 7  5b631bbb81864590dd424e61      04-export.Rmd  2039 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 8  5b631bbb81864590dd424e62 05-calculation.Rmd  2194 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 9  5b631bbb81864590dd424e63      06-gridfs.Rmd  3885 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 10 5b631bbb81864590dd424e64          index.Rmd  3539 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 11 5b631bbb81864590dd424e65      fighist-1.png 48856 2018-08-02 16:56:59        image/png     &lt;NA&gt;
+#&gt; 12 5b631bbb81864590dd424e66     figstats-1.png 50284 2018-08-02 16:56:59        image/png     &lt;NA&gt;
+#&gt; 13 5b631bbb81864590dd424e67      mongobook.Rmd 30182 2018-08-02 16:56:59  text/x-markdown     &lt;NA&gt;
+#&gt; 14 5b631bbb81864590dd424e68    mongobook.Rproj   277 2018-08-02 16:56:59             &lt;NA&gt;     &lt;NA&gt;
+#&gt;                                                                          path
+#&gt; 1       /Users/jeroen/workspace/mongobook/mongobook/outputfiles/_bookdown.yml
+#&gt; 2           /Users/jeroen/workspace/mongobook/mongobook/outputfiles/_build.sh
+#&gt; 3         /Users/jeroen/workspace/mongobook/mongobook/outputfiles/_output.yml
+#&gt; 4   /Users/jeroen/workspace/mongobook/mongobook/outputfiles/01-connecting.Rmd
+#&gt; 5      /Users/jeroen/workspace/mongobook/mongobook/outputfiles/02-queries.Rmd
+#&gt; 6       /Users/jeroen/workspace/mongobook/mongobook/outputfiles/03-insert.Rmd
+#&gt; 7       /Users/jeroen/workspace/mongobook/mongobook/outputfiles/04-export.Rmd
+#&gt; 8  /Users/jeroen/workspace/mongobook/mongobook/outputfiles/05-calculation.Rmd
+#&gt; 9       /Users/jeroen/workspace/mongobook/mongobook/outputfiles/06-gridfs.Rmd
+#&gt; 10          /Users/jeroen/workspace/mongobook/mongobook/outputfiles/index.Rmd
+#&gt; 11      /Users/jeroen/workspace/mongobook/mongobook/outputfiles/fighist-1.png
+#&gt; 12     /Users/jeroen/workspace/mongobook/mongobook/outputfiles/figstats-1.png
+#&gt; 13      /Users/jeroen/workspace/mongobook/mongobook/outputfiles/mongobook.Rmd
+#&gt; 14    /Users/jeroen/workspace/mongobook/mongobook/outputfiles/mongobook.Rproj
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 18 rows ]</code></pre>
+<div class="sourceCode" id="cb186"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb186-1" data-line-number="1"><span class="kw">list.files</span>(<span class="st">&#39;outputfiles&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;  [1] &quot;_bookdown.yml&quot;      &quot;_build.sh&quot;          &quot;_output.yml&quot;        &quot;01-connecting.Rmd&quot;  &quot;02-queries.Rmd&quot;    
+#&gt;  [6] &quot;03-insert.Rmd&quot;      &quot;04-export.Rmd&quot;      &quot;05-calculation.Rmd&quot; &quot;06-gridfs.Rmd&quot;      &quot;fighist-1.png&quot;     
+#&gt; [11] &quot;figstats-1.png&quot;     &quot;index.Rmd&quot;          &quot;mongobook.Rmd&quot;      &quot;mongobook.Rproj&quot;    &quot;style.css&quot;         
+#&gt; [16] &quot;toc.css&quot;</code></pre>
+<p>This makes a convenient way to store an large set of files into GridFS.</p>
+<div class="sourceCode" id="cb188"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb188-1" data-line-number="1"><span class="co"># All done now.</span></a>
+<a class="sourceLine" id="cb188-2" data-line-number="2">mb<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] TRUE</code></pre>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="calculation.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/lunr.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+"sharing": {
+"github": false,
+"facebook": true,
+"twitter": true,
+"google": false,
+"linkedin": false,
+"weibo": false,
+"instapper": false,
+"vk": false,
+"all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"]
+},
+"fontsettings": {
+"theme": "white",
+"family": "sans",
+"size": 2
+},
+"edit": {
+"link": "https://github.com/jeroen/mongolite/edit/gh-pages/mongobook06-gridfs.Rmd",
+"text": "Edit"
+},
+"download": null,
+"toc": {
+"collapse": "subsection"
+}
+});
+});
+</script>
+
+</body>
+
+</html>

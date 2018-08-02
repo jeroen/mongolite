@@ -1,0 +1,118 @@
+# GridFS
+
+A recent addition to `mongolite` is support for [GridFS](https://docs.mongodb.com/manual/core/gridfs/). A GridFS is a special type of collection for storing binary data such as files. To the user, a GridFS looks very much like a key-value store which supports potentially very large values.
+
+![screencast](mongobook_files/gifs/screen.gif)
+
+## Connecting to GridFS
+
+The GridFS API is different from normal Mongo collections. Connecting works similar as with regular `mongo()` with one important difference: instead of specifying a `collection` name, we need to set a name `prefix`:
+
+```{r}
+library(mongolite)
+fs <- gridfs(db = "test", prefix = "fs")
+```
+
+Under the hood, GridFS stores files in two collections. In the case of `prefix = "fs"`:
+
+ - `fs.chunks` stores the binary chunks.
+ - `fs.files` stores the file metadata.
+
+Hence the `prefix` identifies the GridFS `.chunks` and `.files` data collections that make up the GridFS table.
+
+## GridFS Methods
+
+To get an overview of available methods, print the gridfs object. The methods are described in the `?gridfs` manual page.
+
+```{r}
+print(fs)
+```
+
+The basic API supports the following operations:
+
+ - Write (upload) new files into GridFS
+ - Read (download) files from GridFS
+ - Find (list) files in the GridFS
+ - Delete a file
+ 
+Note that updating (modifying) files in GridFS is currently unsupported: uploading a file with the same name will generate a new file.
+
+## Read / Write
+
+The `fs$read()` and `fs$write()` methods send data from/to an R [connection](https://stackoverflow.com/questions/30445875/what-exactly-is-a-connection-in-r), such as a file, socket or url. This is the recommended way to to send/receive data with GridFS. You get a nice progress counter and the transfer can be interrupted if needed.
+
+Both `read()` and `write()` methods have a `con` argument that specifies the input or output connection. You can also pass a string, which is treated as a file path. Here we stream a file from a URL:
+
+```{r}
+# Stream data from a URL into GridFS
+con <- url('https://cloud.r-project.org/src/base/R-3/R-3.5.1.tar.gz')
+fs$write(con, 'source.tar.gz', progress = FALSE, 
+         metadata = '{"This is" : "just a test"}')
+
+```
+
+In addition, for `fs$write()` you can set `con` to a raw vector with data to upload.
+
+```{r}
+buf <- serialize(mtcars, NULL)
+fs$write(buf, "mtcars", progress = FALSE)
+```
+
+The `fs$find()` method shows a list of files:
+
+```{r}
+# List files in the GridFS
+fs$find()
+```
+
+We can read the data to disk using `fs$read()`:
+
+```{r}
+# Stream the file from GridFS to disk
+out <- fs$read('source.tar.gz', file('source.tar.gz'), progress = FALSE)
+file.info('source.tar.gz')$size
+
+# Cleanup
+unlink('source.tar.gz')
+```
+
+For `fs$read()` you can set `con` to `NULL` in which case the file will be buffered in memory and returned as a raw vector. This is useful for e.g. unserializing R objects.
+
+```{r}
+out <- fs$read('mtcars', con = NULL, progress = FALSE)
+df <- unserialize(out$data)
+head(df)
+```
+
+When done we trash the GridFS:
+
+```{r}
+fs$drop()
+```
+
+## Vectorized Upload/Download
+
+The `fs$upload()` and `fs$download()` methods provide an alternative API specifically for transferring files between GridFS and your local disk. This API is vectorized so you can transfer many files at once. However transfers cannot be interrupted and will block R until completed. This API is only recommended to upload/download a large number of small files.
+
+```{r}
+# Start a new GridFS and upload all files from this book
+mb <- mongolite::gridfs(prefix = 'mongobook')
+mb$upload(list.files(".", recursive = TRUE))
+```
+
+In the same way we can download all files in one command:
+
+```{r}
+files <- mb$find()
+dir.create('outputfiles')
+mb$download(files$name, 'outputfiles')
+list.files('outputfiles')
+```
+
+This makes a convenient way to store an large set of files into GridFS.
+
+```{r}
+# All done now.
+mb$drop()
+```
+

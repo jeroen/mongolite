@@ -5,5 +5,5 @@ bookdown::gitbook:
       before: |
         <li><a href="./">Mongolite User Manual</a></li>
       after: |
-        <li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+        <li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
     edit: https://github.com/jeroen/mongolite/edit/gh-pages/mongobook%s

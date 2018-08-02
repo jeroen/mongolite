@@ -7,7 +7,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>Mongolite User Manual</title>
   <meta name="description" content="A brief introduction to MongoDB and mongolite for R users">
-  <meta name="generator" content="bookdown 0.5.10 and GitBook 2.6.7">
+  <meta name="generator" content="bookdown 0.7 and GitBook 2.6.7">
 
   <meta property="og:title" content="Mongolite User Manual" />
   <meta property="og:type" content="book" />
@@ -31,7 +31,7 @@
   
   
 <link rel="prev" href="import-export.html">
-
+<link rel="next" href="gridfs.html">
 <script src="libs/jquery-2.2.3/jquery.min.js"></script>
 <link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
 <link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
@@ -50,7 +50,7 @@
 <style type="text/css">
 a.sourceLine { display: inline-block; line-height: 1.25; }
 a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
-a.sourceLine:empty { height: 1.2em; position: absolute; }
+a.sourceLine:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode { white-space: pre; position: relative; }
 div.sourceCode { margin: 1em 0; }
@@ -63,13 +63,11 @@ code.sourceCode { white-space: pre-wrap; }
 a.sourceLine { text-indent: -1em; padding-left: 1em; }
 }
 pre.numberSource a.sourceLine
-  { position: relative; }
-pre.numberSource a.sourceLine:empty
-  { position: absolute; }
+  { position: relative; left: -4em; }
 pre.numberSource a.sourceLine::before
   { content: attr(data-line-number);
-    position: absolute; left: -5em; text-align: right; vertical-align: baseline;
-    border: none; pointer-events: all;
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
     -webkit-touch-callout: none; -webkit-user-select: none;
     -khtml-user-select: none; -moz-user-select: none;
     -ms-user-select: none; user-select: none;
@@ -178,8 +176,14 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
 <li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
 </ul></li>
+<li class="chapter" data-level="7" data-path="gridfs.html"><a href="gridfs.html"><i class="fa fa-check"></i><b>7</b> GridFS</a><ul>
+<li class="chapter" data-level="7.1" data-path="gridfs.html"><a href="gridfs.html#connecting-to-gridfs"><i class="fa fa-check"></i><b>7.1</b> Connecting to GridFS</a></li>
+<li class="chapter" data-level="7.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>7.2</b> GridFS Methods</a></li>
+<li class="chapter" data-level="7.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>7.3</b> Read / Write</a></li>
+<li class="chapter" data-level="7.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>7.4</b> Vectorized Upload/Download</a></li>
+</ul></li>
 <li class="divider"></li>
-<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2017</a></li>
+<li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
 
 </ul>
 
@@ -204,12 +208,12 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="aggregate" class="section level2">
 <h2><span class="header-section-number">6.1</span> Aggregate</h2>
 <p>The <code>aggregate</code>() method allows you to run an aggregation <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/">pipeline</a>. For example the pipeline below calculates the total flights per carrier and the average distance:</p>
-<div class="sourceCode" id="cb157"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb157-1" data-line-number="1">stats &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">aggregate</span>(</a>
-<a class="sourceLine" id="cb157-2" data-line-number="2">  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,</a>
-<a class="sourceLine" id="cb157-3" data-line-number="3">  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span></a>
-<a class="sourceLine" id="cb157-4" data-line-number="4">)</a>
-<a class="sourceLine" id="cb157-5" data-line-number="5"><span class="kw">names</span>(stats) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;carrier&quot;</span>, <span class="st">&quot;count&quot;</span>, <span class="st">&quot;average&quot;</span>)</a>
-<a class="sourceLine" id="cb157-6" data-line-number="6"><span class="kw">print</span>(stats)</a></code></pre></div>
+<div class="sourceCode" id="cb158"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb158-1" data-line-number="1">stats &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">aggregate</span>(</a>
+<a class="sourceLine" id="cb158-2" data-line-number="2">  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,</a>
+<a class="sourceLine" id="cb158-3" data-line-number="3">  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span></a>
+<a class="sourceLine" id="cb158-4" data-line-number="4">)</a>
+<a class="sourceLine" id="cb158-5" data-line-number="5"><span class="kw">names</span>(stats) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;carrier&quot;</span>, <span class="st">&quot;count&quot;</span>, <span class="st">&quot;average&quot;</span>)</a>
+<a class="sourceLine" id="cb158-6" data-line-number="6"><span class="kw">print</span>(stats)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    carrier count   average
 #&gt; 1       OO    32  500.8125
 #&gt; 2       F9   685 1620.0000
@@ -228,8 +232,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 15      HA   342 4983.0000
 #&gt; 16      AA 32729 1340.2360</code></pre>
 <p>Let’s make a pretty plot:</p>
-<div class="sourceCode" id="cb159"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb159-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
-<a class="sourceLine" id="cb159-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(carrier, count), <span class="dt">data =</span> stats) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb160"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb160-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
+<a class="sourceLine" id="cb160-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(carrier, count), <span class="dt">data =</span> stats) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
 <p><img src="mongobook_files/figure-html/figstats-1.png" width="672" /></p>
 <p>Check the <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/#db.collection.aggregate">MongoDB manual</a> for detailed description of the pipeline syntax and supported options.</p>
 </div>
@@ -237,13 +241,13 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h2><span class="header-section-number">6.2</span> Map/Reduce</h2>
 <p>The <code>mapreduce()</code> method allow for running a custom in-database mapreduce job by providing custom <code>map</code> and <code>reduce</code> JavaScript functions. Running JavaScript is slower using the aggregate system, but you can implement fully customized database operations.</p>
 <p>Below is a simple example to do “binning” of distances to create a histogram.</p>
-<div class="sourceCode" id="cb160"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb160-1" data-line-number="1"><span class="co"># Map-reduce (binning)</span></a>
-<a class="sourceLine" id="cb160-2" data-line-number="2">histdata &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">mapreduce</span>(</a>
-<a class="sourceLine" id="cb160-3" data-line-number="3">  <span class="dt">map =</span> <span class="st">&quot;function(){emit(Math.floor(this.distance/100)*100, 1)}&quot;</span>, </a>
-<a class="sourceLine" id="cb160-4" data-line-number="4">  <span class="dt">reduce =</span> <span class="st">&quot;function(id, counts){return Array.sum(counts)}&quot;</span></a>
-<a class="sourceLine" id="cb160-5" data-line-number="5">)</a>
-<a class="sourceLine" id="cb160-6" data-line-number="6"><span class="kw">names</span>(histdata) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;distance&quot;</span>, <span class="st">&quot;count&quot;</span>)</a>
-<a class="sourceLine" id="cb160-7" data-line-number="7"><span class="kw">print</span>(histdata)</a></code></pre></div>
+<div class="sourceCode" id="cb161"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb161-1" data-line-number="1"><span class="co"># Map-reduce (binning)</span></a>
+<a class="sourceLine" id="cb161-2" data-line-number="2">histdata &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">mapreduce</span>(</a>
+<a class="sourceLine" id="cb161-3" data-line-number="3">  <span class="dt">map =</span> <span class="st">&quot;function(){emit(Math.floor(this.distance/100)*100, 1)}&quot;</span>, </a>
+<a class="sourceLine" id="cb161-4" data-line-number="4">  <span class="dt">reduce =</span> <span class="st">&quot;function(id, counts){return Array.sum(counts)}&quot;</span></a>
+<a class="sourceLine" id="cb161-5" data-line-number="5">)</a>
+<a class="sourceLine" id="cb161-6" data-line-number="6"><span class="kw">names</span>(histdata) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;distance&quot;</span>, <span class="st">&quot;count&quot;</span>)</a>
+<a class="sourceLine" id="cb161-7" data-line-number="7"><span class="kw">print</span>(histdata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    distance count
 #&gt; 1         0  1633
 #&gt; 2       100 16017
@@ -273,8 +277,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 26     3300     8
 #&gt; 27     4900   707</code></pre>
 <p>From this data we can create a pretty histogram:</p>
-<div class="sourceCode" id="cb162"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb162-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
-<a class="sourceLine" id="cb162-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(distance, count), <span class="dt">data =</span> histdata) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb163"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb163-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
+<a class="sourceLine" id="cb163-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(distance, count), <span class="dt">data =</span> histdata) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
 <p><img src="mongobook_files/figure-html/fighist-1.png" width="672" /></p>
 <p>Obviously we could have done binning in R instead, however if we are dealing with loads of data, doing it in database can be much more efficient.</p>
 
@@ -285,8 +289,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
           </div>
         </div>
       </div>
-<a href="import-export.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
-
+<a href="import-export.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="gridfs.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
     </div>
   </div>
 <script src="libs/gitbook-2.6.7/js/app.min.js"></script>
@@ -304,10 +308,11 @@ gitbook.start({
 "facebook": true,
 "twitter": true,
 "google": false,
+"linkedin": false,
 "weibo": false,
 "instapper": false,
 "vk": false,
-"all": ["facebook", "google", "twitter", "weibo", "instapaper"]
+"all": ["facebook", "google", "twitter", "linkedin", "weibo", "instapaper"]
 },
 "fontsettings": {
 "theme": "white",
