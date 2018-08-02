@@ -250,7 +250,7 @@ mongo_object <- function(col, client, verbose, orig){
     info <- function(){
       check_col()
       structure(list(
-        name = mongo_collection_name(col),
+        collection = mongo_collection_name(col),
         stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
         server = mongo_client_server_status(client)
       ), class = "miniprint")
