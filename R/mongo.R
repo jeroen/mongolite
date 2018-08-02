@@ -249,11 +249,11 @@ mongo_object <- function(col, client, verbose, orig){
 
     info <- function(){
       check_col()
-      list(
+      structure(list(
         name = mongo_collection_name(col),
         stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
         server = mongo_client_server_status(client)
-      )
+      ), class = "miniprint")
     }
 
     rename <- function(name, db = NULL){
@@ -295,7 +295,7 @@ print.mongo <- function(x, ...){
 
 #' @export
 print.miniprint <- function(x, ...){
-  utils::str(unclass(x))
+  utils::str(unclass(x), max.level = 2)
   invisible(x)
 }
 

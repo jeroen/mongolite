@@ -206,7 +206,7 @@ mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
   out <- .Call(R_stream_close, stream)
   if(inherits(con, 'rawConnection'))
     out$data <- rawConnectionValue(con)
-  return(out)
+  structure(out, class = "miniprint")
 }
 
 #' @useDynLib mongolite R_new_write_stream R_stream_write_chunk R_stream_close
@@ -240,7 +240,7 @@ mongo_gridfs_write_stream <- function(fs, name, con, type, metadata, progress = 
   if(isTRUE(progress))
     cat(sprintf("\r[%s]: written %s (done)\n", name, as_size(total)))
   out <- .Call(R_stream_close, stream)
-  return(out)
+  structure(out, class = "miniprint")
 }
 
 as_size <- function(n) {
