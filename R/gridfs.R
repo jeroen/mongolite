@@ -127,14 +127,7 @@ mongo_gridfs_drop <- function(fs){
 #' @useDynLib mongolite R_mongo_gridfs_find
 mongo_gridfs_find <- function(fs, filter, opts){
   out <- .Call(R_mongo_gridfs_find, fs, bson_or_json(filter), bson_or_json(opts))
-  data.frame(
-    id = as.character(out[[1]]),
-    name = as.character(out[[2]]),
-    size = as.numeric(out[[3]]),
-    date = structure(as.numeric(out[[4]]) / 1000, class = c("POSIXct", "POSIXt")),
-    type = as.character(out[[5]]),
-    stringsAsFactors = FALSE
-  )
+  list_to_df(out)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_upload
@@ -151,10 +144,13 @@ mongo_gridfs_upload <- function(fs, name, path, type, metadata){
   type <- as.character(rep_len(type, length(name)))
   metadata <- if(length(metadata))
     bson_or_json(metadata)
+  out <- vector("list", length(name))
   for(i in seq_along(name)){
-    id[i] <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i], type[i], metadata)
+    out[[i]] <- .Call(R_mongo_gridfs_upload, fs, name[i], path[i], type[i], metadata)
   }
-  structure(id, names = name)
+  df <- list_to_df(out)
+  df$path = path
+  df
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_download
@@ -167,7 +163,9 @@ mongo_gridfs_download <- function(fs, name, path){
   for(i in seq_along(name)){
     out[[i]] <- .Call(R_mongo_gridfs_download, fs, name[i], path[i])
   }
-  do.call(rbind.data.frame, out)
+  df <- list_to_df(out)
+  df$path = path
+  df
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_remove
@@ -247,4 +245,13 @@ mongo_gridfs_write_stream <- function(fs, name, con, type, metadata, progress = 
 
 as_size <- function(n) {
   format(structure(n, class="object_size"), units="auto", standard = "SI", digits = 2L)
+}
+
+list_to_df <- function(list, cols = c("id", "name", "size", "date", "type", "metadata")){
+  out <- lapply(cols, function(col){
+    sapply(list, `[[`, col)
+  })
+  df <- structure(out, class="data.frame", names = cols, row.names = seq_along(list))
+  class(df$date) = c("POSIXct", "POSIXt")
+  df
 }
