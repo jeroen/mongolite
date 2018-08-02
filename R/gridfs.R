@@ -32,10 +32,16 @@
 #' stopifnot(length(unique(hashes)) == 1)
 #'
 #' # Insert Binary Data
-#' fs$write('iris3', serialize(datasets::iris3, NULL))
+#' data <- serialize(datasets::iris3, NULL)
+#' fs$write(data, 'iris3')
 #' out <- fs$read('iris3')
 #' iris4 <- unserialize(out$data)
+#'
+#' tmp <- file.path(tempdir(), 'iris3.rds')
+#' fs$download('iris3', tmp)
+#' iris5 <- readRDS(tmp)
 #' stopifnot(all.equal(iris4, datasets::iris3))
+#' stopifnot(all.equal(iris5, datasets::iris3))
 #'
 #' # Show what we have
 #' fs$find()
@@ -43,7 +49,7 @@
 #' @section Methods:
 #' \describe{
 #'   \item{\code{find(filter = "{}", options = "{}")}}{Search and list files in the GridFS}
-#'   \item{\code{download(name, path = name)}}{Download one or more files from GridFS to disk}
+#'   \item{\code{download(name, path = '.')}}{Download one or more files from GridFS to disk. Path may be an existing directory or vector of filenames equal to 'name'.}
 #'   \item{\code{upload(path, name = basename(path), content_type = NULL, metadata = NULL)}}{Upload one or more files from disk to GridFS. Metadata is an optional JSON string.}
 #'   \item{\code{read(name, con = NULL, progress = TRUE)}}{Reads a single file from GridFS into a writable R [connection].
 #'   If `con` is a string it is treated as a filepath; if it is `NULL` then the output is buffered in memory and returned as a [raw] vector.}
@@ -96,7 +102,7 @@ fs_object <- function(fs, client, orig){
     read <- function(name, con = NULL, progress = TRUE){
       mongo_gridfs_read_stream(fs, name, con, progress)
     }
-    write <- function(name, con, content_type = NULL, metadata = NULL, progress = TRUE){
+    write <- function(con, name, content_type = NULL, metadata = NULL, progress = TRUE){
       mongo_gridfs_write_stream(fs, name, con, content_type, metadata, progress)
     }
     remove <- function(name){
