@@ -4,6 +4,16 @@ SEXP make_string(const char * x){
   return ScalarString(x ? Rf_mkCharCE(x, CE_UTF8) : NA_STRING);
 }
 
+SEXP make_date(double val){
+  SEXP out = PROTECT(Rf_ScalarReal(val / 1000));
+  SEXP cls = PROTECT(Rf_allocVector(STRSXP, 2));
+  SET_STRING_ELT(cls, 0, mkChar("POSIXct"));
+  SET_STRING_ELT(cls, 1, mkChar("POSIXt"));
+  Rf_setAttrib(out, R_ClassSymbol, cls);
+  UNPROTECT(2);
+  return out;
+}
+
 const char * get_string(SEXP x){
   if(!Rf_isString(x) || Rf_length(x) != 1)
     stop("Value is not a string of length 1");
@@ -35,19 +45,23 @@ SEXP save_file_and_get_id(mongoc_gridfs_file_t * file){
 
 SEXP create_outlist(mongoc_gridfs_file_t * file, SEXP data){
   PROTECT(data);
-  SEXP out = PROTECT(allocVector(VECSXP, 5));
+  SEXP out = PROTECT(allocVector(VECSXP, 7));
   SET_VECTOR_ELT(out, 0, get_file_id(file));
   SET_VECTOR_ELT(out, 1, make_string(mongoc_gridfs_file_get_filename(file)));
-  SET_VECTOR_ELT(out, 2, make_string(mongoc_gridfs_file_get_content_type(file)));
-  SET_VECTOR_ELT(out, 3, bson_to_str(mongoc_gridfs_file_get_metadata(file)));
-  SET_VECTOR_ELT(out, 4, data);
-  SEXP nms = PROTECT(allocVector(STRSXP, 5));
+  SET_VECTOR_ELT(out, 2, Rf_ScalarReal(mongoc_gridfs_file_get_length (file)));
+  SET_VECTOR_ELT(out, 3, make_date(mongoc_gridfs_file_get_upload_date (file)));
+  SET_VECTOR_ELT(out, 4, make_string(mongoc_gridfs_file_get_content_type(file)));
+  SET_VECTOR_ELT(out, 5, bson_to_str(mongoc_gridfs_file_get_metadata(file)));
+  SET_VECTOR_ELT(out, 6, data);
+  SEXP nms = PROTECT(allocVector(STRSXP, 7));
   Rf_setAttrib(out, R_NamesSymbol, nms);
   SET_STRING_ELT(nms, 0, mkChar("id"));
   SET_STRING_ELT(nms, 1, mkChar("name"));
-  SET_STRING_ELT(nms, 2, mkChar("type"));
-  SET_STRING_ELT(nms, 3, mkChar("metadata"));
-  SET_STRING_ELT(nms, 4, mkChar("data"));
+  SET_STRING_ELT(nms, 2, mkChar("size"));
+  SET_STRING_ELT(nms, 3, mkChar("date"));
+  SET_STRING_ELT(nms, 4, mkChar("type"));
+  SET_STRING_ELT(nms, 5, mkChar("metadata"));
+  SET_STRING_ELT(nms, 6, mkChar("data"));
   UNPROTECT(3);
   return out;
 }
