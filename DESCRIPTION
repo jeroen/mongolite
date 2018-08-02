@@ -12,7 +12,7 @@ Authors@R: c(
   )
 Imports:
     jsonlite (>= 1.4),
-    openssl (>= 0.9.4),
+    openssl (>= 1.0),
     mime
 License: Apache License 2.0
 URL: https://github.com/jeroen/mongolite/ (devel) 
