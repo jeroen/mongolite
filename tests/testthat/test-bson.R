@@ -50,7 +50,21 @@ parse_number <- function(x){
 test_that("roundtrip array", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/array.json")
   iterate_test(testdata, "array")
-  roundtrip_test(testdata, "array")
+
+  # Avoid new canonical format issues by comparing elements.
+  key <- testdata$test_key
+  json <- roundtrip_json(testdata)
+  for(i in which(!is.na(testdata$valid$canonical_extjson))) {
+    x <- jsonlite::fromJSON(testdata$valid$canonical_extjson[i],
+                            simplifyVector = TRUE)[[key]]
+    if (length(x) > 0) x <- parse_number(x[[1]])
+    y <- jsonlite::fromJSON(json[i], simplifyVector = TRUE)[[key]]
+    if (length(y) > 0) y <- parse_number(y)
+    expect_equal(x, y, info = sprintf(
+      "Error in JSON roundtrip for valid %s entry \"%s\" (%d).",
+      "array", testdata$valid$description[i], i
+    ))
+  }
 })
 
 test_that("roundtrip binary", {
