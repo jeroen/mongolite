@@ -267,8 +267,8 @@ mongo_object <- function(col, client, verbose, orig){
       orig
     }
 
-    run <- function(command = '{"ping": 1}'){
-      mongo_collection_command_simple(col, command)
+    run <- function(command = '{"ping": 1}', simplify = TRUE){
+      mongo_collection_command_simple(col, command, simplify)
     }
 
     index <- function(add = NULL, remove = NULL){

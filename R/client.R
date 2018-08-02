@@ -63,8 +63,13 @@ mongo_collection_count <- function(col, query = "{}", no_timeout = FALSE){
 
 #returns data
 #' @useDynLib mongolite R_mongo_collection_command_simple
-mongo_collection_command_simple <- function(col, command = "{}"){
-  .Call(R_mongo_collection_command_simple, col, bson_or_json(command))
+mongo_collection_command_simple <- function(col, command = "{}", simplify = FALSE){
+  data <- .Call(R_mongo_collection_command_simple, col, bson_or_json(command))
+  if(isTRUE(simplify)){
+    jsonlite:::simplify(data)
+  } else {
+    data
+  }
 }
 
 #returns cursor
