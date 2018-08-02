@@ -61,17 +61,17 @@ mongo_collection_count <- function(col, query = "{}", no_timeout = FALSE){
   .Call(R_mongo_collection_count, col, bson_or_json(query), no_timeout)
 }
 
+#returns data
 #' @useDynLib mongolite R_mongo_collection_command_simple
-mongo_collection_command_simple <- function(col, command = "{}", no_timeout = FALSE){
-  #returns data
-  stopifnot(is.logical(no_timeout))
-  .Call(R_mongo_collection_command_simple, col, bson_or_json(command), no_timeout)
+mongo_collection_command_simple <- function(col, command = "{}"){
+  .Call(R_mongo_collection_command_simple, col, bson_or_json(command))
 }
 
+#returns cursor
 #' @useDynLib mongolite R_mongo_collection_command
-mongo_collection_command <- function(col, command = "{}"){
-  #returns cursor
-  .Call(R_mongo_collection_command, col, bson_or_json(command))
+mongo_collection_command <- function(col, command = "{}", no_timeout = FALSE){
+  stopifnot(is.logical(no_timeout))
+  .Call(R_mongo_collection_command, col, bson_or_json(command), no_timeout)
 }
 
 # Wrapper for mapReduce command
