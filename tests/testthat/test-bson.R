@@ -71,7 +71,22 @@ test_that("roundtrip datetime", {
 
   # Temporary workaround for date parsing bug in mongo-c-driver 1.5.x
   testdata$valid$canonical_extjson <- sub("1960", "1980", testdata$valid$canonical_extjson)
-  roundtrip_test(testdata, "datetime")
+
+  # Avoid new canonical format by directly comparing numeric values.
+  key <- testdata$test_key
+  json <- roundtrip_json(testdata)
+  for(i in which(!is.na(testdata$valid$canonical_extjson))) {
+    x <- jsonlite::fromJSON(testdata$valid$canonical_extjson[i],
+                            simplifyVector = TRUE)[[key]]
+    x <- as.numeric(x$`$date`$`$numberLong`)
+    # NOTE: No [[key]] here due to jsonlite's implementation.
+    y <- jsonlite::fromJSON(json[i], simplifyVector = TRUE)
+    y <- unclass(y) * 1000
+    expect_equal(x, y, info = sprintf(
+      "Error in JSON roundtrip for valid %s entry \"%s\" (%d).",
+      "datetime", testdata$valid$description[i], i
+    ))
+  }
 })
 
 test_that("roundtrip document", {
@@ -87,13 +102,40 @@ test_that("roundtrip double", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/double.json")
   iterate_test(testdata, "double")
 
-  roundtrip_test(testdata, "double")
+  # Avoid new canonical format by directly comparing numeric values.
+  key <- testdata$test_key
+  json <- roundtrip_json(testdata)
+  for(i in which(!is.na(testdata$valid$canonical_extjson))) {
+    x <- jsonlite::fromJSON(testdata$valid$canonical_extjson[i],
+                            simplifyVector = TRUE)[[key]]
+    x <- parse_number(x$`$numberDouble`)
+    y <- jsonlite::fromJSON(json[i], simplifyVector = TRUE)[[key]]
+    y <- parse_number(y)
+    expect_equal(x, y, info = sprintf(
+      "Error in JSON roundtrip for valid %s entry \"%s\" (%d).",
+      "double", testdata$valid$description[i], i
+    ))
+  }
 })
 
 test_that("roundtrip int32", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/int32.json")
   iterate_test(testdata, "int32")
-  roundtrip_test(testdata, "int32")
+
+  # Avoid new canonical format by directly comparing numeric values.
+  key <- testdata$test_key
+  json <- roundtrip_json(testdata)
+  for(i in which(!is.na(testdata$valid$canonical_extjson))) {
+    x <- jsonlite::fromJSON(testdata$valid$canonical_extjson[i],
+                            simplifyVector = TRUE)[[key]]
+    y <- jsonlite::fromJSON(json[i], simplifyVector = TRUE)[[key]]
+    x <- parse_number(x$`$numberInt`)
+    y <- parse_number(y)
+    expect_equal(x, y, info = sprintf(
+      "Error in JSON roundtrip for valid %s entry \"%s\" (%d).",
+      "int32", testdata$valid$description[i], i
+    ))
+  }
 })
 
 test_that("roundtrip string", {
@@ -106,10 +148,20 @@ test_that("roundtrip timestamp", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/timestamp.json")
   iterate_test(testdata, "timestamp")
 
-  # test only timestamp
-  a <- jsonlite::fromJSON(testdata$valid$canonical_extjson)$a[["$timestamp"]]
-  b <- jsonlite::fromJSON(roundtrip_json(testdata))$a
-  expect_equal(a, b)
+  # Avoid new canonical format by directly comparing numeric values.
+  key <- testdata$test_key
+  json <- roundtrip_json(testdata)
+  for(i in which(!is.na(testdata$valid$canonical_extjson))) {
+    x <- jsonlite::fromJSON(testdata$valid$canonical_extjson[i],
+                            simplifyVector = TRUE)[[key]]
+    y <- jsonlite::fromJSON(json[i], simplifyVector = TRUE)[[key]]
+    x <- parse_number(x$`$timestamp`)
+    y <- parse_number(y)
+    expect_equal(x, y, info = sprintf(
+      "Error in JSON roundtrip for valid %s entry \"%s\" (%d).",
+      "timestamp", testdata$valid$description[i], i
+    ))
+  }
 })
 
 test_that("roundtrip dec128", {
