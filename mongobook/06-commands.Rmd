@@ -1,0 +1,40 @@
+# Server Tools
+
+## Running Commands
+
+For mongodb operations that mongolite currently does not implement, you can still use the raw database command using the `run()` method:
+
+```{r}
+col <- mongo()
+col$run('{"ping": 1}')
+str(col$run('{"listCollections":1}'))
+```
+
+Some commands can only be run on the `admin` database:
+
+```{r}
+admin <- mongo(db = "admin")
+str(admin$run('{"listDatabases":1}'))
+```
+
+
+## Server Info
+
+Some server information is available in the `$info()` method:
+
+```{r}
+col$info()
+```
+
+
+
+```{r, error = TRUE, echo = FALSE}
+subjects$drop()
+dmd$drop()
+flt$drop()
+mt$drop()
+issues$drop()
+unlink("dump.json")
+unlink("flights.bson")
+unlink("mtcars.json")
+```

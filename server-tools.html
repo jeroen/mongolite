@@ -30,8 +30,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   
   
-
-<link rel="next" href="connecting-to-mongodb.html">
+<link rel="prev" href="calculation.html">
+<link rel="next" href="gridfs.html">
 <script src="libs/jquery-2.2.3/jquery.min.js"></script>
 <link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
 <link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
@@ -206,56 +206,149 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
           <div class="page-inner">
 
             <section class="normal" id="section-">
-<div id="header">
-<h1 class="title">Mongolite User Manual</h1>
-<h4 class="date"><em>Version 2018-08-02</em></h4>
+<div id="server-tools" class="section level1">
+<h1><span class="header-section-number">Chapter 7</span> Server Tools</h1>
+<div id="running-commands" class="section level2">
+<h2><span class="header-section-number">7.1</span> Running Commands</h2>
+<p>For mongodb operations that mongolite currently does not implement, you can still use the raw database command using the <code>run()</code> method:</p>
+<div class="sourceCode" id="cb165"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb165-1" data-line-number="1">col &lt;-<span class="st"> </span><span class="kw">mongo</span>()</a>
+<a class="sourceLine" id="cb165-2" data-line-number="2">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;ping&quot;: 1}&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; $ok
+#&gt; [1] 1</code></pre>
+<div class="sourceCode" id="cb167"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb167-1" data-line-number="1"><span class="kw">str</span>(col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listCollections&quot;:1}&#39;</span>))</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 2
+#&gt;  $ cursor:List of 3
+#&gt;   ..$ id        : num 0
+#&gt;   ..$ ns        : chr &quot;test.$cmd.listCollections&quot;
+#&gt;   ..$ firstBatch:List of 5
+#&gt;   .. ..$ :List of 5
+#&gt;   .. .. ..$ name   : chr &quot;mtcars&quot;
+#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
+#&gt;   .. .. ..$ options: Named list()
+#&gt;   .. .. ..$ info   :List of 2
+#&gt;   .. .. .. ..$ readOnly: logi FALSE
+#&gt;   .. .. .. ..$ uuid    : raw [1:16] c2 36 7b 65 ...
+#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
+#&gt;   .. .. ..$ idIndex:List of 4
+#&gt;   .. .. .. ..$ v   : int 2
+#&gt;   .. .. .. ..$ key :List of 1
+#&gt;   .. .. .. .. ..$ _id: int 1
+#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
+#&gt;   .. .. .. ..$ ns  : chr &quot;test.mtcars&quot;
+#&gt;   .. ..$ :List of 5
+#&gt;   .. .. ..$ name   : chr &quot;flights&quot;
+#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
+#&gt;   .. .. ..$ options: Named list()
+#&gt;   .. .. ..$ info   :List of 2
+#&gt;   .. .. .. ..$ readOnly: logi FALSE
+#&gt;   .. .. .. ..$ uuid    : raw [1:16] cc c3 2b e3 ...
+#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
+#&gt;   .. .. ..$ idIndex:List of 4
+#&gt;   .. .. .. ..$ v   : int 2
+#&gt;   .. .. .. ..$ key :List of 1
+#&gt;   .. .. .. .. ..$ _id: int 1
+#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
+#&gt;   .. .. .. ..$ ns  : chr &quot;test.flights&quot;
+#&gt;   .. ..$ :List of 5
+#&gt;   .. .. ..$ name   : chr &quot;issues&quot;
+#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
+#&gt;   .. .. ..$ options: Named list()
+#&gt;   .. .. ..$ info   :List of 2
+#&gt;   .. .. .. ..$ readOnly: logi FALSE
+#&gt;   .. .. .. ..$ uuid    : raw [1:16] d5 72 54 c5 ...
+#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
+#&gt;   .. .. ..$ idIndex:List of 4
+#&gt;   .. .. .. ..$ v   : int 2
+#&gt;   .. .. .. ..$ key :List of 1
+#&gt;   .. .. .. .. ..$ _id: int 1
+#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
+#&gt;   .. .. .. ..$ ns  : chr &quot;test.issues&quot;
+#&gt;   .. ..$ :List of 5
+#&gt;   .. .. ..$ name   : chr &quot;subjects&quot;
+#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
+#&gt;   .. .. ..$ options: Named list()
+#&gt;   .. .. ..$ info   :List of 2
+#&gt;   .. .. .. ..$ readOnly: logi FALSE
+#&gt;   .. .. .. ..$ uuid    : raw [1:16] 5f be 09 df ...
+#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
+#&gt;   .. .. ..$ idIndex:List of 4
+#&gt;   .. .. .. ..$ v   : int 2
+#&gt;   .. .. .. ..$ key :List of 1
+#&gt;   .. .. .. .. ..$ _id: int 1
+#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
+#&gt;   .. .. .. ..$ ns  : chr &quot;test.subjects&quot;
+#&gt;   .. ..$ :List of 5
+#&gt;   .. .. ..$ name   : chr &quot;diamonds&quot;
+#&gt;   .. .. ..$ type   : chr &quot;collection&quot;
+#&gt;   .. .. ..$ options: Named list()
+#&gt;   .. .. ..$ info   :List of 2
+#&gt;   .. .. .. ..$ readOnly: logi FALSE
+#&gt;   .. .. .. ..$ uuid    : raw [1:16] a8 e2 1c ae ...
+#&gt;   .. .. .. .. ..- attr(*, &quot;type&quot;)= raw 04
+#&gt;   .. .. ..$ idIndex:List of 4
+#&gt;   .. .. .. ..$ v   : int 2
+#&gt;   .. .. .. ..$ key :List of 1
+#&gt;   .. .. .. .. ..$ _id: int 1
+#&gt;   .. .. .. ..$ name: chr &quot;_id_&quot;
+#&gt;   .. .. .. ..$ ns  : chr &quot;test.diamonds&quot;
+#&gt;  $ ok    : num 1</code></pre>
+<p>Some commands can only be run on the <code>admin</code> database:</p>
+<div class="sourceCode" id="cb169"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb169-1" data-line-number="1">admin &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">db =</span> <span class="st">&quot;admin&quot;</span>)</a>
+<a class="sourceLine" id="cb169-2" data-line-number="2"><span class="kw">str</span>(admin<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listDatabases&quot;:1}&#39;</span>))</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 3
+#&gt;  $ databases:List of 4
+#&gt;   ..$ :List of 3
+#&gt;   .. ..$ name      : chr &quot;admin&quot;
+#&gt;   .. ..$ sizeOnDisk: num 32768
+#&gt;   .. ..$ empty     : logi FALSE
+#&gt;   ..$ :List of 3
+#&gt;   .. ..$ name      : chr &quot;config&quot;
+#&gt;   .. ..$ sizeOnDisk: num 73728
+#&gt;   .. ..$ empty     : logi FALSE
+#&gt;   ..$ :List of 3
+#&gt;   .. ..$ name      : chr &quot;local&quot;
+#&gt;   .. ..$ sizeOnDisk: num 65536
+#&gt;   .. ..$ empty     : logi FALSE
+#&gt;   ..$ :List of 3
+#&gt;   .. ..$ name      : chr &quot;test&quot;
+#&gt;   .. ..$ sizeOnDisk: num 14524416
+#&gt;   .. ..$ empty     : logi FALSE
+#&gt;  $ totalSize: num 14696448
+#&gt;  $ ok       : num 1</code></pre>
 </div>
-<div id="getting-started" class="section level1">
-<h1><span class="header-section-number">Chapter 1</span> Getting Started</h1>
-<p>This book provides a high level introduction to using MongoDB with the <strong>mongolite</strong> client in R.</p>
-<div id="requirements-linux-mac" class="section level2">
-<h2><span class="header-section-number">1.1</span> Requirements (Linux / Mac)</h2>
-<p>Installation from source on Linux requires <code>openssl</code> and <code>Cyrus SASL</code> (<strong>not</strong> <code>GNU sasl</code>). On <strong>Debian</strong> or <strong>Ubuntu</strong> use <a href="https://packages.debian.org/testing/libssl-dev">libssl-dev</a> and <a href="https://packages.debian.org/testing/libsasl2-dev">libsasl2-dev</a>:</p>
-<pre><code>sudo apt-get install -y libssl-dev libsasl2-dev</code></pre>
-<p>On <strong>Fedora</strong>, <strong>CentOS or RHEL</strong> use <a href="https://apps.fedoraproject.org/packages/openssl-devel">openssl-devel</a> and <a href="https://apps.fedoraproject.org/packages/cyrus-sasl-devel">cyrus-sasl-devel</a>:</p>
-<pre><code>sudo yum install openssl-devel cyrus-sasl-devel</code></pre>
-<p>On <strong>OS-X</strong> sasl is included with the system so only <a href="https://github.com/Homebrew/homebrew-core/blob/master/Formula/openssl.rb">openssl</a> is needed.</p>
-<pre><code>brew install openssl</code></pre>
-<p>On <strong>Windows</strong> all dependencies are statically linked with mongolite; no separate installation is required.
-Elsewhere, mongolite will automatically find the system libraries when installed in default locations.</p>
-</div>
-<div id="install-mongolite-in-r" class="section level2">
-<h2><span class="header-section-number">1.2</span> Install mongolite in R</h2>
-<p>Binary packages of <strong>mongolite</strong> for <strong>OS-X</strong> or <strong>Windows</strong> can be installed directly from CRAN:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="kw">install.packages</span>(<span class="st">&quot;mongolite&quot;</span>)</a></code></pre></div>
-<p>Alternatively you can install the development version, which contains the latest features and bugs. This required compiling from source:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="co"># installs development version of &#39;mongolite&#39;</span></a>
-<a class="sourceLine" id="cb5-2" data-line-number="2">devtools<span class="op">::</span><span class="kw">install_github</span>(<span class="st">&quot;jeroen/mongolite&quot;</span>)</a></code></pre></div>
-<p>Note that Windows users need to install the <a href="https://cran.r-project.org/bin/windows/Rtools/">Rtools</a> toolchain in order to compile from source. This is not needed for the CRAN version above.</p>
-</div>
-<div id="run-local-mongod" class="section level2">
-<h2><span class="header-section-number">1.3</span> Run local mongod</h2>
-<p>Please refer to the official MongoDB <a href="https://docs.mongodb.com/manual/installation/">install manual</a> for
-instructions how to setup a local MongoDB server. To get started on MacOS, simply use:</p>
-<pre><code>brew install mongodb</code></pre>
-<p>The Homebrew package does not install any system services. To run the daemon in a console:</p>
-<pre><code>mongod</code></pre>
-<p>Use this for running examples as the mongolite package defaults to <code>url = &quot;mongodb://localhost&quot;</code>.</p>
-</div>
-<div id="testing-with-ssl" class="section level2">
-<h2><span class="header-section-number">1.4</span> Testing with SSL</h2>
-<p>To run a local <code>mongod</code> with SSL support you need a SSL key and certificate. See the
-<a href="https://docs.mongodb.com/manual/tutorial/configure-ssl/">Mongo Configure SSL</a> manual page.
-A generate a self signed cert for testing purposes:</p>
-<pre><code>cd /etc/ssl/
-openssl req -newkey rsa:2048 -new -x509 -days 365 -nodes -out mongodb-cert.crt -keyout mongodb-cert.key
-cat mongodb-cert.key mongodb-cert.crt &gt; mongodb.pem</code></pre>
-<p>And then start the daemon with:</p>
-<pre><code>mongod --sslMode requireSSL --sslPEMKeyFile /etc/ssl/mongodb.pem</code></pre>
-<p>Because this certificate has not been signed with a CA, you need to set <code>weak_cert_validation</code> in the client
-to connect:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb10-1" data-line-number="1">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">url =</span> <span class="st">&quot;mongodb://localhost/?ssl=true&quot;</span>, <span class="dt">options =</span> <span class="kw">ssl_options</span>(<span class="dt">weak_cert_validation =</span> T))</a></code></pre></div>
-<p>Obviously in production you need to get your cert signed by a CA instead.</p>
+<div id="server-info" class="section level2">
+<h2><span class="header-section-number">7.2</span> Server Info</h2>
+<p>Some server information is available in the <code>$info()</code> method:</p>
+<div class="sourceCode" id="cb171"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb171-1" data-line-number="1">col<span class="op">$</span><span class="kw">info</span>()</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 3
+#&gt;  $ collection: chr &quot;test&quot;
+#&gt;  $ stats     : NULL
+#&gt;  $ server    :List of 25
+#&gt;   ..$ host                     : chr &quot;Jeroens-MBP.fritz.box&quot;
+#&gt;   ..$ version                  : chr &quot;4.0.0&quot;
+#&gt;   ..$ process                  : chr &quot;mongod&quot;
+#&gt;   ..$ pid                      : num 799
+#&gt;   ..$ uptime                   : num 6973
+#&gt;   ..$ uptimeMillis             : num 6972881
+#&gt;   ..$ uptimeEstimate           : num 6972
+#&gt;   ..$ localTime                : POSIXct[1:1], format: &quot;2018-08-02 22:38:23&quot;
+#&gt;   ..$ asserts                  :List of 5
+#&gt;   ..$ connections              :List of 3
+#&gt;   ..$ extra_info               :List of 2
+#&gt;   ..$ freeMonitoring           :List of 1
+#&gt;   ..$ globalLock               :List of 3
+#&gt;   ..$ locks                    :List of 3
+#&gt;   ..$ logicalSessionRecordCache:List of 11
+#&gt;   ..$ network                  :List of 7
+#&gt;   ..$ opLatencies              :List of 3
+#&gt;   ..$ opcounters               :List of 6
+#&gt;   ..$ opcountersRepl           :List of 6
+#&gt;   ..$ storageEngine            :List of 5
+#&gt;   ..$ transactions             :List of 3
+#&gt;   ..$ wiredTiger               :List of 17
+#&gt;   ..$ mem                      :List of 6
+#&gt;   ..$ metrics                  :List of 10
+#&gt;   ..$ ok                       : num 1</code></pre>
 
 </div>
 </div>
@@ -264,8 +357,8 @@ to connect:</p>
           </div>
         </div>
       </div>
-
-<a href="connecting-to-mongodb.html" class="navigation navigation-next navigation-unique" aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+<a href="calculation.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="gridfs.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
     </div>
   </div>
 <script src="libs/gitbook-2.6.7/js/app.min.js"></script>
@@ -295,7 +388,7 @@ gitbook.start({
 "size": 2
 },
 "edit": {
-"link": "https://github.com/jeroen/mongolite/edit/gh-pages/mongobookindex.Rmd",
+"link": "https://github.com/jeroen/mongolite/edit/gh-pages/mongobook06-commands.Rmd",
 "text": "Edit"
 },
 "download": null,

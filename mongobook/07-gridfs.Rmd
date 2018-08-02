@@ -112,7 +112,8 @@ list.files('outputfiles')
 This makes a convenient way to store an large set of files into GridFS.
 
 ```{r}
-# All done now.
+# All done
+unlink('outputfiles', recursive = TRUE)
 mb$drop()
 ```
 

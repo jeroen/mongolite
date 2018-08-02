@@ -50,19 +50,3 @@ ggplot(aes(distance, count), data = histdata) + geom_col()
 Obviously we could have done binning in R instead, however if we are dealing with loads of data, doing it in database can be much more efficient. 
 
 
-
-
-
-
-
-
-```{r, error = TRUE, echo = FALSE}
-subjects$drop()
-dmd$drop()
-flt$drop()
-mt$drop()
-issues$drop()
-unlink("dump.json")
-unlink("flights.bson")
-unlink("mtcars.json")
-```
