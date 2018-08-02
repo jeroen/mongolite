@@ -83,9 +83,6 @@ test_that("roundtrip datetime", {
   testdata <- jsonlite::fromJSON("specifications/source/bson-corpus/tests/datetime.json")
   iterate_test(testdata, "datetime")
 
-  # Temporary workaround for date parsing bug in mongo-c-driver 1.5.x
-  testdata$valid$canonical_extjson <- sub("1960", "1980", testdata$valid$canonical_extjson)
-
   # Avoid new canonical format by directly comparing numeric values.
   key <- testdata$test_key
   json <- roundtrip_json(testdata)
