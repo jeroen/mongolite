@@ -82,10 +82,15 @@ fs_object <- function(fs, client, orig){
     find <-  function(filter = '{}', options = '{}'){
       mongo_gridfs_find(fs, filter, options)
     }
-    upload <- function(path, name = path, content_type = NULL, metadata = NULL){
+    upload <- function(path, name = basename(path), content_type = NULL, metadata = NULL){
       mongo_gridfs_upload(fs, name, path, content_type, metadata)
     }
-    download <- function(name, path = name){
+    download <- function(name, path = "."){
+      if(length(path) == 1 && isTRUE(file.info(path)$isdir)){
+        path <- normalizePath(file.path(path, name), mustWork = FALSE)
+      } else if(length(name) != length(path)){
+        stop("Argument 'path' must be an existing dir or vector of filenames equal length as 'name'")
+      }
       mongo_gridfs_download(fs, name, path)
     }
     read <- function(name, con = NULL, progress = TRUE){
