@@ -16,7 +16,7 @@ SEXP bson_to_str(const bson_t * b){
   if(b == NULL)
     return ScalarString(NA_STRING);
   size_t jsonlength;
-  char *str = bson_as_json(b, &jsonlength);
+  char *str = bson_as_relaxed_extended_json(b, &jsonlength);
   if(str == NULL)
     return ScalarString(NA_STRING);
   SEXP out = ScalarString(mkCharLenCE(str, jsonlength, CE_UTF8));

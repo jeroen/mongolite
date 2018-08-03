@@ -18,23 +18,64 @@ gridfs(db = "test", url = "mongodb://localhost", prefix = "fs",
 \item{options}{additional connection options such as SSL keys/certs.}
 }
 \description{
-Connect to a GridFS database.
+Connect to a GridFS database to search, read, write and delete files.
 }
+\details{
+We support two interfaces for sending/receiving data from/to GridFS. The
+\code{fs$read()} and \code{fs$write()} methods are the most flexible and can send data
+from/to an R connection, such as a \link{file}, \link[=socketConnection]{socket}
+or \link{url}. These methods support a progress counter and can be interrupted
+if needed. These methods are recommended for reading or writing single files.
+
+The \code{fs$upload()} and \code{fs$download()} methods on the other hand copy directly
+between GridFS and your local disk. This API is vectorized so it can transfer
+many files at once. However individual transfers cannot be interrupted and will
+block R until completed. This API is only recommended to upload/download a large
+number of small files.
+
+Modifying files in GridFS is currently unsupported: uploading a file with the
+same name will generate a new file.
+}
+\section{Methods}{
+
+\describe{
+\item{\code{find(filter = "{}", options = "{}")}}{Search and list files in the GridFS}
+\item{\code{download(name, path = '.')}}{Download one or more files from GridFS to disk. Path may be an existing directory or vector of filenames equal to 'name'.}
+\item{\code{upload(path, name = basename(path), content_type = NULL, metadata = NULL)}}{Upload one or more files from disk to GridFS. Metadata is an optional JSON string.}
+\item{\code{read(name, con = NULL, progress = TRUE)}}{Reads a single file from GridFS into a writable R \link{connection}.
+If \code{con} is a string it is treated as a filepath; if it is \code{NULL} then the output is buffered in memory and returned as a \link{raw} vector.}
+\item{\code{write(con, name, content_type = NULL, metadata = NULL, progress = TRUE)}}{Stream write a single file into GridFS from a readable R \link{connection}.
+If \code{con} is a string it is treated as a filepath; it may also be a \link{raw} vector containing the data to upload. Metadata is an optional JSON string.}
+\item{\code{remove(name)}}{Remove a single file from the GridFS}
+\item{\code{drop()}}{Removes the entire GridFS collection, including all files}
+}
+}
+
 \examples{
 # New GridFS
 fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 input <- R.home('doc/NEWS.pdf')
 fs$upload(input)
-fs$download('NEWS.pdf', 'output.pdf')
-hashes <- tools::md5sum(c(input, 'output.pdf'))
-unlink('output.pdf')
-stopifnot(hashes[[1]] == hashes[[1]])
+fs$download('NEWS.pdf', file.path(tempdir(), 'output.pdf'))
+con <- file(file.path(tempdir(), 'output2.pdf'))
+fs$read('NEWS.pdf', con)
+fs$remove('NEWS.pdf')
+
+hashes <- tools::md5sum(c(input, file.path(tempdir(), c('output.pdf', 'output2.pdf'))))
+unlink(file.path(tempdir(), c('output.pdf', 'output2.pdf')))
+stopifnot(length(unique(hashes)) == 1)
 
 # Insert Binary Data
-fs$write('iris3', serialize(datasets::iris3, NULL))
+data <- serialize(datasets::iris3, NULL)
+fs$write(data, 'iris3')
 out <- fs$read('iris3')
 iris4 <- unserialize(out$data)
+
+tmp <- file.path(tempdir(), 'iris3.rds')
+fs$download('iris3', tmp)
+iris5 <- readRDS(tmp)
 stopifnot(all.equal(iris4, datasets::iris3))
+stopifnot(all.equal(iris5, datasets::iris3))
 
 # Show what we have
 fs$find()

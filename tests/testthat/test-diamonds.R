@@ -16,13 +16,13 @@ test_that("find query", {
 })
 
 test_that("remove data", {
-  m$remove('{"cut" : "Premium", "price" : { "$lt" : 1000 } }', multiple = FALSE)
+  m$remove('{"cut" : "Premium", "price" : { "$lt" : 1000 } }', just_one = TRUE)
   expect_equal(m$count(), nrow(diamonds)-1)
-  m$remove('{"cut" : "Premium", "price" : { "$lt" : 1000 } }', multiple = FALSE)
+  m$remove('{"cut" : "Premium", "price" : { "$lt" : 1000 } }', just_one = TRUE)
   expect_equal(m$count(), nrow(diamonds)-2)
-  m$remove('{"cut" : "Premium", "price" : { "$lt" : 1000 } }', multiple = TRUE)
+  m$remove('{"cut" : "Premium", "price" : { "$lt" : 1000 } }', just_one = FALSE)
   expect_equal(m$count(), nrow(diamonds) - 3200)
-  m$remove('{}', multiple = TRUE)
+  m$remove('{}', just_one = FALSE)
   expect_equal(m$count(), 0L)
   expect_true(m$drop())
 })

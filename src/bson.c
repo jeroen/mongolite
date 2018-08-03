@@ -44,7 +44,7 @@ SEXP R_raw_to_bson(SEXP buf){
 }
 
 SEXP R_bson_to_json(SEXP ptr){
-  return mkStringUTF8(bson_as_json (r2bson(ptr), NULL));
+  return mkStringUTF8(bson_as_relaxed_extended_json (r2bson(ptr), NULL));
 }
 
 SEXP R_bson_to_raw(SEXP ptr){
@@ -141,7 +141,7 @@ SEXP ConvertDate(bson_iter_t* iter){
     int ms = epoch % 1000;
     time_t secs = epoch / 1000; //coerce int64 to int32
     struct tm * time = gmtime(&secs);
-    char tmbuf[64], buf[64];
+    char tmbuf[64], buf[70];
     strftime(tmbuf, sizeof tmbuf, "%Y-%m-%dT%H:%M:%S", time);
     snprintf(buf, sizeof buf, "%s.%03dZ", tmbuf, ms);
     return mkString(buf);

@@ -92,6 +92,15 @@
 
 
 /*
+ * Define to 1 if you have strings.h available on your platform.
+ */
+#define BSON_HAVE_STRINGS_H 1
+#if BSON_HAVE_STRINGS_H != 1
+# undef BSON_HAVE_STRINGS_H
+#endif
+
+
+/*
 * Define to 1 if you have strnlen available on your platform.
 */
 #if BSON_HAVE_STRNLEN != 1

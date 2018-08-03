@@ -20,10 +20,25 @@
 
 #include <string.h>
 
+#include "common-md5-private.h"
 #include "mongoc-util-private.h"
 #include "mongoc-client.h"
+#include "mongoc-client-session-private.h"
 #include "mongoc-trace-private.h"
 
+const bson_validate_flags_t _mongoc_default_insert_vflags =
+   BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
+   BSON_VALIDATE_EMPTY_KEYS | BSON_VALIDATE_DOT_KEYS |
+   BSON_VALIDATE_DOLLAR_KEYS;
+
+const bson_validate_flags_t _mongoc_default_replace_vflags =
+   BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
+   BSON_VALIDATE_EMPTY_KEYS | BSON_VALIDATE_DOT_KEYS |
+   BSON_VALIDATE_DOLLAR_KEYS;
+
+const bson_validate_flags_t _mongoc_default_update_vflags =
+   BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
+   BSON_VALIDATE_EMPTY_KEYS;
 
 int
 _mongoc_rand_simple (unsigned int *seed)
@@ -53,9 +68,9 @@ _mongoc_hex_md5 (const char *input)
    char digest_str[33];
    int i;
 
-   bson_md5_init (&md5);
-   bson_md5_append (&md5, (const uint8_t *) input, (uint32_t) strlen (input));
-   bson_md5_finish (&md5, digest);
+   _bson_md5_init (&md5);
+   _bson_md5_append (&md5, (const uint8_t *) input, (uint32_t) strlen (input));
+   _bson_md5_finish (&md5, digest);
 
    for (i = 0; i < sizeof digest; i++) {
       bson_snprintf (&digest_str[i * 2], 3, "%02x", digest[i]);
@@ -238,20 +253,6 @@ _mongoc_bson_type_to_str (bson_type_t t)
    }
 }
 
-void
-_mongoc_bson_destroy_if_set (bson_t *bson)
-{
-   if (bson) {
-      bson_destroy (bson);
-   }
-}
-
-size_t
-_mongoc_strlen_or_zero (const char *s)
-{
-   return s ? strlen (s) : 0;
-}
-
 
 /* Get "serverId" from opts. Sets *server_id to the serverId from "opts" or 0
  * if absent. On error, fills out *error with domain and code and return false.
@@ -292,17 +293,18 @@ _mongoc_get_server_id_from_opts (const bson_t *opts,
 }
 
 
-const bson_validate_flags_t insert_vflags =
-   (bson_validate_flags_t) BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
-   BSON_VALIDATE_EMPTY_KEYS | BSON_VALIDATE_DOT_KEYS |
-   BSON_VALIDATE_DOLLAR_KEYS;
-
 bool
-_mongoc_validate_new_document (const bson_t *doc, bson_error_t *error)
+_mongoc_validate_new_document (const bson_t *doc,
+                               bson_validate_flags_t vflags,
+                               bson_error_t *error)
 {
    bson_error_t validate_err;
 
-   if (!bson_validate_with_error (doc, insert_vflags, &validate_err)) {
+   if (vflags == BSON_VALIDATE_NONE) {
+      return true;
+   }
+
+   if (!bson_validate_with_error (doc, vflags, &validate_err)) {
       bson_set_error (error,
                       MONGOC_ERROR_COMMAND,
                       MONGOC_ERROR_COMMAND_INVALID_ARG,
@@ -316,11 +318,17 @@ _mongoc_validate_new_document (const bson_t *doc, bson_error_t *error)
 
 
 bool
-_mongoc_validate_replace (const bson_t *doc, bson_error_t *error)
+_mongoc_validate_replace (const bson_t *doc,
+                          bson_validate_flags_t vflags,
+                          bson_error_t *error)
 {
    bson_error_t validate_err;
 
-   if (!bson_validate_with_error (doc, insert_vflags, &validate_err)) {
+   if (vflags == BSON_VALIDATE_NONE) {
+      return true;
+   }
+
+   if (!bson_validate_with_error (doc, vflags, &validate_err)) {
       bson_set_error (error,
                       MONGOC_ERROR_COMMAND,
                       MONGOC_ERROR_COMMAND_INVALID_ARG,
@@ -334,16 +342,19 @@ _mongoc_validate_replace (const bson_t *doc, bson_error_t *error)
 
 
 bool
-_mongoc_validate_update (const bson_t *update, bson_error_t *error)
+_mongoc_validate_update (const bson_t *update,
+                         bson_validate_flags_t vflags,
+                         bson_error_t *error)
 {
    bson_error_t validate_err;
    bson_iter_t iter;
    const char *key;
-   int vflags = BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
-                BSON_VALIDATE_EMPTY_KEYS;
 
-   if (!bson_validate_with_error (
-          update, (bson_validate_flags_t) vflags, &validate_err)) {
+   if (vflags == BSON_VALIDATE_NONE) {
+      return true;
+   }
+
+   if (!bson_validate_with_error (update, vflags, &validate_err)) {
       bson_set_error (error,
                       MONGOC_ERROR_COMMAND,
                       MONGOC_ERROR_COMMAND_INVALID_ARG,
@@ -380,7 +391,13 @@ void
 mongoc_lowercase (const char *src, char *buf /* OUT */)
 {
    for (; *src; ++src, ++buf) {
-      *buf = tolower (*src);
+      /* UTF8 non-ascii characters have a 1 at the leftmost bit. If this is the
+       * case, just copy */
+      if ((*src & (0x1 << 7)) == 0) {
+         *buf = (char) tolower (*src);
+      } else {
+         *buf = *src;
+      }
    }
 }
 
@@ -398,4 +415,109 @@ mongoc_parse_port (uint16_t *port, const char *str)
 
    *port = (uint16_t) ul_port;
    return true;
+}
+
+
+/*--------------------------------------------------------------------------
+ *
+ * _mongoc_bson_array_add_label --
+ *
+ *       Append an error label like "TransientTransactionError" to a BSON
+ *       array iff the array does not already contain it.
+ *
+ * Side effects:
+ *       Aborts if the array is invalid or contains non-string elements.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_bson_array_add_label (bson_t *bson, const char *label)
+{
+   bson_iter_t iter;
+   char buf[16];
+   uint32_t i = 0;
+   const char *key;
+
+   BSON_ASSERT (bson_iter_init (&iter, bson));
+   while (bson_iter_next (&iter)) {
+      if (!strcmp (bson_iter_utf8 (&iter, NULL), label)) {
+         /* already included once */
+         return;
+      }
+
+      i++;
+   }
+
+   bson_uint32_to_string (i, &key, buf, sizeof buf);
+   BSON_APPEND_UTF8 (bson, key, label);
+}
+
+
+/*--------------------------------------------------------------------------
+ *
+ * _mongoc_bson_array_copy_labels_to --
+ *
+ *       Copy error labels like "TransientTransactionError" from a server
+ *       reply to a BSON array iff the array does not already contain it.
+ *
+ * Side effects:
+ *       Aborts if @dst is invalid or contains non-string elements.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_bson_array_copy_labels_to (const bson_t *reply, bson_t *dst)
+{
+   bson_iter_t iter;
+   bson_iter_t label;
+
+   if (bson_iter_init_find (&iter, reply, "errorLabels")) {
+      BSON_ASSERT (bson_iter_recurse (&iter, &label));
+      while (bson_iter_next (&label)) {
+         if (BSON_ITER_HOLDS_UTF8 (&label)) {
+            _mongoc_bson_array_add_label (dst, bson_iter_utf8 (&label, NULL));
+         }
+      }
+   }
+}
+
+
+/*--------------------------------------------------------------------------
+ *
+ * _mongoc_bson_init_with_transient_txn_error --
+ *
+ *       If @reply is not NULL, initialize it. If @cs is not NULL and in a
+ *       transaction, add errorLabels: ["TransientTransactionError"] to @cs.
+ *
+ *       Transactions Spec: TransientTransactionError includes "server
+ *       selection error encountered running any command besides
+ *       commitTransaction in a transaction. ...in the case of network errors
+ *       or server selection errors where the client receives no server reply,
+ *       the client adds the label."
+ *
+ * Side effects:
+ *       None.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_bson_init_with_transient_txn_error (const mongoc_client_session_t *cs,
+                                            bson_t *reply)
+{
+   bson_t labels;
+
+   if (!reply) {
+      return;
+   }
+
+   bson_init (reply);
+
+   if (_mongoc_client_session_in_txn (cs)) {
+      BSON_APPEND_ARRAY_BEGIN (reply, "errorLabels", &labels);
+      BSON_APPEND_UTF8 (&labels, "0", TRANSIENT_TXN_ERR);
+      bson_append_array_end (reply, &labels);
+   }
 }

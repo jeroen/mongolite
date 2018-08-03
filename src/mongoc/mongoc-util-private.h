@@ -24,7 +24,7 @@
 #include <bson.h>
 #include "mongoc.h"
 
-#ifdef HAVE_STRINGS_H
+#ifdef BSON_HAVE_STRINGS_H
 #include <strings.h>
 #endif
 
@@ -49,6 +49,12 @@
 #define END_IGNORE_DEPRECATIONS
 #endif
 
+#ifndef _WIN32
+#define MONGOC_PRINTF_FORMAT(a, b) \
+   __attribute__ ((format (__printf__, a, b)))
+#else
+#define MONGOC_PRINTF_FORMAT(a, b) /* no-op */
+#endif
 
 #define COALESCE(x, y) ((x == 0) ? (y) : (x))
 
@@ -58,6 +64,10 @@
 #define MONGOC_EVALUATE_STR(s) MONGOC_STR (s)
 
 BSON_BEGIN_DECLS
+
+extern const bson_validate_flags_t _mongoc_default_insert_vflags;
+extern const bson_validate_flags_t _mongoc_default_replace_vflags;
+extern const bson_validate_flags_t _mongoc_default_update_vflags;
 
 int
 _mongoc_rand_simple (unsigned int *seed);
@@ -83,14 +93,8 @@ _mongoc_get_db_name (const char *ns, char *db /* OUT */);
 void
 _mongoc_bson_init_if_set (bson_t *bson);
 
-void
-_mongoc_bson_destroy_if_set (bson_t *bson);
-
 const char *
 _mongoc_bson_type_to_str (bson_type_t t);
-
-size_t
-_mongoc_strlen_or_zero (const char *s);
 
 bool
 _mongoc_get_server_id_from_opts (const bson_t *opts,
@@ -100,19 +104,35 @@ _mongoc_get_server_id_from_opts (const bson_t *opts,
                                  bson_error_t *error);
 
 bool
-_mongoc_validate_new_document (const bson_t *insert, bson_error_t *error);
+_mongoc_validate_new_document (const bson_t *insert,
+                               bson_validate_flags_t vflags,
+                               bson_error_t *error);
 
 bool
-_mongoc_validate_replace (const bson_t *insert, bson_error_t *error);
+_mongoc_validate_replace (const bson_t *insert,
+                          bson_validate_flags_t vflags,
+                          bson_error_t *error);
 
 bool
-_mongoc_validate_update (const bson_t *update, bson_error_t *error);
+_mongoc_validate_update (const bson_t *update,
+                         bson_validate_flags_t vflags,
+                         bson_error_t *error);
 
 void
 mongoc_lowercase (const char *src, char *buf /* OUT */);
 
 bool
 mongoc_parse_port (uint16_t *port, const char *str);
+
+void
+_mongoc_bson_array_add_label (bson_t *bson, const char *label);
+
+void
+_mongoc_bson_array_copy_labels_to (const bson_t *reply, bson_t *dst);
+
+void
+_mongoc_bson_init_with_transient_txn_error (const mongoc_client_session_t *cs,
+                                            bson_t *reply);
 
 BSON_END_DECLS
 

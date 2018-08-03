@@ -23,7 +23,7 @@
 #include "bson-memory.h"
 #include "bson-utf8.h"
 
-#ifdef HAVE_STRINGS_H
+#ifdef BSON_HAVE_STRINGS_H
 #include <strings.h>
 #else
 #include <string.h>
@@ -562,6 +562,10 @@ bson_strncpy (char *dst,       /* IN */
               const char *src, /* IN */
               size_t size)     /* IN */
 {
+   if (size == 0) {
+      return;
+   }
+
 #ifdef _MSC_VER
    strncpy_s (dst, size, src, _TRUNCATE);
 #else
@@ -604,10 +608,11 @@ bson_vsnprintf (char *str,          /* IN */
 
    BSON_ASSERT (str);
 
-   if (size != 0) {
-      r = _vsnprintf_s (str, size, _TRUNCATE, format, ap);
+   if (size == 0) {
+      return 0;
    }
 
+   r = _vsnprintf_s (str, size, _TRUNCATE, format, ap);
    if (r == -1) {
       r = _vscprintf (format, ap);
    }
@@ -617,6 +622,12 @@ bson_vsnprintf (char *str,          /* IN */
    return r;
 #else
    int r;
+
+   BSON_ASSERT (str);
+
+   if (size == 0) {
+      return 0;
+   }
 
    r = vsnprintf (str, size, format, ap);
    str[size - 1] = '\0';

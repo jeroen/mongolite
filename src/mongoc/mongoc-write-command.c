@@ -24,6 +24,7 @@
 #include "mongoc-write-command-legacy-private.h"
 #include "mongoc-write-concern-private.h"
 #include "mongoc-util-private.h"
+#include "mongoc-opts-private.h"
 
 
 /*
@@ -119,15 +120,7 @@ _mongoc_write_command_update_append (mongoc_write_command_t *command,
    BSON_APPEND_DOCUMENT (&document, "q", selector);
    BSON_APPEND_DOCUMENT (&document, "u", update);
    if (opts) {
-      bson_iter_t iter;
-
       bson_concat (&document, opts);
-      command->flags.has_collation |= bson_has_field (opts, "collation");
-
-      if (bson_iter_init_find (&iter, opts, "multi") &&
-          bson_iter_as_bool (&iter)) {
-         command->flags.has_multi_write = true;
-      }
    }
 
    _mongoc_buffer_append (
@@ -157,15 +150,7 @@ _mongoc_write_command_delete_append (mongoc_write_command_t *command,
    bson_init (&document);
    BSON_APPEND_DOCUMENT (&document, "q", selector);
    if (opts) {
-      bson_iter_t iter;
-
       bson_concat (&document, opts);
-      command->flags.has_collation |= bson_has_field (opts, "collation");
-
-      if (bson_iter_init_find (&iter, opts, "limit") &&
-          bson_iter_as_int64 (&iter) != 1) {
-         command->flags.has_multi_write = true;
-      }
    }
 
    _mongoc_buffer_append (
@@ -230,6 +215,32 @@ _mongoc_write_command_init_insert (mongoc_write_command_t *command, /* IN */
 
 
 void
+_mongoc_write_command_init_insert_idl (mongoc_write_command_t *command,
+                                       const bson_t *document,
+                                       const bson_t *cmd_opts,
+                                       int64_t operation_id,
+                                       bool allow_bulk_op_insert)
+{
+   mongoc_bulk_write_flags_t flags = MONGOC_BULK_WRITE_FLAGS_INIT;
+
+   ENTRY;
+
+   BSON_ASSERT (command);
+
+   _mongoc_write_command_init_bulk (
+      command, MONGOC_WRITE_COMMAND_INSERT, flags, operation_id, cmd_opts);
+
+   command->u.insert.allow_bulk_op_insert = (uint8_t) allow_bulk_op_insert;
+   /* must handle NULL document from mongoc_collection_insert_bulk */
+   if (document) {
+      _mongoc_write_command_insert_append (command, document);
+   }
+
+   EXIT;
+}
+
+
+void
 _mongoc_write_command_init_delete (mongoc_write_command_t *command, /* IN */
                                    const bson_t *selector,          /* IN */
                                    const bson_t *cmd_opts,          /* IN */
@@ -244,6 +255,29 @@ _mongoc_write_command_init_delete (mongoc_write_command_t *command, /* IN */
 
    _mongoc_write_command_init_bulk (
       command, MONGOC_WRITE_COMMAND_DELETE, flags, operation_id, cmd_opts);
+   _mongoc_write_command_delete_append (command, selector, opts);
+
+   EXIT;
+}
+
+
+void
+_mongoc_write_command_init_delete_idl (mongoc_write_command_t *command,
+                                       const bson_t *selector,
+                                       const bson_t *cmd_opts,
+                                       const bson_t *opts,
+                                       int64_t operation_id)
+{
+   mongoc_bulk_write_flags_t flags = MONGOC_BULK_WRITE_FLAGS_INIT;
+
+   ENTRY;
+
+   BSON_ASSERT (command);
+   BSON_ASSERT (selector);
+
+   _mongoc_write_command_init_bulk (
+      command, MONGOC_WRITE_COMMAND_DELETE, flags, operation_id, cmd_opts);
+
    _mongoc_write_command_delete_append (command, selector, opts);
 
    EXIT;
@@ -272,12 +306,32 @@ _mongoc_write_command_init_update (mongoc_write_command_t *command, /* IN */
 }
 
 
+void
+_mongoc_write_command_init_update_idl (mongoc_write_command_t *command,
+                                       const bson_t *selector,
+                                       const bson_t *update,
+                                       const bson_t *opts,
+                                       int64_t operation_id)
+{
+   mongoc_bulk_write_flags_t flags = MONGOC_BULK_WRITE_FLAGS_INIT;
+
+   ENTRY;
+
+   BSON_ASSERT (command);
+
+   _mongoc_write_command_init_bulk (
+      command, MONGOC_WRITE_COMMAND_UPDATE, flags, operation_id, NULL);
+   _mongoc_write_command_update_append (command, selector, update, opts);
+
+   EXIT;
+}
+
+
 /* takes initialized bson_t *doc and begins formatting a write command */
 void
 _mongoc_write_command_init (bson_t *doc,
                             mongoc_write_command_t *command,
-                            const char *collection,
-                            const mongoc_write_concern_t *write_concern)
+                            const char *collection)
 {
    ENTRY;
 
@@ -286,12 +340,6 @@ _mongoc_write_command_init (bson_t *doc,
    }
 
    BSON_APPEND_UTF8 (doc, gCommandNames[command->type], collection);
-   if (write_concern && !mongoc_write_concern_is_default (write_concern)) {
-      BSON_APPEND_DOCUMENT (doc,
-                            "writeConcern",
-                            _mongoc_write_concern_get_bson (
-                               (mongoc_write_concern_t *) (write_concern)));
-   }
    BSON_APPEND_BOOL (doc, "ordered", command->flags.ordered);
 
    if (command->flags.bypass_document_validation !=
@@ -428,22 +476,30 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
       mongoc_server_stream_max_write_batch_size (server_stream);
 
    bson_init (&cmd);
-   _mongoc_write_command_init (&cmd, command, collection, write_concern);
+   _mongoc_write_command_init (&cmd, command, collection);
    mongoc_cmd_parts_init (&parts, client, database, MONGOC_QUERY_NONE, &cmd);
-   mongoc_cmd_parts_set_session (&parts, cs);
    parts.assembled.operation_id = command->operation_id;
    parts.is_write_command = true;
-   parts.assembled.is_acknowledged =
-      mongoc_write_concern_is_acknowledged (write_concern);
+   if (!mongoc_cmd_parts_set_write_concern (
+          &parts, write_concern, server_stream->sd->max_wire_version, error)) {
+      bson_destroy (&cmd);
+      mongoc_cmd_parts_cleanup (&parts);
+      EXIT;
+   }
+
+   if (parts.assembled.is_acknowledged) {
+      mongoc_cmd_parts_set_session (&parts, cs);
+   }
 
    /* Write commands that include multi-document operations are not retryable.
     * Set this explicitly so that mongoc_cmd_parts_assemble does not need to
     * inspect the command body later. */
-   parts.allow_txn_number = command->flags.has_multi_write
-                               ? MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_NO
-                               : MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_YES;
+   parts.allow_txn_number =
+      (command->flags.has_multi_write || !parts.assembled.is_acknowledged)
+         ? MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_NO
+         : MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_YES;
 
-   bson_iter_init (&iter, &command->cmd_opts);
+   BSON_ASSERT (bson_iter_init (&iter, &command->cmd_opts));
    if (!mongoc_cmd_parts_append_opts (
           &parts, &iter, server_stream->sd->max_wire_version, error)) {
       bson_destroy (&cmd);
@@ -504,6 +560,7 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
 
       if (ship_it) {
          bool is_retryable = parts.is_retryable_write;
+         mongoc_write_err_type_t error_type;
 
          /* Seek past the document offset we have already sent */
          parts.assembled.payload = command->payload.data + payload_total_offset;
@@ -533,9 +590,8 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
           * select a new writable stream and retry. If server selection fails or
           * the selected server does not support retryable writes, fall through
           * and allow the original error to be reported. */
-         if (!ret && is_retryable &&
-             (error->domain == MONGOC_ERROR_STREAM ||
-              mongoc_cluster_is_not_master_error (error))) {
+         error_type = _mongoc_write_error_get_type (ret, error, &reply);
+         if (is_retryable && error_type == MONGOC_WRITE_ERR_RETRY) {
             bson_error_t ignored_error;
 
             /* each write command may be retried at most once */
@@ -546,12 +602,13 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
             }
 
             retry_server_stream = mongoc_cluster_stream_for_writes (
-               &client->cluster, &ignored_error);
+               &client->cluster, cs, NULL, &ignored_error);
 
             if (retry_server_stream &&
                 retry_server_stream->sd->max_wire_version >=
                    WIRE_VERSION_RETRY_WRITES) {
                parts.assembled.server_stream = retry_server_stream;
+               bson_destroy (&reply);
                GOTO (retry);
             }
          }
@@ -627,7 +684,6 @@ _mongoc_write_opquery (mongoc_write_command_t *command,
                        const char *collection,
                        const mongoc_write_concern_t *write_concern,
                        uint32_t offset,
-                       mongoc_client_session_t *session,
                        mongoc_write_result_t *result,
                        bson_error_t *error)
 {
@@ -668,7 +724,7 @@ again:
    has_more = false;
    i = 0;
 
-   _mongoc_write_command_init (&cmd, command, collection, write_concern);
+   _mongoc_write_command_init (&cmd, command, collection);
 
    /* 1 byte to specify array type, 1 byte for field name's null terminator */
    overhead = cmd.len + 2 + gCommandFieldLens[command->type];
@@ -711,14 +767,23 @@ again:
       }
    } else {
       mongoc_cmd_parts_init (&parts, client, database, MONGOC_QUERY_NONE, &cmd);
-      mongoc_cmd_parts_set_session (&parts, session);
       parts.is_write_command = true;
       parts.assembled.operation_id = command->operation_id;
-      parts.assembled.is_acknowledged =
-         mongoc_write_concern_is_acknowledged (write_concern);
-      bson_iter_init (&iter, &command->cmd_opts);
+      if (!mongoc_cmd_parts_set_write_concern (
+             &parts,
+             write_concern,
+             server_stream->sd->max_wire_version,
+             error)) {
+         bson_reader_destroy (reader);
+         bson_destroy (&cmd);
+         mongoc_cmd_parts_cleanup (&parts);
+         EXIT;
+      }
+
+      BSON_ASSERT (bson_iter_init (&iter, &command->cmd_opts));
       if (!mongoc_cmd_parts_append_opts (
              &parts, &iter, server_stream->sd->max_wire_version, error)) {
+         bson_reader_destroy (reader);
          bson_destroy (&cmd);
          mongoc_cmd_parts_cleanup (&parts);
          EXIT;
@@ -740,13 +805,6 @@ again:
             /* assembling failed, or a network error running the command */
             result->must_stop = true;
          }
-      }
-
-      if (session) {
-         _mongoc_client_session_handle_reply (
-            session,
-            mongoc_write_concern_is_acknowledged (write_concern),
-            &reply);
       }
 
       _mongoc_write_result_merge (result, command, &reply, offset);
@@ -778,6 +836,8 @@ _mongoc_write_command_execute (
    mongoc_client_session_t *cs,                 /* IN */
    mongoc_write_result_t *result)               /* OUT */
 {
+   mongoc_crud_opts_t crud = {0};
+
    ENTRY;
 
    BSON_ASSERT (command);
@@ -800,8 +860,41 @@ _mongoc_write_command_execute (
       EXIT;
    }
 
+   crud.client_session = cs;
+   crud.writeConcern = (mongoc_write_concern_t *) write_concern;
+
+   _mongoc_write_command_execute_idl (command,
+                                      client,
+                                      server_stream,
+                                      database,
+                                      collection,
+                                      offset,
+                                      &crud,
+                                      result);
+   EXIT;
+}
+
+void
+_mongoc_write_command_execute_idl (mongoc_write_command_t *command,
+                                   mongoc_client_t *client,
+                                   mongoc_server_stream_t *server_stream,
+                                   const char *database,
+                                   const char *collection,
+                                   uint32_t offset,
+                                   const mongoc_crud_opts_t *crud,
+                                   mongoc_write_result_t *result)
+{
+   ENTRY;
+
+   BSON_ASSERT (command);
+   BSON_ASSERT (client);
+   BSON_ASSERT (server_stream);
+   BSON_ASSERT (database);
+   BSON_ASSERT (collection);
+   BSON_ASSERT (result);
+
    if (command->flags.has_collation) {
-      if (!mongoc_write_concern_is_acknowledged (write_concern)) {
+      if (!mongoc_write_concern_is_acknowledged (crud->writeConcern)) {
          result->failed = true;
          bson_set_error (&result->error,
                          MONGOC_ERROR_COMMAND,
@@ -809,18 +902,40 @@ _mongoc_write_command_execute (
                          "Cannot set collation for unacknowledged writes");
          EXIT;
       }
+
       if (server_stream->sd->max_wire_version < WIRE_VERSION_COLLATION) {
          bson_set_error (&result->error,
                          MONGOC_ERROR_COMMAND,
                          MONGOC_ERROR_PROTOCOL_BAD_WIRE_VERSION,
-                         "Collation is not supported by the selected server");
+                         "The selected server does not support collation");
          result->failed = true;
          EXIT;
       }
    }
+
+   if (command->flags.has_array_filters) {
+      if (!mongoc_write_concern_is_acknowledged (crud->writeConcern)) {
+         result->failed = true;
+         bson_set_error (&result->error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Cannot use array filters with unacknowledged writes");
+         EXIT;
+      }
+
+      if (server_stream->sd->max_wire_version < WIRE_VERSION_ARRAY_FILTERS) {
+         bson_set_error (&result->error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_PROTOCOL_BAD_WIRE_VERSION,
+                         "The selected server does not support array filters");
+         result->failed = true;
+         EXIT;
+      }
+   }
+
    if (command->flags.bypass_document_validation !=
        MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT) {
-      if (!mongoc_write_concern_is_acknowledged (write_concern)) {
+      if (!mongoc_write_concern_is_acknowledged (crud->writeConcern)) {
          result->failed = true;
          bson_set_error (
             &result->error,
@@ -830,6 +945,17 @@ _mongoc_write_command_execute (
          EXIT;
       }
    }
+
+   if (crud->client_session &&
+       !mongoc_write_concern_is_acknowledged (crud->writeConcern)) {
+      result->failed = true;
+      bson_set_error (&result->error,
+                      MONGOC_ERROR_COMMAND,
+                      MONGOC_ERROR_COMMAND_INVALID_ARG,
+                      "Cannot use client session with unacknowledged writes");
+      EXIT;
+   }
+
    if (command->payload.len == 0) {
       _empty_error (command, &result->error);
       EXIT;
@@ -841,21 +967,20 @@ _mongoc_write_command_execute (
                            server_stream,
                            database,
                            collection,
-                           write_concern,
+                           crud->writeConcern,
                            offset,
-                           cs,
+                           crud->client_session,
                            result,
                            &result->error);
    } else {
-      if (mongoc_write_concern_is_acknowledged (write_concern)) {
+      if (mongoc_write_concern_is_acknowledged (crud->writeConcern)) {
          _mongoc_write_opquery (command,
                                 client,
                                 server_stream,
                                 database,
                                 collection,
-                                write_concern,
+                                crud->writeConcern,
                                 offset,
-                                cs,
                                 result,
                                 &result->error);
       } else {
@@ -900,6 +1025,7 @@ _mongoc_write_result_init (mongoc_write_result_t *result) /* IN */
    bson_init (&result->upserted);
    bson_init (&result->writeConcernErrors);
    bson_init (&result->writeErrors);
+   bson_init (&result->errorLabels);
 
    EXIT;
 }
@@ -915,6 +1041,7 @@ _mongoc_write_result_destroy (mongoc_write_result_t *result)
    bson_destroy (&result->upserted);
    bson_destroy (&result->writeConcernErrors);
    bson_destroy (&result->writeErrors);
+   bson_destroy (&result->errorLabels);
 
    EXIT;
 }
@@ -1099,11 +1226,17 @@ _mongoc_write_result_merge (mongoc_write_result_t *result,   /* IN */
       bson_uint32_to_string (
          result->n_writeConcernErrors, &key, str, sizeof str);
 
-      bson_append_document (
-         &result->writeConcernErrors, key, -1, &write_concern_error);
+      if (!bson_append_document (
+             &result->writeConcernErrors, key, -1, &write_concern_error)) {
+         MONGOC_ERROR ("Error adding \"%s\" to writeConcernErrors.\n", key);
+      }
 
       result->n_writeConcernErrors++;
    }
+
+   /* inefficient if there are ever large numbers: for each label in each err,
+    * we linear-search result->errorLabels to see if it's included yet */
+   _mongoc_bson_array_copy_labels_to (reply, &result->errorLabels);
 
    EXIT;
 }
@@ -1286,9 +1419,74 @@ _mongoc_write_result_complete (
                                 &result->error);
    }
 
+   if (bson && !bson_empty (&result->errorLabels)) {
+      BSON_APPEND_ARRAY (bson, "errorLabels", &result->errorLabels);
+   }
+
    if (error) {
       memcpy (error, &result->error, sizeof *error);
    }
 
    RETURN (!result->failed && result->error.code == 0);
+}
+
+
+/*--------------------------------------------------------------------------
+ *
+ * _mongoc_write_error_get_type --
+ *
+ *       Checks if the error or reply from a write command is considered
+ *       retryable according to the retryable writes spec. Checks both
+ *       for a client error (a network exception) and a server error in
+ *       the reply. @cmd_ret and @cmd_err come from the result of a
+ *       write_command function.
+ *
+ *
+ * Return:
+ *       A mongoc_write_error_type_t indicating the type of error (if any).
+ *
+ *--------------------------------------------------------------------------
+ */
+mongoc_write_err_type_t
+_mongoc_write_error_get_type (bool cmd_ret,
+                              const bson_error_t *cmd_err,
+                              const bson_t *reply)
+{
+   bson_error_t error;
+
+   /* check for a client error. */
+   if (!cmd_ret && cmd_err->domain == MONGOC_ERROR_STREAM) {
+      /* Retryable writes spec: "considered retryable if [...] any network
+       * exception (e.g. socket timeout or error) */
+      return MONGOC_WRITE_ERR_RETRY;
+   }
+
+   /* check for a server error. */
+   if (_mongoc_cmd_check_ok_no_wce (
+          reply, MONGOC_ERROR_API_VERSION_2, &error)) {
+      return MONGOC_WRITE_ERR_NONE;
+   }
+
+   switch (error.code) {
+   case 11600: /* InterruptedAtShutdown */
+   case 11602: /* InterruptedDueToReplStateChange */
+   case 10107: /* NotMaster */
+   case 13435: /* NotMasterNoSlaveOk */
+   case 13436: /* NotMasterOrSecondary */
+   case 189:   /* PrimarySteppedDown */
+   case 91:    /* ShutdownInProgress */
+   case 7:     /* HostNotFound */
+   case 6:     /* HostUnreachable */
+   case 89:    /* NetworkTimeout */
+   case 9001:  /* SocketException */
+      return MONGOC_WRITE_ERR_RETRY;
+   case 64: /* WriteConcernFailed */
+      return MONGOC_WRITE_ERR_WRITE_CONCERN;
+   default:
+      if (strstr (error.message, "not master") ||
+          strstr (error.message, "node is recovering")) {
+         return MONGOC_WRITE_ERR_RETRY;
+      }
+      return MONGOC_WRITE_ERR_OTHER;
+   }
 }

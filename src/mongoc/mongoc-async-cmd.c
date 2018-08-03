@@ -25,6 +25,7 @@
 #include "mongoc-rpc-private.h"
 #include "mongoc-stream-private.h"
 #include "mongoc-server-description-private.h"
+#include "mongoc-topology-scanner-private.h"
 #include "mongoc-log.h"
 #include "utlist.h"
 
@@ -39,6 +40,8 @@ typedef mongoc_async_cmd_result_t (*_mongoc_async_cmd_phase_t) (
    mongoc_async_cmd_t *cmd);
 
 mongoc_async_cmd_result_t
+_mongoc_async_cmd_phase_initiate (mongoc_async_cmd_t *cmd);
+mongoc_async_cmd_result_t
 _mongoc_async_cmd_phase_setup (mongoc_async_cmd_t *cmd);
 mongoc_async_cmd_result_t
 _mongoc_async_cmd_phase_send (mongoc_async_cmd_t *cmd);
@@ -48,6 +51,7 @@ mongoc_async_cmd_result_t
 _mongoc_async_cmd_phase_recv_rpc (mongoc_async_cmd_t *cmd);
 
 static const _mongoc_async_cmd_phase_t gMongocCMDPhases[] = {
+   _mongoc_async_cmd_phase_initiate,
    _mongoc_async_cmd_phase_setup,
    _mongoc_async_cmd_phase_send,
    _mongoc_async_cmd_phase_recv_len,
@@ -68,10 +72,16 @@ mongoc_async_cmd_tls_setup (mongoc_stream_t *stream,
    const char *host = (const char *) ctx;
    int retry_events = 0;
 
+
    for (tls_stream = stream; tls_stream->type != MONGOC_STREAM_TLS;
         tls_stream = mongoc_stream_get_base_stream (tls_stream)) {
    }
 
+#if defined(MONGOC_ENABLE_SSL_OPENSSL) || \
+   defined(MONGOC_ENABLE_SSL_SECURE_CHANNEL)
+   /* pass 0 for the timeout to begin / continue non-blocking handshake */
+   timeout_msec = 0;
+#endif
    if (mongoc_stream_tls_handshake (
           tls_stream, host, timeout_msec, &retry_events, error)) {
       return 1;
@@ -92,6 +102,13 @@ mongoc_async_cmd_run (mongoc_async_cmd_t *acmd)
    int64_t rtt_msec;
    _mongoc_async_cmd_phase_t phase_callback;
 
+   BSON_ASSERT (acmd);
+
+   /* if we have successfully connected to the node, call the callback. */
+   if (acmd->state == MONGOC_ASYNC_CMD_SEND) {
+      acmd->cb (acmd, MONGOC_ASYNC_CMD_CONNECTED, NULL, 0);
+   }
+
    phase_callback = gMongocCMDPhases[acmd->state];
    if (phase_callback) {
       result = phase_callback (acmd);
@@ -106,10 +123,10 @@ mongoc_async_cmd_run (mongoc_async_cmd_t *acmd)
    rtt_msec = (bson_get_monotonic_time () - acmd->cmd_started) / 1000;
 
    if (result == MONGOC_ASYNC_CMD_SUCCESS) {
-      acmd->cb (result, &acmd->reply, rtt_msec, acmd->data, &acmd->error);
+      acmd->cb (acmd, result, &acmd->reply, rtt_msec);
    } else {
       /* we're in ERROR, TIMEOUT, or CANCELED */
-      acmd->cb (result, NULL, rtt_msec, acmd->data, &acmd->error);
+      acmd->cb (acmd, result, NULL, rtt_msec);
    }
 
    mongoc_async_cmd_destroy (acmd);
@@ -137,12 +154,15 @@ _mongoc_async_cmd_init_send (mongoc_async_cmd_t *acmd, const char *dbname)
    acmd->iovec = (mongoc_iovec_t *) acmd->array.data;
    acmd->niovec = acmd->array.len;
    _mongoc_rpc_swab_to_le (&acmd->rpc);
+   acmd->bytes_written = 0;
 }
 
 void
-_mongoc_async_cmd_state_start (mongoc_async_cmd_t *acmd)
+_mongoc_async_cmd_state_start (mongoc_async_cmd_t *acmd, bool is_setup_done)
 {
-   if (acmd->setup) {
+   if (!acmd->stream) {
+      acmd->state = MONGOC_ASYNC_CMD_INITIATE;
+   } else if (acmd->setup && !is_setup_done) {
       acmd->state = MONGOC_ASYNC_CMD_SETUP;
    } else {
       acmd->state = MONGOC_ASYNC_CMD_SEND;
@@ -154,6 +174,10 @@ _mongoc_async_cmd_state_start (mongoc_async_cmd_t *acmd)
 mongoc_async_cmd_t *
 mongoc_async_cmd_new (mongoc_async_t *async,
                       mongoc_stream_t *stream,
+                      bool is_setup_done,
+                      struct addrinfo *dns_result,
+                      mongoc_async_cmd_initiate_t initiator,
+                      int64_t initiate_delay_ms,
                       mongoc_async_cmd_setup_t setup,
                       void *setup_ctx,
                       const char *dbname,
@@ -166,12 +190,14 @@ mongoc_async_cmd_new (mongoc_async_t *async,
 
    BSON_ASSERT (cmd);
    BSON_ASSERT (dbname);
-   BSON_ASSERT (stream);
 
    acmd = (mongoc_async_cmd_t *) bson_malloc0 (sizeof (*acmd));
    acmd->async = async;
+   acmd->dns_result = dns_result;
    acmd->timeout_msec = timeout_msec;
    acmd->stream = stream;
+   acmd->initiator = initiator;
+   acmd->initiate_delay_ms = initiate_delay_ms;
    acmd->setup = setup;
    acmd->setup_ctx = setup_ctx;
    acmd->cb = cb;
@@ -184,7 +210,7 @@ mongoc_async_cmd_new (mongoc_async_t *async,
 
    _mongoc_async_cmd_init_send (acmd, dbname);
 
-   _mongoc_async_cmd_state_start (acmd);
+   _mongoc_async_cmd_state_start (acmd, is_setup_done);
 
    async->ncmds++;
    DL_APPEND (async->cmds, acmd);
@@ -211,6 +237,23 @@ mongoc_async_cmd_destroy (mongoc_async_cmd_t *acmd)
    _mongoc_buffer_destroy (&acmd->buffer);
 
    bson_free (acmd);
+}
+
+mongoc_async_cmd_result_t
+_mongoc_async_cmd_phase_initiate (mongoc_async_cmd_t *acmd)
+{
+   acmd->stream = acmd->initiator (acmd);
+   if (!acmd->stream) {
+      return MONGOC_ASYNC_CMD_ERROR;
+   }
+   /* reset the connect started time after connection starts. */
+   acmd->connect_started = bson_get_monotonic_time ();
+   if (acmd->setup) {
+      acmd->state = MONGOC_ASYNC_CMD_SETUP;
+   } else {
+      acmd->state = MONGOC_ASYNC_CMD_SEND;
+   }
+   return MONGOC_ASYNC_CMD_IN_PROGRESS;
 }
 
 mongoc_async_cmd_result_t
@@ -243,9 +286,49 @@ _mongoc_async_cmd_phase_setup (mongoc_async_cmd_t *acmd)
 mongoc_async_cmd_result_t
 _mongoc_async_cmd_phase_send (mongoc_async_cmd_t *acmd)
 {
+   size_t total_bytes = 0;
+   size_t offset;
    ssize_t bytes;
+   int i;
+   /* if a continued write, then iovec will be set to a temporary copy */
+   bool used_temp_iovec = false;
+   mongoc_iovec_t *iovec = acmd->iovec;
+   size_t niovec = acmd->niovec;
 
-   bytes = mongoc_stream_writev (acmd->stream, acmd->iovec, acmd->niovec, 0);
+   for (i = 0; i < acmd->niovec; i++) {
+      total_bytes += acmd->iovec[i].iov_len;
+   }
+
+   if (acmd->bytes_written > 0) {
+      BSON_ASSERT (acmd->bytes_written < total_bytes);
+      /* if bytes have been written before, compute the offset in the next
+       * iovec entry to be written. */
+      offset = acmd->bytes_written;
+
+      /* subtract the lengths of all iovec entries written so far. */
+      for (i = 0; i < acmd->niovec; i++) {
+         if (offset < acmd->iovec[i].iov_len) {
+            break;
+         }
+         offset -= acmd->iovec[i].iov_len;
+      }
+
+      BSON_ASSERT (i < acmd->niovec);
+
+      /* create a new iovec with the remaining data to be written. */
+      niovec = acmd->niovec - i;
+      iovec = bson_malloc (niovec * sizeof (mongoc_iovec_t));
+      memcpy (iovec, acmd->iovec + i, niovec * sizeof (mongoc_iovec_t));
+      iovec[0].iov_base = (char *) iovec[0].iov_base + offset;
+      iovec[0].iov_len -= offset;
+      used_temp_iovec = true;
+   }
+
+   bytes = mongoc_stream_writev (acmd->stream, iovec, niovec, 0);
+
+   if (used_temp_iovec) {
+      bson_free (iovec);
+   }
 
    if (bytes < 0) {
       bson_set_error (&acmd->error,
@@ -255,16 +338,10 @@ _mongoc_async_cmd_phase_send (mongoc_async_cmd_t *acmd)
       return MONGOC_ASYNC_CMD_ERROR;
    }
 
-   while (bytes) {
-      if (acmd->iovec->iov_len < (size_t) bytes) {
-         bytes -= acmd->iovec->iov_len;
-         acmd->iovec++;
-         acmd->niovec--;
-      } else {
-         acmd->iovec->iov_base = ((char *) acmd->iovec->iov_base) + bytes;
-         acmd->iovec->iov_len -= bytes;
-         bytes = 0;
-      }
+   acmd->bytes_written += bytes;
+
+   if (acmd->bytes_written < total_bytes) {
+      return MONGOC_ASYNC_CMD_IN_PROGRESS;
    }
 
    acmd->state = MONGOC_ASYNC_CMD_RECV_LEN;

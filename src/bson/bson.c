@@ -17,10 +17,11 @@
 
 #include "bson.h"
 #include "bson-config.h"
-#include "b64_ntop.h"
 #include "bson-private.h"
 #include "bson-string.h"
 #include "bson-iso8601-private.h"
+
+#include "common-b64-private.h"
 
 #include <string.h>
 #include <math.h>
@@ -130,6 +131,9 @@ _bson_impl_inline_grow (bson_impl_inline_t *impl, /* IN */
       data = bson_malloc (req);
 
       memcpy (data, impl->data, impl->len);
+#ifdef BSON_MEMCHECK
+      bson_free (impl->canary);
+#endif
       alloc->flags &= ~BSON_FLAG_INLINE;
       alloc->parent = NULL;
       alloc->depth = 0;
@@ -1547,8 +1551,19 @@ bson_append_regex (bson_t *bson,
                    const char *regex,
                    const char *options)
 {
+   return bson_append_regex_w_len (bson, key, key_length, regex, -1, options);
+}
+
+
+bool
+bson_append_regex_w_len (bson_t *bson,
+                         const char *key,
+                         int key_length,
+                         const char *regex,
+                         int regex_length,
+                         const char *options)
+{
    static const uint8_t type = BSON_TYPE_REGEX;
-   uint32_t regex_len;
    bson_string_t *options_sorted;
    bool r;
 
@@ -1559,6 +1574,10 @@ bson_append_regex (bson_t *bson,
       key_length = (int) strlen (key);
    }
 
+   if (regex_length < 0) {
+      regex_length = (int) strlen (regex);
+   }
+
    if (!regex) {
       regex = "";
    }
@@ -1567,24 +1586,26 @@ bson_append_regex (bson_t *bson,
       options = "";
    }
 
-   regex_len = (int) strlen (regex) + 1;
    options_sorted = bson_string_new (NULL);
 
    _bson_append_regex_options_sorted (options_sorted, options);
 
-   r =  _bson_append (bson,
-                      5,
-                      (1 + key_length + 1 + regex_len + options_sorted->len + 1),
-                      1,
-                      &type,
-                      key_length,
-                      key,
-                      1,
-                      &gZero,
-                      regex_len,
-                      regex,
-                      options_sorted->len + 1,
-                      options_sorted->str);
+   r = _bson_append (
+      bson,
+      6,
+      (1 + key_length + 1 + regex_length + 1 + options_sorted->len + 1),
+      1,
+      &type,
+      key_length,
+      key,
+      1,
+      &gZero,
+      regex_length,
+      regex,
+      1,
+      &gZero,
+      options_sorted->len + 1,
+      options_sorted->str);
 
    bson_string_free (options_sorted, true);
 
@@ -1938,6 +1959,9 @@ bson_init (bson_t *bson)
 
    BSON_ASSERT (bson);
 
+#ifdef BSON_MEMCHECK
+   impl->canary = bson_malloc (1);
+#endif
    impl->flags = BSON_FLAG_INLINE | BSON_FLAG_STATIC;
    impl->len = 5;
    impl->data[0] = 5;
@@ -2017,6 +2041,9 @@ bson_new (void)
    impl = (bson_impl_inline_t *) bson;
    impl->flags = BSON_FLAG_INLINE;
    impl->len = 5;
+#ifdef BSON_MEMCHECK
+   impl->canary = bson_malloc (1);
+#endif
    impl->data[0] = 5;
    impl->data[1] = 0;
    impl->data[2] = 0;
@@ -2167,7 +2194,13 @@ bson_copy_to (const bson_t *src, bson_t *dst)
    BSON_ASSERT (dst);
 
    if ((src->flags & BSON_FLAG_INLINE)) {
+#ifdef BSON_MEMCHECK
+      dst->len = src->len;
+      dst->canary = malloc (1);
+      memcpy (dst->padding, src->padding, sizeof dst->padding);
+#else
       memcpy (dst, src, sizeof *dst);
+#endif
       dst->flags = (BSON_FLAG_STATIC | BSON_FLAG_INLINE);
       return;
    }
@@ -2278,12 +2311,20 @@ bson_copy_to_excluding_noinit (const bson_t *src,
 void
 bson_destroy (bson_t *bson)
 {
-   BSON_ASSERT (bson);
+   if (!bson) {
+      return;
+   }
 
    if (!(bson->flags &
          (BSON_FLAG_RDONLY | BSON_FLAG_INLINE | BSON_FLAG_NO_FREE))) {
       bson_free (*((bson_impl_alloc_t *) bson)->buf);
    }
+
+#ifdef BSON_MEMCHECK
+   if (bson->flags & BSON_FLAG_INLINE) {
+      bson_free (bson->canary);
+   }
+#endif
 
    if (!(bson->flags & BSON_FLAG_STATIC)) {
       bson_free (bson);
@@ -2338,7 +2379,13 @@ bson_steal (bson_t *dst, bson_t *src)
 
       /* for consistency, src is always invalid after steal, even if inline */
       src->len = 0;
+#ifdef BSON_MEMCHECK
+      bson_free (src->canary);
+#endif
    } else {
+#ifdef BSON_MEMCHECK
+      bson_free (dst->canary);
+#endif
       memcpy (dst, src, sizeof (bson_t));
       alloc = (bson_impl_alloc_t *) dst;
       alloc->flags |= BSON_FLAG_STATIC;
@@ -2662,7 +2709,7 @@ _bson_as_json_visit_binary (const bson_iter_t *iter,
 
    b64_len = (v_binary_len / 3 + 1) * 4 + 1;
    b64 = bson_malloc0 (b64_len);
-   b64_ntop (v_binary, v_binary_len, b64, b64_len);
+   BSON_ASSERT (bson_b64_ntop (v_binary, v_binary_len, b64, b64_len) != -1);
 
    if (state->mode == BSON_JSON_MODE_CANONICAL ||
        state->mode == BSON_JSON_MODE_RELAXED) {
@@ -2923,10 +2970,10 @@ _bson_as_json_visit_code (const bson_iter_t *iter,
 
 static bool
 _bson_as_json_visit_symbol (const bson_iter_t *iter,
-                                     const char *key,
-                                     size_t v_symbol_len,
-                                     const char *v_symbol,
-                                     void *data)
+                            const char *key,
+                            size_t v_symbol_len,
+                            const char *v_symbol,
+                            void *data)
 {
    bson_json_state_t *state = data;
    char *escaped;
@@ -2992,30 +3039,18 @@ _bson_as_json_visit_codewscope (const bson_iter_t *iter,
 
 
 static const bson_visitor_t bson_as_json_visitors = {
-   _bson_as_json_visit_before,
-   NULL, /* visit_after */
-   _bson_as_json_visit_corrupt,
-   _bson_as_json_visit_double,
-   _bson_as_json_visit_utf8,
-   _bson_as_json_visit_document,
-   _bson_as_json_visit_array,
-   _bson_as_json_visit_binary,
-   _bson_as_json_visit_undefined,
-   _bson_as_json_visit_oid,
-   _bson_as_json_visit_bool,
-   _bson_as_json_visit_date_time,
-   _bson_as_json_visit_null,
-   _bson_as_json_visit_regex,
-   _bson_as_json_visit_dbpointer,
-   _bson_as_json_visit_code,
-   _bson_as_json_visit_symbol,
-   _bson_as_json_visit_codewscope,
-   _bson_as_json_visit_int32,
-   _bson_as_json_visit_timestamp,
-   _bson_as_json_visit_int64,
-   _bson_as_json_visit_maxkey,
-   _bson_as_json_visit_minkey,
-   NULL, /* visit_unsupported_type */
+   _bson_as_json_visit_before,     NULL, /* visit_after */
+   _bson_as_json_visit_corrupt,    _bson_as_json_visit_double,
+   _bson_as_json_visit_utf8,       _bson_as_json_visit_document,
+   _bson_as_json_visit_array,      _bson_as_json_visit_binary,
+   _bson_as_json_visit_undefined,  _bson_as_json_visit_oid,
+   _bson_as_json_visit_bool,       _bson_as_json_visit_date_time,
+   _bson_as_json_visit_null,       _bson_as_json_visit_regex,
+   _bson_as_json_visit_dbpointer,  _bson_as_json_visit_code,
+   _bson_as_json_visit_symbol,     _bson_as_json_visit_codewscope,
+   _bson_as_json_visit_int32,      _bson_as_json_visit_timestamp,
+   _bson_as_json_visit_int64,      _bson_as_json_visit_maxkey,
+   _bson_as_json_visit_minkey,     NULL, /* visit_unsupported_type */
    _bson_as_json_visit_decimal128,
 };
 
@@ -3040,6 +3075,7 @@ _bson_as_json_visit_document (const bson_iter_t *iter,
       child_state.depth = state->depth + 1;
       child_state.mode = state->mode;
       if (bson_iter_visit_all (&child, &bson_as_json_visitors, &child_state)) {
+         bson_string_free (child_state.str, true);
          return true;
       }
 
@@ -3072,6 +3108,7 @@ _bson_as_json_visit_array (const bson_iter_t *iter,
       child_state.depth = state->depth + 1;
       child_state.mode = state->mode;
       if (bson_iter_visit_all (&child, &bson_as_json_visitors, &child_state)) {
+         bson_string_free (child_state.str, true);
          return true;
       }
 

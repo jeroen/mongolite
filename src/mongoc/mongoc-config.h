@@ -19,6 +19,7 @@
 #define MONGOC_CONFIG_H
 
 /* R packages should be portable */
+#define MONGOC_CC ""
 #define MONGOC_USER_SET_CFLAGS ""
 #define MONGOC_USER_SET_LDFLAGS ""
 
@@ -161,19 +162,6 @@
 
 #if MONGOC_ENABLE_SASL_GSSAPI != 1
 #  undef MONGOC_ENABLE_SASL_GSSAPI
-#endif
-
-
-/*
- * MONGOC_HAVE_WEAK_SYMBOLS is set from configure to determine if the
- * compiler supports the (weak) annotation. We use it to prevent
- * Link-Time-Optimization (LTO) in our constant-time mongoc_memcmp()
- * This is known to work with GNU GCC and Solaris Studio
- */
-#define MONGOC_HAVE_WEAK_SYMBOLS 1
-
-#if MONGOC_HAVE_WEAK_SYMBOLS != 1
-#  undef MONGOC_HAVE_WEAK_SYMBOLS
 #endif
 
 

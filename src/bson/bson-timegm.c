@@ -46,10 +46,10 @@
 #endif
 
 #ifdef __clang__
-/*CRAN*/ #pragma clang diagnostic push
-/*CRAN*/ #pragma clang diagnostic ignored "-Wunknown-pragmas"
-/*CRAN*/ #pragma clang diagnostic push
-/*CRAN*/ #pragma clang diagnostic ignored "-Wshift-negative-value"
+/*IGNORE*/ #pragma clang diagnostic push
+/*IGNORE*/ #pragma clang diagnostic ignored "-Wunknown-pragmas"
+/*IGNORE*/ #pragma clang diagnostic push
+/*IGNORE*/ #pragma clang diagnostic ignored "-Wshift-negative-value"
 #endif
 
 /* The minimum and maximum finite time values.  */
@@ -57,8 +57,8 @@ static int64_t const time_t_min = INT64_MIN;
 static int64_t const time_t_max = INT64_MAX;
 
 #ifdef __clang__
-/*CRAN*/ #pragma clang diagnostic pop
-/*CRAN*/ #pragma clang diagnostic pop
+/*IGNORE*/ #pragma clang diagnostic pop
+/*IGNORE*/ #pragma clang diagnostic pop
 #endif
 
 #ifndef TZ_MAX_TIMES

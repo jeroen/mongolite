@@ -98,7 +98,7 @@
 #'   \item{\code{mapreduce(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function. Set \code{out} to a string to store results in a collection instead of returning.}
 #'   \item{\code{remove(query = "{}", multiple = FALSE)}}{Remove record(s) matching \code{query} from the collection.}
 #'   \item{\code{rename(name, db = NULL)}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
-#'   \item{\code{run(comand = '{"ping: 1}')}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
+#'   \item{\code{run(command = '{"ping": 1}')}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 #'   \item{\code{replace(query, update = '{}', upsert = FALSE)}}{Replace matching record(s) with value of the \code{update} argument.}
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Modify fields of matching record(s) with value of the \code{update} argument.}
 #' }
@@ -249,12 +249,12 @@ mongo_object <- function(col, client, verbose, orig){
 
     info <- function(){
       check_col()
-      list(
-        name = mongo_collection_name(col),
+      structure(list(
+        collection = mongo_collection_name(col),
         db = mongo_get_default_database(client),
         stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
         server = mongo_client_server_status(client)
-      )
+      ), class = "miniprint")
     }
 
     rename <- function(name, db = NULL){
@@ -268,8 +268,8 @@ mongo_object <- function(col, client, verbose, orig){
       orig
     }
 
-    run <- function(command = '{"ping: 1}'){
-      mongo_collection_command_simple(col, command)
+    run <- function(command = '{"ping": 1}', simplify = TRUE){
+      mongo_collection_command_simple(col, command, simplify)
     }
 
     index <- function(add = NULL, remove = NULL){
@@ -296,7 +296,7 @@ print.mongo <- function(x, ...){
 
 #' @export
 print.miniprint <- function(x, ...){
-  utils::str(unclass(x))
+  utils::str(unclass(x), max.level = 2)
   invisible(x)
 }
 

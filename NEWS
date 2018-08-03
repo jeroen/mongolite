@@ -1,9 +1,17 @@
+2.0
+ - Update mongo-c-driver to upstream 1.12.0
+ - Stable GridFS support! See ?gridfs
+ - Compiler warnings for GCC 8
+ - Fixed bson spec unit tests (Aaron Jacobs)
+ - Switch json export to new "relaxed extended json" format
+
 1.6
  - Update mongo-c-driver to upstream 1.9.2
  - Expose a run() method to execute commands
  - Collection and cursor pointers now protect parent from GC
  - Make internal functions static
  - interate object gains a json() method
+ - Experimental GridFS support
 
 1.5
  - Change default value of 'filters' to NULL for MongoDB < 3.4

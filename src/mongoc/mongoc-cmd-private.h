@@ -34,6 +34,7 @@
 #include "mongoc-server-stream-private.h"
 #include "mongoc-read-prefs.h"
 #include "mongoc.h"
+#include "mongoc-opts-private.h"
 
 BSON_BEGIN_DECLS
 
@@ -55,6 +56,7 @@ typedef struct _mongoc_cmd_t {
    int64_t operation_id;
    mongoc_client_session_t *session;
    bool is_acknowledged;
+   bool is_txn_finish;
 } mongoc_cmd_t;
 
 
@@ -63,6 +65,7 @@ typedef struct _mongoc_cmd_parts_t {
    mongoc_query_flags_t user_query_flags;
    const bson_t *body;
    bson_t read_concern_document;
+   bson_t write_concern_document;
    bson_t extra;
    const mongoc_read_prefs_t *read_prefs;
    bson_t assembled_body;
@@ -71,7 +74,7 @@ typedef struct _mongoc_cmd_parts_t {
    bool prohibit_lsid;
    mongoc_cmd_parts_allow_txn_number_t allow_txn_number;
    bool is_retryable_write;
-   bool has_implicit_session;
+   bool has_temp_session;
    mongoc_client_t *client;
 } mongoc_cmd_parts_t;
 
@@ -92,6 +95,24 @@ mongoc_cmd_parts_append_opts (mongoc_cmd_parts_t *parts,
                               bson_iter_t *iter,
                               int max_wire_version,
                               bson_error_t *error);
+
+bool
+mongoc_cmd_parts_set_read_concern (mongoc_cmd_parts_t *parts,
+                                   const mongoc_read_concern_t *rc,
+                                   int max_wire_version,
+                                   bson_error_t *error);
+
+bool
+mongoc_cmd_parts_set_write_concern (mongoc_cmd_parts_t *parts,
+                                    const mongoc_write_concern_t *wc,
+                                    int max_wire_version,
+                                    bson_error_t *error);
+
+bool
+mongoc_cmd_parts_append_read_write (mongoc_cmd_parts_t *parts,
+                                    mongoc_read_write_opts_t *rw_opts,
+                                    int max_wire_version,
+                                    bson_error_t *error);
 
 bool
 mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,

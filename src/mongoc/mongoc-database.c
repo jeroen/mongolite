@@ -19,9 +19,6 @@
 #include "mongoc-collection.h"
 #include "mongoc-collection-private.h"
 #include "mongoc-cursor.h"
-#include "mongoc-cursor-array-private.h"
-#include "mongoc-cursor-cursorid-private.h"
-#include "mongoc-cursor-transform-private.h"
 #include "mongoc-cursor-private.h"
 #include "mongoc-database.h"
 #include "mongoc-database-private.h"
@@ -30,7 +27,7 @@
 #include "mongoc-trace-private.h"
 #include "mongoc-util-private.h"
 #include "mongoc-write-concern-private.h"
-
+#include "mongoc-change-stream-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "database"
@@ -106,7 +103,9 @@ mongoc_database_destroy (mongoc_database_t *database)
 {
    ENTRY;
 
-   BSON_ASSERT (database);
+   if (!database) {
+      EXIT;
+   }
 
    if (database->read_prefs) {
       mongoc_read_prefs_destroy (database->read_prefs);
@@ -184,13 +183,8 @@ mongoc_database_command (mongoc_database_t *database,
     */
 
    /* flags, skip, limit, batch_size, fields are unused */
-   return _mongoc_cursor_new_with_opts (database->client,
-                                        ns,
-                                        false /* is_find */,
-                                        command,
-                                        NULL /* opts */,
-                                        read_prefs,
-                                        NULL /* read concern */);
+   return _mongoc_cursor_cmd_deprecated_new (
+      database->client, ns, command, read_prefs);
 }
 
 
@@ -218,6 +212,7 @@ mongoc_database_command_simple (mongoc_database_t *database,
                                             NULL /* opts */,
                                             MONGOC_QUERY_NONE,
                                             read_prefs,
+                                            NULL, /* user prefs */
                                             NULL /* read concern */,
                                             NULL /* write concern */,
                                             reply,
@@ -233,18 +228,18 @@ mongoc_database_read_command_with_opts (mongoc_database_t *database,
                                         bson_t *reply,
                                         bson_error_t *error)
 {
-   return _mongoc_client_command_with_opts (
-      database->client,
-      database->name,
-      command,
-      MONGOC_CMD_READ,
-      opts,
-      MONGOC_QUERY_NONE,
-      COALESCE (read_prefs, database->read_prefs),
-      database->read_concern,
-      database->write_concern,
-      reply,
-      error);
+   return _mongoc_client_command_with_opts (database->client,
+                                            database->name,
+                                            command,
+                                            MONGOC_CMD_READ,
+                                            opts,
+                                            MONGOC_QUERY_NONE,
+                                            read_prefs,
+                                            database->read_prefs,
+                                            database->read_concern,
+                                            database->write_concern,
+                                            reply,
+                                            error);
 }
 
 
@@ -261,6 +256,7 @@ mongoc_database_write_command_with_opts (mongoc_database_t *database,
                                             MONGOC_CMD_WRITE,
                                             opts,
                                             MONGOC_QUERY_NONE,
+                                            NULL, /* user prefs */
                                             database->read_prefs,
                                             database->read_concern,
                                             database->write_concern,
@@ -278,18 +274,18 @@ mongoc_database_read_write_command_with_opts (
    bson_t *reply,
    bson_error_t *error)
 {
-   return _mongoc_client_command_with_opts (
-      database->client,
-      database->name,
-      command,
-      MONGOC_CMD_RW,
-      opts,
-      MONGOC_QUERY_NONE,
-      COALESCE (read_prefs, database->read_prefs),
-      database->read_concern,
-      database->write_concern,
-      reply,
-      error);
+   return _mongoc_client_command_with_opts (database->client,
+                                            database->name,
+                                            command,
+                                            MONGOC_CMD_RW,
+                                            opts,
+                                            MONGOC_QUERY_NONE,
+                                            read_prefs,
+                                            database->read_prefs,
+                                            database->read_concern,
+                                            database->write_concern,
+                                            reply,
+                                            error);
 }
 
 
@@ -308,6 +304,7 @@ mongoc_database_command_with_opts (mongoc_database_t *database,
                                             opts,
                                             MONGOC_QUERY_NONE,
                                             read_prefs,
+                                            NULL, /* default prefs */
                                             database->read_concern,
                                             database->write_concern,
                                             reply,
@@ -360,6 +357,7 @@ mongoc_database_drop_with_opts (mongoc_database_t *database,
                                            MONGOC_CMD_WRITE,
                                            opts,
                                            MONGOC_QUERY_NONE,
+                                           NULL, /* user prefs */
                                            database->read_prefs,
                                            database->read_concern,
                                            database->write_concern,
@@ -437,8 +435,6 @@ mongoc_database_add_user (mongoc_database_t *database,
 {
    bson_t cmd;
    bson_t ar;
-   char *input;
-   char *hashed_password;
    bool ret = false;
 
    ENTRY;
@@ -446,15 +442,10 @@ mongoc_database_add_user (mongoc_database_t *database,
    BSON_ASSERT (database);
    BSON_ASSERT (username);
 
-   /* usersInfo succeeded or failed with auth err, we're on modern mongod */
-   input = bson_strdup_printf ("%s:mongo:%s", username, password);
-   hashed_password = _mongoc_hex_md5 (input);
-   bson_free (input);
-
    bson_init (&cmd);
    BSON_APPEND_UTF8 (&cmd, "createUser", username);
-   BSON_APPEND_UTF8 (&cmd, "pwd", hashed_password);
-   BSON_APPEND_BOOL (&cmd, "digestPassword", false);
+   BSON_APPEND_UTF8 (&cmd, "pwd", password);
+
    if (custom_data) {
       BSON_APPEND_DOCUMENT (&cmd, "customData", custom_data);
    }
@@ -467,7 +458,6 @@ mongoc_database_add_user (mongoc_database_t *database,
 
    ret = mongoc_database_command_simple (database, &cmd, NULL, NULL, error);
 
-   bson_free (hashed_password);
    bson_destroy (&cmd);
 
    RETURN (ret);
@@ -703,7 +693,7 @@ mongoc_database_has_collection (mongoc_database_t *database,
       }
    }
 
-   mongoc_cursor_error (cursor, error);
+   (void) mongoc_cursor_error (cursor, error);
 
 cleanup:
    mongoc_cursor_destroy (cursor);
@@ -712,123 +702,6 @@ cleanup:
    RETURN (ret);
 }
 
-typedef struct {
-   const char *dbname;
-   size_t dbname_len;
-   const char *name;
-} mongoc_database_find_collections_legacy_ctx_t;
-
-static mongoc_cursor_transform_mode_t
-_mongoc_database_find_collections_legacy_filter (const bson_t *bson, void *ctx_)
-{
-   bson_iter_t iter;
-   mongoc_database_find_collections_legacy_ctx_t *ctx;
-
-   ctx = (mongoc_database_find_collections_legacy_ctx_t *) ctx_;
-
-   if (bson_iter_init_find (&iter, bson, "name") &&
-       BSON_ITER_HOLDS_UTF8 (&iter) &&
-       (ctx->name = bson_iter_utf8 (&iter, NULL)) && !strchr (ctx->name, '$') &&
-       (0 == strncmp (ctx->name, ctx->dbname, ctx->dbname_len))) {
-      return MONGO_CURSOR_TRANSFORM_MUTATE;
-   } else {
-      return MONGO_CURSOR_TRANSFORM_DROP;
-   }
-}
-
-static void
-_mongoc_database_find_collections_legacy_mutate (const bson_t *bson,
-                                                 bson_t *out,
-                                                 void *ctx_)
-{
-   mongoc_database_find_collections_legacy_ctx_t *ctx;
-
-   ctx = (mongoc_database_find_collections_legacy_ctx_t *) ctx_;
-
-   bson_copy_to_excluding_noinit (bson, out, "name", NULL);
-   BSON_APPEND_UTF8 (
-      out, "name", ctx->name + (ctx->dbname_len + 1)); /* +1 for the '.' */
-}
-
-/* Uses old way of querying system.namespaces. */
-static mongoc_cursor_t *
-_mongoc_database_find_collections_legacy (mongoc_database_t *database,
-                                          const bson_t *filter)
-{
-   mongoc_collection_t *col;
-   mongoc_cursor_t *cursor = NULL;
-   mongoc_read_prefs_t *read_prefs;
-   uint32_t dbname_len;
-   bson_t legacy_filter;
-   bson_iter_t iter;
-   const char *col_filter;
-   bson_t q = BSON_INITIALIZER;
-   mongoc_database_find_collections_legacy_ctx_t *ctx;
-
-   BSON_ASSERT (database);
-
-   col = mongoc_client_get_collection (
-      database->client, database->name, "system.namespaces");
-
-   BSON_ASSERT (col);
-
-   dbname_len = (uint32_t) strlen (database->name);
-
-   ctx = (mongoc_database_find_collections_legacy_ctx_t *) bson_malloc (
-      sizeof (*ctx));
-
-   ctx->dbname = database->name;
-   ctx->dbname_len = dbname_len;
-
-   /* Filtering on name needs to be handled differently for old servers. */
-   if (filter && bson_iter_init_find (&iter, filter, "name")) {
-      bson_string_t *buf;
-      /* on legacy servers, this must be a string (i.e. not a regex) */
-      if (!BSON_ITER_HOLDS_UTF8 (&iter)) {
-         cursor = _mongoc_cursor_new_with_opts (
-            col->client, col->ns, false, filter, NULL, NULL, NULL);
-         bson_set_error (
-            &cursor->error,
-            MONGOC_ERROR_NAMESPACE,
-            MONGOC_ERROR_NAMESPACE_INVALID_FILTER_TYPE,
-            "On legacy servers, a filter on name can only be a string.");
-         bson_free (ctx);
-         goto cleanup_filter;
-      }
-      BSON_ASSERT (BSON_ITER_HOLDS_UTF8 (&iter));
-      col_filter = bson_iter_utf8 (&iter, NULL);
-      bson_init (&legacy_filter);
-      bson_copy_to_excluding_noinit (filter, &legacy_filter, "name", NULL);
-      /* We must db-qualify filters on name. */
-      buf = bson_string_new (database->name);
-      bson_string_append_c (buf, '.');
-      bson_string_append (buf, col_filter);
-      BSON_APPEND_UTF8 (&legacy_filter, "name", buf->str);
-      bson_string_free (buf, true);
-      filter = &legacy_filter;
-   }
-
-   /* Enumerate Collections Spec: "run listCollections on the primary node in
-    * replicaset mode" */
-   read_prefs = mongoc_read_prefs_new (MONGOC_READ_PRIMARY);
-
-   cursor = mongoc_collection_find_with_opts (
-      col, filter ? filter : &q, NULL, read_prefs);
-
-   _mongoc_cursor_transform_init (
-      cursor,
-      _mongoc_database_find_collections_legacy_filter,
-      _mongoc_database_find_collections_legacy_mutate,
-      &bson_free,
-      ctx);
-
-   mongoc_read_prefs_destroy (read_prefs);
-
-cleanup_filter:
-   mongoc_collection_destroy (col);
-
-   return cursor;
-}
 
 mongoc_cursor_t *
 mongoc_database_find_collections (mongoc_database_t *database,
@@ -846,11 +719,14 @@ mongoc_database_find_collections (mongoc_database_t *database,
                          MONGOC_ERROR_BSON,
                          MONGOC_ERROR_BSON_INVALID,
                          "Invalid 'filter' parameter.");
+         bson_destroy (&opts);
          return NULL;
       }
    }
 
    cursor = mongoc_database_find_collections_with_opts (database, &opts);
+
+   bson_destroy (&opts);
 
    /* this deprecated API returns NULL on error */
    if (mongoc_cursor_error (cursor, error)) {
@@ -868,11 +744,6 @@ mongoc_database_find_collections_with_opts (mongoc_database_t *database,
 {
    mongoc_cursor_t *cursor;
    bson_t cmd = BSON_INITIALIZER;
-   bson_iter_t iter;
-   bson_t filter;
-   bson_error_t error;
-   uint32_t len;
-   const uint8_t *data;
 
    BSON_ASSERT (database);
 
@@ -880,44 +751,23 @@ mongoc_database_find_collections_with_opts (mongoc_database_t *database,
 
    /* Enumerate Collections Spec: "run listCollections on the primary node in
     * replicaset mode" */
-   cursor = _mongoc_cursor_new_with_opts (database->client,
-                                          database->name,
-                                          false /* is_find */,
-                                          NULL,
-                                          opts,
-                                          NULL,
-                                          NULL);
-
-   _mongoc_cursor_cursorid_init (cursor, &cmd);
-
-   if (!_mongoc_cursor_cursorid_prime (cursor)) {
-      mongoc_cursor_error (cursor, &error);
-      if (error.code == MONGOC_ERROR_QUERY_COMMAND_NOT_FOUND) {
-         /* old server doesn't have listCollections, use system.namespaces */
-         memset (&error, 0, sizeof error);
-         mongoc_cursor_destroy (cursor);
-
-         if (opts && bson_iter_init_find (&iter, opts, "filter")) {
-            bson_iter_document (&iter, &len, &data);
-            bson_init_static (&filter, data, len);
-            cursor =
-               _mongoc_database_find_collections_legacy (database, &filter);
-         } else {
-            cursor = _mongoc_database_find_collections_legacy (database, NULL);
-         }
-      }
+   cursor = _mongoc_cursor_cmd_new (
+      database->client, database->name, &cmd, opts, NULL, NULL, NULL);
+   if (cursor->error.domain == 0) {
+      _mongoc_cursor_prime (cursor);
    }
-
    bson_destroy (&cmd);
 
    return cursor;
 }
 
+
 char **
 mongoc_database_get_collection_names (mongoc_database_t *database,
                                       bson_error_t *error)
 {
-   return mongoc_database_get_collection_names_with_opts (database, NULL, error);
+   return mongoc_database_get_collection_names_with_opts (
+      database, NULL, error);
 }
 
 
@@ -926,6 +776,7 @@ mongoc_database_get_collection_names_with_opts (mongoc_database_t *database,
                                                 const bson_t *opts,
                                                 bson_error_t *error)
 {
+   bson_t opts_copy;
    bson_iter_t col;
    const char *name;
    char *namecopy;
@@ -936,7 +787,19 @@ mongoc_database_get_collection_names_with_opts (mongoc_database_t *database,
 
    BSON_ASSERT (database);
 
-   cursor = mongoc_database_find_collections_with_opts (database, opts);
+   if (opts) {
+      bson_copy_to (opts, &opts_copy);
+   } else {
+      bson_init (&opts_copy);
+   }
+
+   /* nameOnly option is faster in MongoDB 4+, ignored by older versions,
+    * see Enumerating Collections Spec */
+   if (!bson_has_field (&opts_copy, "nameOnly")) {
+      bson_append_bool (&opts_copy, "nameOnly", 8, true);
+   }
+
+   cursor = mongoc_database_find_collections_with_opts (database, &opts_copy);
 
    _mongoc_array_init (&strv_buf, sizeof (char *));
 
@@ -961,6 +824,7 @@ mongoc_database_get_collection_names_with_opts (mongoc_database_t *database,
    }
 
    mongoc_cursor_destroy (cursor);
+   bson_destroy (&opts_copy);
 
    return ret;
 }
@@ -1089,6 +953,7 @@ mongoc_database_create_collection (mongoc_database_t *database,
                                          MONGOC_CMD_WRITE,
                                          opts,
                                          MONGOC_QUERY_NONE,
+                                         NULL, /* user prefs */
                                          database->read_prefs,
                                          database->read_concern,
                                          database->write_concern,
@@ -1130,4 +995,13 @@ mongoc_database_get_name (mongoc_database_t *database)
    BSON_ASSERT (database);
 
    return database->name;
+}
+
+
+mongoc_change_stream_t *
+mongoc_database_watch (const mongoc_database_t *db,
+                       const bson_t *pipeline,
+                       const bson_t *opts)
+{
+   return _mongoc_change_stream_new_from_database (db, pipeline, opts);
 }
