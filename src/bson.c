@@ -94,6 +94,8 @@ SEXP ConvertValue(bson_iter_t* iter){
     char str[25];
     bson_oid_to_string(val, str);
     return mkString(str);
+  } else if(BSON_ITER_HOLDS_SYMBOL(iter)){
+    return mkStringUTF8(bson_iter_symbol(iter, NULL));
   } else if(BSON_ITER_HOLDS_ARRAY(iter)){
     bson_iter_t child1;
     bson_iter_t child2;
