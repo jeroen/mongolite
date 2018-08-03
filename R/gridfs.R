@@ -27,6 +27,8 @@
 #' fs$download('NEWS.pdf', file.path(tempdir(), 'output.pdf'))
 #' con <- file(file.path(tempdir(), 'output2.pdf'))
 #' fs$read('NEWS.pdf', con)
+#' fs$remove('NEWS.pdf')
+#'
 #' hashes <- tools::md5sum(c(input, file.path(tempdir(), c('output.pdf', 'output2.pdf'))))
 #' unlink(file.path(tempdir(), c('output.pdf', 'output2.pdf')))
 #' stopifnot(length(unique(hashes)) == 1)
