@@ -3,6 +3,7 @@
  - Stable GridFS support! See ?gridfs
  - Compiler warnings for GCC 8
  - Fixed bson spec unit tests (Aaron Jacobs)
+ - Switch json export to new "relaxed extended json" format
 
 1.6
  - Update mongo-c-driver to upstream 1.9.2
