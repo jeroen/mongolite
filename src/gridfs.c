@@ -195,7 +195,7 @@ static filestream * get_stream_ptr(SEXP ptr){
   return filestream;
 }
 
-static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file){
+static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file, SEXP ptr_fs){
   mongoc_stream_t *stream = mongoc_stream_gridfs_new (file);
   if(!stream){
     mongoc_gridfs_file_destroy(file);
@@ -207,7 +207,7 @@ static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file){
   filestream * filestream = malloc(sizeof filestream);
   filestream->file = file;
   filestream->stream = stream;
-  SEXP ptr = PROTECT(R_MakeExternalPtr(filestream, R_NilValue, R_NilValue));
+  SEXP ptr = PROTECT(R_MakeExternalPtr(filestream, R_NilValue, ptr_fs));
   R_RegisterCFinalizerEx(ptr, fin_filestream, 1);
   Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("filestream"));
   Rf_setAttrib(ptr, Rf_install("size"), Rf_ScalarReal(size));
@@ -221,7 +221,7 @@ SEXP R_new_read_stream(SEXP ptr_fs, SEXP name){
   mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
   if(file == NULL)
     stop("File not found. %s", err.message);
-  return R_make_stream_ptr(file);
+  return R_make_stream_ptr(file, ptr_fs);
 }
 
 SEXP R_new_write_stream(SEXP ptr_fs, SEXP name, SEXP content_type, SEXP meta_ptr){
@@ -235,7 +235,7 @@ SEXP R_new_write_stream(SEXP ptr_fs, SEXP name, SEXP content_type, SEXP meta_ptr
     mongoc_gridfs_file_set_content_type(file, CHAR(STRING_ELT(content_type, 0)));
   if(Rf_length(meta_ptr))
     mongoc_gridfs_file_set_metadata(file, r2bson(meta_ptr));
-  return R_make_stream_ptr(file);
+  return R_make_stream_ptr(file, ptr_fs);
 }
 
 SEXP R_stream_read_chunk(SEXP ptr, SEXP n){
