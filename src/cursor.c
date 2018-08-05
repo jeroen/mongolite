@@ -2,7 +2,7 @@
 
 SEXP R_mongo_cursor_more (SEXP ptr){
   mongoc_cursor_t *c = r2cursor(ptr);
-  return ScalarLogical(mongoc_cursor_more(c));
+  return Rf_ScalarLogical(mongoc_cursor_more(c));
 }
 
 SEXP R_mongo_cursor_next_bson (SEXP ptr){
@@ -20,8 +20,8 @@ SEXP R_mongo_cursor_next_bson (SEXP ptr){
 
 SEXP R_mongo_cursor_next_bsonlist (SEXP ptr, SEXP n){
   mongoc_cursor_t *c = r2cursor(ptr);
-  int len = asInteger(n);
-  SEXP out = PROTECT(allocVector(VECSXP, len));
+  int len = Rf_asInteger(n);
+  SEXP out = PROTECT(Rf_allocVector(VECSXP, len));
   const bson_t *b = NULL;
   int total = 0;
   bson_error_t err;
@@ -32,7 +32,7 @@ SEXP R_mongo_cursor_next_bsonlist (SEXP ptr, SEXP n){
       else
         break; //cursor exchausted: done
     } else {
-      SEXP bin = PROTECT(allocVector(RAWSXP, b->len));
+      SEXP bin = PROTECT(Rf_allocVector(RAWSXP, b->len));
       memcpy(RAW(bin), bson_get_data(b), b->len);
       SET_VECTOR_ELT(out, total, bin);
       UNPROTECT(1);
@@ -40,7 +40,7 @@ SEXP R_mongo_cursor_next_bsonlist (SEXP ptr, SEXP n){
     }
   }
   if(total < len){
-    SEXP out2 = PROTECT(allocVector(VECSXP, total));
+    SEXP out2 = PROTECT(Rf_allocVector(VECSXP, total));
     for(int i = 0; i < total; i++){
       SET_VECTOR_ELT(out2, i, VECTOR_ELT(out, i));
     }
@@ -53,8 +53,8 @@ SEXP R_mongo_cursor_next_bsonlist (SEXP ptr, SEXP n){
 
 SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
   mongoc_cursor_t *c = r2cursor(ptr);
-  int len = asInteger(n);
-  SEXP out = PROTECT(allocVector(STRSXP, len));
+  int len = Rf_asInteger(n);
+  SEXP out = PROTECT(Rf_allocVector(STRSXP, len));
   const bson_t *b = NULL;
   int total = 0;
   bson_error_t err;
@@ -68,13 +68,13 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
     } else {
       size_t jsonlength;
       char *str = bson_as_relaxed_extended_json ((bson_t*) b, &jsonlength);
-      SET_STRING_ELT(out, total, mkCharLenCE(str, jsonlength, CE_UTF8));
+      SET_STRING_ELT(out, total, Rf_mkCharLenCE(str, jsonlength, CE_UTF8));
       if(str) bson_free(str);
       total++;
     }
   }
   if(total < len){
-    SEXP out2 = PROTECT(allocVector(STRSXP, total));
+    SEXP out2 = PROTECT(Rf_allocVector(STRSXP, total));
     for(int i = 0; i < total; i++){
       SET_STRING_ELT(out2, i, STRING_ELT(out, i));
     }
@@ -88,12 +88,12 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
 
 SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size, SEXP as_json){
   mongoc_cursor_t *c = r2cursor(ptr);
-  int n = asInteger(size);
+  int n = Rf_asInteger(size);
   const bson_t *b = NULL;
-  SEXP list = PROTECT(allocVector(VECSXP, n));
+  SEXP list = PROTECT(Rf_allocVector(VECSXP, n));
   int total = 0;
   for(int i = 0; i < n && mongoc_cursor_next(c, &b); i++){
-    if(asLogical(as_json)){
+    if(Rf_asLogical(as_json)){
       SET_VECTOR_ELT(list, i, bson_to_str(b));
     } else {
       SET_VECTOR_ELT(list, i, bson2list((bson_t*) b));
@@ -114,7 +114,7 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size, SEXP as_json){
   }
 
   //not a full page
-  SEXP shortlist = PROTECT(allocVector(VECSXP, total));
+  SEXP shortlist = PROTECT(Rf_allocVector(VECSXP, total));
   for(int i = 0; i < total; i++){
     SET_VECTOR_ELT(shortlist, i, VECTOR_ELT(list, i));
   }

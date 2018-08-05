@@ -1,14 +1,14 @@
 #include <mongolite.h>
 
 static SEXP make_string(const char * x){
-  return ScalarString(x ? Rf_mkCharCE(x, CE_UTF8) : NA_STRING);
+  return Rf_ScalarString(x ? Rf_mkCharCE(x, CE_UTF8) : NA_STRING);
 }
 
 static SEXP make_date(double val){
   SEXP out = PROTECT(Rf_ScalarReal(val / 1000));
   SEXP cls = PROTECT(Rf_allocVector(STRSXP, 2));
-  SET_STRING_ELT(cls, 0, mkChar("POSIXct"));
-  SET_STRING_ELT(cls, 1, mkChar("POSIXt"));
+  SET_STRING_ELT(cls, 0, Rf_mkChar("POSIXct"));
+  SET_STRING_ELT(cls, 1, Rf_mkChar("POSIXt"));
   Rf_setAttrib(out, R_ClassSymbol, cls);
   UNPROTECT(2);
   return out;
@@ -17,7 +17,7 @@ static SEXP make_date(double val){
 static const char * get_string(SEXP x){
   if(!Rf_isString(x) || Rf_length(x) != 1)
     stop("Value is not a string of length 1");
-  return translateCharUTF8(STRING_ELT(x, 0));
+  return Rf_translateCharUTF8(STRING_ELT(x, 0));
 }
 
 static SEXP append_tail(SEXP el, SEXP tail){
@@ -33,21 +33,21 @@ static SEXP get_file_id(mongoc_gridfs_file_t * file){
 }
 
 static SEXP create_outlist(mongoc_gridfs_file_t * file){
-  SEXP out = PROTECT(allocVector(VECSXP, 6));
+  SEXP out = PROTECT(Rf_allocVector(VECSXP, 6));
   SET_VECTOR_ELT(out, 0, get_file_id(file));
   SET_VECTOR_ELT(out, 1, make_string(mongoc_gridfs_file_get_filename(file)));
   SET_VECTOR_ELT(out, 2, Rf_ScalarReal(mongoc_gridfs_file_get_length (file)));
   SET_VECTOR_ELT(out, 3, make_date(mongoc_gridfs_file_get_upload_date (file)));
   SET_VECTOR_ELT(out, 4, make_string(mongoc_gridfs_file_get_content_type(file)));
   SET_VECTOR_ELT(out, 5, bson_to_str(mongoc_gridfs_file_get_metadata(file)));
-  SEXP nms = PROTECT(allocVector(STRSXP, 6));
+  SEXP nms = PROTECT(Rf_allocVector(STRSXP, 6));
   Rf_setAttrib(out, R_NamesSymbol, nms);
-  SET_STRING_ELT(nms, 0, mkChar("id"));
-  SET_STRING_ELT(nms, 1, mkChar("name"));
-  SET_STRING_ELT(nms, 2, mkChar("size"));
-  SET_STRING_ELT(nms, 3, mkChar("date"));
-  SET_STRING_ELT(nms, 4, mkChar("type"));
-  SET_STRING_ELT(nms, 5, mkChar("metadata"));
+  SET_STRING_ELT(nms, 0, Rf_mkChar("id"));
+  SET_STRING_ELT(nms, 1, Rf_mkChar("name"));
+  SET_STRING_ELT(nms, 2, Rf_mkChar("size"));
+  SET_STRING_ELT(nms, 3, Rf_mkChar("date"));
+  SET_STRING_ELT(nms, 4, Rf_mkChar("type"));
+  SET_STRING_ELT(nms, 5, Rf_mkChar("metadata"));
   UNPROTECT(2);
   return out;
 }
@@ -59,7 +59,7 @@ SEXP R_mongo_gridfs_new(SEXP ptr_client, SEXP prefix, SEXP db) {
   if(fs == NULL)
     stop(err.message);
   SEXP out = PROTECT(gridfs2r(fs, ptr_client));
-  setAttrib(out, install("client"), ptr_client);
+  Rf_setAttrib(out, Rf_install("client"), ptr_client);
   UNPROTECT(1);
   return out;
 }
@@ -69,7 +69,7 @@ SEXP R_mongo_gridfs_drop (SEXP ptr_fs){
   bson_error_t err;
   if(!mongoc_gridfs_drop(fs, &err))
     stop(err.message);
-  return ScalarLogical(1);
+  return Rf_ScalarLogical(1);
 }
 
 SEXP R_mongo_gridfs_find(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
@@ -191,7 +191,7 @@ static void fin_filestream(SEXP ptr){
 static filestream * get_stream_ptr(SEXP ptr){
   filestream * filestream = R_ExternalPtrAddr(ptr);
   if(!filestream)
-    error("stream has been destroyed.");
+    Rf_error("stream has been destroyed.");
   return filestream;
 }
 
@@ -209,8 +209,8 @@ static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file){
   filestream->stream = stream;
   SEXP ptr = PROTECT(R_MakeExternalPtr(filestream, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_filestream, 1);
-  setAttrib(ptr, R_ClassSymbol, mkString("filestream"));
-  setAttrib(ptr, install("size"), ScalarReal(size));
+  Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("filestream"));
+  Rf_setAttrib(ptr, Rf_install("size"), Rf_ScalarReal(size));
   UNPROTECT(1);
   return ptr;
 }
@@ -270,7 +270,7 @@ SEXP R_stream_write_chunk(SEXP ptr, SEXP buf){
       stop(err.message);
     }
   }
-  return ScalarInteger(len);
+  return Rf_ScalarInteger(len);
 }
 
 SEXP R_stream_close(SEXP ptr){
