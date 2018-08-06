@@ -3,15 +3,14 @@ cache: packages
 latex: false
 fortran: false
 
-# needed for covr
-services: mongodb
-
 matrix:
   include:
     - os: linux
       dist: trusty
       env: R_CODECOV=true
       r: devel
+      services: mongodb
+      r_check_args: '--run-donttest'
     - os: osx
       osx_image: xcode9.3
       brew_packages: openssl@1.1

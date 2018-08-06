@@ -68,7 +68,7 @@ con$drop()
 rm(con)
 gc()
 
-\dontrun{
+\donttest{
 # dplyr example
 library(nycflights13)
 
