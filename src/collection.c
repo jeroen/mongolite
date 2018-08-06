@@ -24,10 +24,11 @@ SEXP R_mongo_collection_drop (SEXP ptr){
   mongoc_collection_t *col = r2col(ptr);
   bson_error_t err;
 
-  if(!mongoc_collection_drop(col, &err))
+  int res = mongoc_collection_drop(col, &err);
+  if(!res && err.code != 26)
     stop(err.message);
 
-  return Rf_ScalarLogical(1);
+  return Rf_ScalarLogical(res);
 }
 
 SEXP R_mongo_collection_name (SEXP ptr){
