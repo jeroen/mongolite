@@ -207,7 +207,7 @@
  * res_nsearch().
  */
 
-#if !defined (__FreeBSD__) && !defined (__OpenBSD__)
+#if !defined (__FreeBSD__) && !defined (__OpenBSD__) && !defined(_WIN32)
 #define MONGOC_HAVE_RES_SEARCH 1
 #endif
 
