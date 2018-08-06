@@ -179,20 +179,20 @@ static void fin_filestream(SEXP ptr){
 #endif
   if(!R_ExternalPtrAddr(ptr))
     return;
-  filestream * filestream = R_ExternalPtrAddr(ptr);
-  if(filestream->stream)
-    mongoc_stream_destroy(filestream->stream);
-  if(filestream->file)
-    mongoc_gridfs_file_destroy(filestream->file);
-  free(filestream);
+  filestream * filestr = R_ExternalPtrAddr(ptr);
+  if(filestr->stream)
+    mongoc_stream_destroy(filestr->stream);
+  if(filestr->file)
+    mongoc_gridfs_file_destroy(filestr->file);
+  free(filestr);
   R_ClearExternalPtr(ptr);
 }
 
 static filestream * get_stream_ptr(SEXP ptr){
-  filestream * filestream = R_ExternalPtrAddr(ptr);
-  if(!filestream)
+  filestream * filestr = R_ExternalPtrAddr(ptr);
+  if(!filestr)
     Rf_error("stream has been destroyed.");
-  return filestream;
+  return filestr;
 }
 
 static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file, SEXP ptr_fs){
@@ -204,10 +204,10 @@ static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file, SEXP ptr_fs){
   double size = mongoc_gridfs_file_get_length(file);
   if(size < 0)
     size = NA_REAL;
-  filestream * filestream = malloc(sizeof filestream);
-  filestream->file = file;
-  filestream->stream = stream;
-  SEXP ptr = PROTECT(R_MakeExternalPtr(filestream, R_NilValue, ptr_fs));
+  filestream * filestr = malloc(sizeof (filestream));
+  filestr->file = file;
+  filestr->stream = stream;
+  SEXP ptr = PROTECT(R_MakeExternalPtr(filestr, R_NilValue, ptr_fs));
   R_RegisterCFinalizerEx(ptr, fin_filestream, 1);
   Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("filestream"));
   Rf_setAttrib(ptr, Rf_install("size"), Rf_ScalarReal(size));
@@ -240,9 +240,9 @@ SEXP R_new_write_stream(SEXP ptr_fs, SEXP name, SEXP content_type, SEXP meta_ptr
 
 SEXP R_stream_read_chunk(SEXP ptr, SEXP n){
   double bufsize = Rf_asReal(n);
-  filestream * filestream = get_stream_ptr(ptr);
+  filestream * filestr = get_stream_ptr(ptr);
   SEXP buf = PROTECT(Rf_allocVector(RAWSXP, bufsize));
-  ssize_t len = mongoc_stream_read (filestream->stream, RAW(buf), bufsize, -1, 0);
+  ssize_t len = mongoc_stream_read (filestr->stream, RAW(buf), bufsize, -1, 0);
   if(len < 0)
     Rf_error("Error reading from stream");
   if(len < bufsize){
@@ -256,17 +256,17 @@ SEXP R_stream_read_chunk(SEXP ptr, SEXP n){
 
 SEXP R_stream_write_chunk(SEXP ptr, SEXP buf){
   ssize_t len = 0;
-  filestream * filestream = get_stream_ptr(ptr);
+  filestream * filestr = get_stream_ptr(ptr);
   if(Rf_length(buf)){
-    len = mongoc_stream_write (filestream->stream, RAW(buf), Rf_length(buf), 0);
+    len = mongoc_stream_write (filestr->stream, RAW(buf), Rf_length(buf), 0);
     if(len < 0)
       Rf_error("Error writing to stream");
     if(len < Rf_length(buf))
       Rf_error("Incomplete stream write");
   } else {
-    if(!mongoc_gridfs_file_save (filestream->file)){
+    if(!mongoc_gridfs_file_save (filestr->file)){
       bson_error_t err;
-      mongoc_gridfs_file_error(filestream->file, &err);
+      mongoc_gridfs_file_error(filestr->file, &err);
       stop(err.message);
     }
   }
