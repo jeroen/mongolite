@@ -13,15 +13,16 @@ matrix:
       r_check_args: '--run-donttest'
     - os: osx
       osx_image: xcode9.3
-      brew_packages: openssl@1.1
+      brew_packages: openssl
       before_install:
+        - brew unlink python #Python still broken in 2to3
         - brew install mongodb
         - brew services start mongodb
       r_check_args: '--run-donttest'
       warnings_are_errors: false
     - os: osx
       osx_image: xcode9.3
-      brew_packages: openssl
+      brew_packages: openssl@1.1
       warnings_are_errors: false
     - os: osx
       osx_image: xcode9.3
