@@ -10,6 +10,13 @@ init:
 install:
   ps: Bootstrap
 
+environment:
+  matrix:
+    - R_VERSION: release
+      R_CHECK_ARGS: '--no-manual --run-donttest'
+    - R_VERSION: oldrel
+      R_CHECK_ARGS: '--no-manual --run-donttest'
+
 # Adapt as necessary starting from here
 services:
   - mongodb
