@@ -130,7 +130,7 @@ _mongoc_openssl_import_cert_store (LPWSTR store_name,
                      (LPTSTR) &msg,
                      0,
                      NULL);
-      MONGOC_ERROR ("Can't open CA store: 0x%.8X: '%s'", GetLastError (), msg);
+      MONGOC_ERROR ("Can't open CA store: 0x%.8X: '%s'", (unsigned int) GetLastError (), msg);
       LocalFree (msg);
       return false;
    }

@@ -5,7 +5,7 @@ PKG_CPPFLAGS = \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
 
 PKG_CFLAGS = \
-	-Wno-format -Wno-deprecated-declarations
+	-Wno-deprecated-declarations
 
 PKG_LIBS = \
 	-L. -L../windows/openssl-1.1.0f/lib${R_ARCH} \

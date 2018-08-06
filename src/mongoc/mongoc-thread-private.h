@@ -88,7 +88,7 @@ mongoc_thread_join (mongoc_thread_t thread)
    DWORD ret = WaitForSingleObject (thread, INFINITE);
    if (!CloseHandle (thread)) {
       MONGOC_ERROR ("Couldn't close thread handle, error 0x%.8X",
-                    GetLastError ());
+                    (unsigned int)GetLastError ());
    }
 
    return ret;
