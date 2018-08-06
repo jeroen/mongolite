@@ -222,8 +222,13 @@ mongo_gridfs_write_stream <- function(fs, name, con, type, metadata, progress = 
   metadata <- if(length(metadata))
     bson_or_json(metadata)
   stream <- .Call(R_new_write_stream, fs, name, type, metadata)
-  if(length(con) && is.character(con))
-    con <- file(con, raw = TRUE)
+  if(length(con) && is.character(con)){
+    con <- if(grepl("^https?://", con)){
+      url(con)
+    } else {
+      file(con, raw = TRUE)
+    }
+  }
   if(is.raw(con)){
     con <- rawConnection(con, 'rb')
     on.exit(close(con))
