@@ -54,7 +54,7 @@ If \code{con} is a string it is treated as a filepath; it may also be a \link{ra
 \examples{
 # New GridFS
 fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
-download.file('https://cloud.r-project.org/doc/manuals/r-devel/NEWS.pdf', 'NEWS.pdf')
+download.file('https://cloud.r-project.org/doc/manuals/r-devel/NEWS.pdf', 'NEWS.pdf', mode = 'wb')
 fs$upload('NEWS.pdf')
 fs$download('NEWS.pdf', file.path(tempdir(), 'output.pdf'))
 con <- file(file.path(tempdir(), 'output2.pdf'))
