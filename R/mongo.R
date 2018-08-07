@@ -283,9 +283,11 @@ mongo_object <- function(col, verbose, orig){
       mongo_collection_find_indexes(col)
     }
 
-    disconnect <- function(){
+    # C driver disconnects when 'client' gets destroyed (which is protected by 'col')
+    disconnect <- function(gc = TRUE){
       mongo_collection_disconnect(col)
-      gc()
+      if(isTRUE(gc))
+        base::gc()
       invisible()
     }
     environment()
