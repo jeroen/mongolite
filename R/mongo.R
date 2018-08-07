@@ -131,14 +131,7 @@ mongo_object <- function(col, verbose, orig){
   check_col <- function(){
     if(null_ptr(col)){
       message("Connection lost. Trying to reconnect with mongo...")
-      if(length(orig$options$pem_file) && !file.exists(orig$options$pem_file)){
-        orig$options$pem_file <- tempfile()
-        writeLines(attr(orig, "pemdata"), orig$options$pem_file)
-      }
-      newclient <-  do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
-      newcol <- mongo_collection_new(newclient, orig$name, orig$db)
-      mongo_collection_command_simple(newcol, '{"ping":1}')
-      col <<- newcol
+      col <<- collection_reset(orig)
     }
   }
 
@@ -294,6 +287,17 @@ mongo_object <- function(col, verbose, orig){
   })
   lockEnvironment(self, TRUE)
   structure(self, class=c("mongo", "jeroen", class(self)))
+}
+
+collection_reset <- function(orig){
+  if(length(orig$options$pem_file) && !file.exists(orig$options$pem_file)){
+    orig$options$pem_file <- tempfile()
+    writeLines(attr(orig, "pemdata"), orig$options$pem_file)
+  }
+  newclient <- do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
+  newcol <- mongo_collection_new(newclient, orig$name, orig$db)
+  mongo_collection_command_simple(newcol, '{"ping":1}')
+  newcol
 }
 
 #' @export

@@ -5,6 +5,7 @@
  - Fixed bson spec unit tests (Aaron Jacobs)
  - Switch json export to new "relaxed extended json" format
  - mongo$drop() now returns FALSE instead of error if collection does not exist
+ - Added m$disconnect() method, with some internal refactoring
 
 1.6
  - Update mongo-c-driver to upstream 1.9.2
