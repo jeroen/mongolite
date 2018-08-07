@@ -58,10 +58,7 @@ SEXP R_mongo_gridfs_new(SEXP ptr_client, SEXP prefix, SEXP db) {
   mongoc_gridfs_t * fs = mongoc_client_get_gridfs(client, get_string(db), get_string(prefix), &err);
   if(fs == NULL)
     stop(err.message);
-  SEXP out = PROTECT(gridfs2r(fs, ptr_client));
-  Rf_setAttrib(out, Rf_install("client"), ptr_client);
-  UNPROTECT(1);
-  return out;
+  return gridfs2r(fs, ptr_client);
 }
 
 SEXP R_mongo_gridfs_drop (SEXP ptr_fs){

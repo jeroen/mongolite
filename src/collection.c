@@ -4,10 +4,7 @@ SEXP R_mongo_collection_new(SEXP ptr_client, SEXP collection, SEXP db) {
   mongoc_client_t *client = r2client(ptr_client);
   mongoc_collection_t *col = mongoc_client_get_collection (client,
     Rf_translateCharUTF8(Rf_asChar(db)), Rf_translateCharUTF8(Rf_asChar(collection)));
-  SEXP out = PROTECT(col2r(col, ptr_client));
-  Rf_setAttrib(out, Rf_install("client"), ptr_client);
-  UNPROTECT(1);
-  return out;
+  return col2r(col, ptr_client);
 }
 
 SEXP R_mongo_get_default_database(SEXP ptr_client) {
