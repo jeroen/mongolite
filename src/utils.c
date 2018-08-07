@@ -76,7 +76,7 @@ mongoc_client_t* r2client(SEXP ptr){
   return client;
 }
 
-static void fin_mongo(SEXP ptr){
+static void fin_collection(SEXP ptr){
 #ifdef MONGOLITE_DEBUG
   MONGOC_MESSAGE ("destorying collection.");
 #endif
@@ -150,7 +150,7 @@ SEXP gridfs2r(mongoc_gridfs_t *fs, SEXP prot){
 
 SEXP col2r(mongoc_collection_t *col, SEXP prot){
   SEXP ptr = PROTECT(R_MakeExternalPtr(col, R_NilValue, prot));
-  R_RegisterCFinalizerEx(ptr, fin_mongo, 1);
+  R_RegisterCFinalizerEx(ptr, fin_collection, 1);
   Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("mongo_collection"));
   UNPROTECT(1);
   return ptr;
@@ -161,5 +161,10 @@ SEXP client2r(mongoc_client_t *client){
   R_RegisterCFinalizerEx(ptr, fin_client, 1);
   Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("mongo_client"));
   UNPROTECT(1);
+  return ptr;
+}
+
+SEXP R_mongo_collection_disconnect(SEXP ptr){
+  fin_collection(ptr);
   return ptr;
 }

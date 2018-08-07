@@ -123,10 +123,10 @@ mongo <- function(collection = "test", db = "test", url = "mongodb://localhost",
   )
   if(length(options$pem_file) && file.exists(options$pem_file))
     attr(orig, "pemdata") <- readLines(options$pem_file)
-  mongo_object(col, client, verbose = verbose, orig)
+  mongo_object(col, verbose = verbose, orig)
 }
 
-mongo_object <- function(col, client, verbose, orig){
+mongo_object <- function(col, verbose, orig){
   # Check if the ptr has died and automatically recreate it
   check_col <- function(){
     if(null_ptr(col)){
@@ -138,7 +138,6 @@ mongo_object <- function(col, client, verbose, orig){
       newclient <-  do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
       newcol <- mongo_collection_new(newclient, orig$name, orig$db)
       mongo_collection_command_simple(newcol, '{"ping":1}')
-      client <<- newclient
       col <<- newcol
     }
   }
@@ -249,6 +248,7 @@ mongo_object <- function(col, client, verbose, orig){
 
     info <- function(){
       check_col()
+      client <- mongo_collection_get_client(col)
       structure(list(
         collection = mongo_collection_name(col),
         db = mongo_get_default_database(client),
@@ -281,6 +281,12 @@ mongo_object <- function(col, client, verbose, orig){
         mongo_collection_drop_index(col, remove);
 
       mongo_collection_find_indexes(col)
+    }
+
+    disconnect <- function(){
+      mongo_collection_disconnect(col)
+      gc()
+      invisible()
     }
     environment()
   })

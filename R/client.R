@@ -211,3 +211,15 @@ mongo_restore <- function(col, con, verbose = FALSE){
   }
   .Call(R_mongo_restore, con, col, verbose)
 }
+
+#' @useDynLib mongolite R_mongo_collection_get_client
+mongo_collection_get_client <- function(col){
+  stopifnot(inherits(col, "mongo_collection"))
+  .Call(R_mongo_collection_get_client, col)
+}
+
+#' @useDynLib mongolite R_mongo_collection_disconnect
+mongo_collection_disconnect <- function(col){
+  stopifnot(inherits(col, "mongo_collection"))
+  .Call(R_mongo_collection_disconnect, col)
+}

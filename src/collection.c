@@ -264,3 +264,7 @@ SEXP R_mongo_collection_command_simple(SEXP ptr_col, SEXP command){
   UNPROTECT(1);
   return out;
 }
+
+SEXP R_mongo_collection_get_client(SEXP ptr_col){
+  return R_ExternalPtrProtected(ptr_col);
+}
