@@ -67,9 +67,10 @@ SEXP R_mongo_gridfs_new(SEXP ptr_client, SEXP prefix, SEXP db) {
 SEXP R_mongo_gridfs_drop (SEXP ptr_fs){
   mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_error_t err;
-  if(!mongoc_gridfs_drop(fs, &err))
+  int res = mongoc_gridfs_drop(fs, &err);
+  if(!res && err.code != 26)
     stop(err.message);
-  return Rf_ScalarLogical(1);
+  return Rf_ScalarLogical(res);
 }
 
 SEXP R_mongo_gridfs_find(SEXP ptr_fs, SEXP ptr_filter, SEXP ptr_opts){
