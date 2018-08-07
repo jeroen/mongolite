@@ -186,6 +186,7 @@ static void fin_filestream(SEXP ptr){
   if(filestr->file)
     mongoc_gridfs_file_destroy(filestr->file);
   free(filestr);
+  R_SetExternalPtrProtected(ptr, R_NilValue);
   R_ClearExternalPtr(ptr);
 }
 

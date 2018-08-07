@@ -82,6 +82,7 @@ static void fin_collection(SEXP ptr){
 #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_collection_destroy(R_ExternalPtrAddr(ptr));
+  R_SetExternalPtrProtected(ptr, R_NilValue);
   R_ClearExternalPtr(ptr);
 }
 
@@ -91,6 +92,7 @@ static void fin_bson(SEXP ptr){
 #endif
   if(!R_ExternalPtrAddr(ptr)) return;
   bson_destroy(R_ExternalPtrAddr(ptr));
+  R_SetExternalPtrProtected(ptr, R_NilValue);
   R_ClearExternalPtr(ptr);
 }
 
@@ -101,6 +103,7 @@ static void fin_cursor(SEXP ptr){
 
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_cursor_destroy(R_ExternalPtrAddr(ptr));
+  R_SetExternalPtrProtected(ptr, R_NilValue);
   R_ClearExternalPtr(ptr);
 }
 
@@ -111,6 +114,7 @@ static void fin_client(SEXP ptr){
 
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_client_destroy(R_ExternalPtrAddr(ptr));
+  R_SetExternalPtrProtected(ptr, R_NilValue);
   R_ClearExternalPtr(ptr);
 }
 
@@ -121,6 +125,7 @@ static void fin_gridfs(SEXP ptr){
 
   if(!R_ExternalPtrAddr(ptr)) return;
   mongoc_gridfs_destroy(R_ExternalPtrAddr(ptr));
+  R_SetExternalPtrProtected(ptr, R_NilValue);
   R_ClearExternalPtr(ptr);
 }
 
@@ -168,3 +173,9 @@ SEXP R_mongo_collection_disconnect(SEXP ptr){
   fin_collection(ptr);
   return ptr;
 }
+
+SEXP R_mongo_gridfs_disconnect(SEXP ptr){
+  fin_gridfs(ptr);
+  return ptr;
+}
+
