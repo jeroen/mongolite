@@ -83,21 +83,32 @@ gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", opti
   )
   if(length(options$pem_file) && file.exists(options$pem_file))
     attr(orig, "pemdata") <- readLines(options$pem_file)
-  fs_object(fs, client, orig)
+  fs_object(fs, orig)
 }
 
-fs_object <- function(fs, client, orig){
+fs_object <- function(fs, orig){
+  check_fs <- function(){
+    if(null_ptr(fs)){
+      message("Connection lost. Trying to reconnect with mongo...")
+      fs <<- gridfs_reset(orig)
+    }
+  }
+
   self <- local({
     drop <- function(){
+      check_fs()
       mongo_gridfs_drop(fs)
     }
     find <-  function(filter = '{}', options = '{}'){
+      check_fs()
       mongo_gridfs_find(fs, filter, options)
     }
     upload <- function(path, name = basename(path), content_type = NULL, metadata = NULL){
+      check_fs()
       mongo_gridfs_upload(fs, name, path, content_type, metadata)
     }
     download <- function(name, path = "."){
+      check_fs()
       if(length(path) == 1 && isTRUE(file.info(path)$isdir)){
         path <- normalizePath(file.path(path, name), mustWork = FALSE)
       } else if(length(name) != length(path)){
@@ -106,18 +117,36 @@ fs_object <- function(fs, client, orig){
       mongo_gridfs_download(fs, name, path)
     }
     read <- function(name, con = NULL, progress = TRUE){
+      check_fs()
       mongo_gridfs_read_stream(fs, name, con, progress)
     }
     write <- function(con, name, content_type = NULL, metadata = NULL, progress = TRUE){
+      check_fs()
       mongo_gridfs_write_stream(fs, name, con, content_type, metadata, progress)
     }
     remove <- function(name){
+      check_fs()
       mongo_gridfs_remove(fs, name)
+    }
+    disconnect <- function(gc = TRUE){
+      mongo_gridfs_disconnect(fs)
+      if(isTRUE(gc))
+        base::gc()
+      invisible()
     }
     environment()
   })
   lockEnvironment(self, TRUE)
   structure(self, class=c("gridfs", "jeroen", class(self)))
+}
+
+gridfs_reset <- function(orig){
+  if(length(orig$options$pem_file) && !file.exists(orig$options$pem_file)){
+    orig$options$pem_file <- tempfile()
+    writeLines(attr(orig, "pemdata"), orig$options$pem_file)
+  }
+  newclient <- do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
+  mongo_gridfs_new(newclient, prefix = orig$prefix, db = orig$db)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_new
@@ -134,6 +163,12 @@ mongo_gridfs_drop <- function(fs){
 mongo_gridfs_find <- function(fs, filter, opts){
   out <- .Call(R_mongo_gridfs_find, fs, bson_or_json(filter), bson_or_json(opts))
   list_to_df(out)
+}
+
+#' @useDynLib mongolite R_mongo_gridfs_disconnect
+mongo_gridfs_disconnect <- function(fs){
+  stopifnot(inherits(fs, "mongo_gridfs"))
+  .Call(R_mongo_gridfs_disconnect, fs)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_upload
