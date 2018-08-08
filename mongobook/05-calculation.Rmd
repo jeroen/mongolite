@@ -24,6 +24,26 @@ ggplot(aes(carrier, count), data = stats) + geom_col()
 
 Check the [MongoDB manual](https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/#db.collection.aggregate) for detailed description of the pipeline syntax and supported options. 
 
+## Aggregation Iterators
+
+If you are expecting a lot of data or do not want to automatically simplify the results into data frames, run the aggregation with `iterate = TRUE`:
+
+```{r}
+iter <- flt$aggregate(
+  '[{"$group":{"_id":"$carrier", "count": {"$sum":1}, "average":{"$avg":"$distance"}}}]',
+  options = '{"allowDiskUse":true}',
+  iterate = TRUE
+)
+```
+
+This will return the results in the form of an iterator just like when using the [iterate method](query-data.html#iterating). You can then iterate over the results one by one or in pages:
+
+```{r}
+# Get the first 10 results
+iter$json(10)
+```
+
+
 ## Map/Reduce
 
 The `mapreduce()` method allow for running a custom in-database mapreduce job by providing custom `map` and `reduce` JavaScript functions. Running JavaScript is slower using the aggregate system, but you can implement fully customized database operations.
