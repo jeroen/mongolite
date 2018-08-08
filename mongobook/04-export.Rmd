@@ -25,6 +25,16 @@ dmd$import(file("dump.json"))
 dmd$count()
 ```
 
+You could also export data as json to a memory buffer using raw connections:
+
+```{r}
+con <- rawConnection(raw(), 'wb')
+dmd$export(con)
+json <- rawToChar(rawConnectionValue(con))
+df <- jsonlite::stream_in(textConnection(json), verbose = FALSE)
+head(df)
+```
+
 ## Via jsonlite
 
 The `jsonlite` package also allows for importing/exporting the NDJSON format directly in R via the `stream_in` and `stream_out` methods:
