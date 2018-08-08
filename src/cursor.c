@@ -87,6 +87,7 @@ SEXP R_mongo_cursor_next_json (SEXP ptr, SEXP n){
 
 
 SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size, SEXP as_json){
+  bson_error_t err;
   mongoc_cursor_t *c = r2cursor(ptr);
   int n = Rf_asInteger(size);
   const bson_t *b = NULL;
@@ -103,6 +104,8 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size, SEXP as_json){
 
   //iterator exhausted
   if(total == 0){
+    if(mongoc_cursor_error (c, &err))
+      stop(err.message);
     UNPROTECT(1);
     return R_NilValue;
   }
@@ -120,7 +123,6 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size, SEXP as_json){
   }
 
   //also check for errors
-  bson_error_t err;
   if(mongoc_cursor_error (c, &err))
     stop(err.message);
 
