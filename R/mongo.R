@@ -123,6 +123,8 @@ mongo <- function(collection = "test", db = "test", url = "mongodb://localhost",
   )
   if(length(options$pem_file) && file.exists(options$pem_file))
     attr(orig, "pemdata") <- readLines(options$pem_file)
+
+  rm(client) #needed for m$disconnect() to work
   mongo_object(col, verbose = verbose, orig)
 }
 

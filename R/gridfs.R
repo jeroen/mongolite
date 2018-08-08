@@ -83,6 +83,8 @@ gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", opti
   )
   if(length(options$pem_file) && file.exists(options$pem_file))
     attr(orig, "pemdata") <- readLines(options$pem_file)
+
+  rm(client) #needed for m$disconnect() to work
   fs_object(fs, orig)
 }
 
