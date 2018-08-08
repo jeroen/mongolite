@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 SEXP R_null_ptr(SEXP ptr){
-  return Rf_ScalarLogical(!R_ExternalPtrAddr(ptr));
+  return Rf_ScalarLogical(!Rf_length(ptr) || !R_ExternalPtrAddr(ptr));
 }
 
 SEXP mkStringUTF8(const char* str){
@@ -178,4 +178,3 @@ SEXP R_mongo_gridfs_disconnect(SEXP ptr){
   fin_gridfs(ptr);
   return ptr;
 }
-
