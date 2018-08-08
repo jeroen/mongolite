@@ -243,7 +243,7 @@ mongo_object <- function(col, verbose, orig){
 
     info <- function(){
       check_col()
-      client <- mongo_collection_get_client(col)
+      client <- ptr_get_prot(col)
       structure(list(
         collection = mongo_collection_name(col),
         db = mongo_get_default_database(client),

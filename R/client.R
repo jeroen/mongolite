@@ -212,10 +212,10 @@ mongo_restore <- function(col, con, verbose = FALSE){
   .Call(R_mongo_restore, con, col, verbose)
 }
 
-#' @useDynLib mongolite R_mongo_collection_get_client
-mongo_collection_get_client <- function(col){
+#' @useDynLib mongolite R_ptr_get_prot
+ptr_get_prot <- function(col){
   stopifnot(inherits(col, "mongo_collection"))
-  .Call(R_mongo_collection_get_client, col)
+  .Call(R_ptr_get_prot, col)
 }
 
 #' @useDynLib mongolite R_mongo_collection_disconnect
