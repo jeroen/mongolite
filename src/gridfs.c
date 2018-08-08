@@ -209,8 +209,8 @@ static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file, SEXP ptr_fs){
   SEXP ptr = PROTECT(R_MakeExternalPtr(filestr, R_NilValue, ptr_fs));
   R_RegisterCFinalizerEx(ptr, fin_filestream, 1);
   Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("filestream"));
-  Rf_setAttrib(ptr, Rf_install("size"), Rf_ScalarReal(size));
-  UNPROTECT(1);
+  Rf_setAttrib(ptr, Rf_install("size"), PROTECT(Rf_ScalarReal(size)));
+  UNPROTECT(2);
   return ptr;
 }
 
