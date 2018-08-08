@@ -65,7 +65,7 @@
 #'   \item{\code{drop()}}{Removes the entire GridFS collection, including all files}
 #' }
 gridfs <- function(db = "test", url = "mongodb://localhost", prefix = "fs", options = ssl_options()){
-  client <- do.call(mongo_client_new, c(list(uri = url), options))
+  client <- new_client(c(list(uri = url), options))
 
   # Get a database
   if(missing(db) || is.null(db)){
@@ -147,8 +147,8 @@ gridfs_reset <- function(orig){
     orig$options$pem_file <- tempfile()
     writeLines(attr(orig, "pemdata"), orig$options$pem_file)
   }
-  newclient <- do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
-  mongo_gridfs_new(newclient, prefix = orig$prefix, db = orig$db)
+  client <- new_client(c(list(uri = orig$url), orig$options))
+  mongo_gridfs_new(client, prefix = orig$prefix, db = orig$db)
 }
 
 #' @useDynLib mongolite R_mongo_gridfs_new

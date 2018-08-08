@@ -181,3 +181,13 @@ SEXP R_mongo_gridfs_disconnect(SEXP ptr){
   fin_gridfs(ptr);
   return ptr;
 }
+
+SEXP R_make_weakref(SEXP x){
+  return R_MakeWeakRef(x, R_NilValue, R_NilValue, 0);
+}
+
+SEXP R_get_weakref(SEXP x){
+  if(!Rf_length(x))
+    return R_NilValue;
+  return R_WeakRefKey(x);
+}

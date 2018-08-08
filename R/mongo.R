@@ -104,7 +104,7 @@
 #' }
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
 mongo <- function(collection = "test", db = "test", url = "mongodb://localhost", verbose = FALSE, options = ssl_options()){
-  client <- do.call(mongo_client_new, c(list(uri = url), options))
+  client <- new_client(c(list(uri = url), options))
 
   # workaround for missing 'mongoc_client_get_default_database'
   if(missing(db) || is.null(db)){
@@ -296,8 +296,8 @@ collection_reset <- function(orig){
     orig$options$pem_file <- tempfile()
     writeLines(attr(orig, "pemdata"), orig$options$pem_file)
   }
-  newclient <- do.call(mongo_client_new, c(list(uri = orig$url), orig$options))
-  newcol <- mongo_collection_new(newclient, orig$name, orig$db)
+  client <- new_client(c(list(uri = orig$url), orig$options))
+  newcol <- mongo_collection_new(client, orig$name, orig$db)
   mongo_collection_command_simple(newcol, '{"ping":1}')
   newcol
 }
