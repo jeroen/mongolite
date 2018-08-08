@@ -1,4 +1,4 @@
-mongo_iterator <- function(cur, col){
+mongo_iterator <- function(cur){
   self <- local({
     one <- function(){
       mongo_cursor_next_page(cur, size = 1)[[1]]

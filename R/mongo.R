@@ -1,8 +1,9 @@
 #' MongoDB client
 #'
 #' Connect to a MongoDB collection. Returns a [mongo] connection object with
-#' methods listed below. The [mongolite user manual](https://jeroen.github.io/mongolite/)
-#' is the best place to get started.
+#' methods listed below. This manual page is deliberately minimal, see the
+#' [mongolite user manual](https://jeroen.github.io/mongolite/) for more details
+#' and examples.
 #'
 #' @export
 #' @aliases mongolite
@@ -84,8 +85,9 @@
 #' }
 #' @section Methods:
 #' \describe{
-#'   \item{\code{aggregate(pipeline = '{}', handler = NULL, pagesize = 1000)}}{Execute a pipeline using the Mongo aggregation framework.}
+#'   \item{\code{aggregate(pipeline = '{}', handler = NULL, pagesize = 1000, iterate = FALSE)}}{Execute a pipeline using the Mongo aggregation framework. Set \code{iterate = TRUE} to return an iterator instead of data frame.}
 #'   \item{\code{count(query = '{}')}}{Count the number of records matching a given \code{query}. Default counts all records in collection.}
+#'   \item{\code{disconnect(gc = TRUE)}}{Disconnect collection. The \emph{connection} gets disconnected once the client is not used by collections in the pool.}
 #'   \item{\code{distinct(key, query = '{}')}}{List unique values of a field given a particular query.}
 #'   \item{\code{drop()}}{Delete entire collection with all data and metadata.}
 #'   \item{\code{export(con = stdout(), bson = FALSE)}}{Streams all data from collection to a \code{\link{connection}} in \href{http://ndjson.org}{jsonlines} format (similar to \href{http://docs.mongodb.org/v2.6/reference/mongoexport/}{mongoexport}). Alternatively when \code{bson = TRUE} it outputs the binary \href{http://bsonspec.org/faq.html}{bson} format (similar to \href{http://docs.mongodb.org/manual/reference/program/mongodump/}{mongodump}).}
@@ -98,8 +100,8 @@
 #'   \item{\code{mapreduce(map, reduce, query = '{}', sort = '{}', limit = 0, out = NULL, scope = NULL)}}{Performs a map reduce query. The \code{map} and \code{reduce} arguments are strings containing a JavaScript function. Set \code{out} to a string to store results in a collection instead of returning.}
 #'   \item{\code{remove(query = "{}", just_one = FALSE)}}{Remove record(s) matching \code{query} from the collection.}
 #'   \item{\code{rename(name, db = NULL)}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
-#'   \item{\code{run(command = '{"ping": 1}')}}{Change the name or database of a collection. Changing name is cheap, changing database is expensive.}
 #'   \item{\code{replace(query, update = '{}', upsert = FALSE)}}{Replace matching record(s) with value of the \code{update} argument.}
+#'   \item{\code{run(command = '{"ping": 1}', simplify = TRUE)}}{Run a raw mongodb command on the database. If the command returns data, output is simplified by default, but this can be disabled.}
 #'   \item{\code{update(query, update = '{"$set":{}}', upsert = FALSE, multiple = FALSE)}}{Modify fields of matching record(s) with value of the \code{update} argument.}
 #' }
 #' @references Jeroen Ooms (2014). The \code{jsonlite} Package: A Practical and Consistent Mapping Between JSON Data and \R{} Objects. \emph{arXiv:1403.2805}. \url{http://arxiv.org/abs/1403.2805}
@@ -171,8 +173,7 @@ mongo_object <- function(col, verbose, orig){
     iterate <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
       check_col()
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
-      # make sure 'col' does not go out of scope to prevent gc
-      mongo_iterator(cur, col)
+      mongo_iterator(cur)
     }
 
     export <- function(con = stdout(), bson = FALSE){
@@ -193,10 +194,15 @@ mongo_object <- function(col, verbose, orig){
       }
     }
 
-    aggregate <- function(pipeline = '{}', options = '{"allowDiskUse":true}', handler = NULL, pagesize = 1000){
+    aggregate <- function(pipeline = '{}', options = '{"allowDiskUse":true}', handler = NULL,
+                          pagesize = 1000, iterate = FALSE){
       check_col()
       cur <- mongo_collection_aggregate(col, pipeline, options)
-      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
+      if(isTRUE(iterate)){
+        mongo_iterator(cur)
+      } else {
+        mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
+      }
     }
 
     count <- function(query = '{}'){
