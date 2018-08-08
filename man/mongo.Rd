@@ -26,9 +26,13 @@ The collection can be interfaced using the methods described below.
 }
 \description{
 Connect to a MongoDB collection. Returns a \link{mongo} connection object with
-methods listed below. This manual page is deliberately minimal, see the
+methods listed below. Connections automatically get pooled between collection
+and gridfs objects to the same database.
+}
+\details{
+This manual page is deliberately minimal, see the
 \href{https://jeroen.github.io/mongolite/}{mongolite user manual} for more details
-and examples.
+and worked examples.
 }
 \section{Methods}{
 

@@ -1,9 +1,12 @@
 #' MongoDB client
 #'
 #' Connect to a MongoDB collection. Returns a [mongo] connection object with
-#' methods listed below. This manual page is deliberately minimal, see the
+#' methods listed below. Connections automatically get pooled between collection
+#' and gridfs objects to the same database.
+#'
+#' This manual page is deliberately minimal, see the
 #' [mongolite user manual](https://jeroen.github.io/mongolite/) for more details
-#' and examples.
+#' and worked examples.
 #'
 #' @export
 #' @aliases mongolite
