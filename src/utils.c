@@ -19,8 +19,11 @@ SEXP bson_to_str(const bson_t * b){
   char *str = bson_as_relaxed_extended_json(b, &jsonlength);
   if(str == NULL)
     return Rf_ScalarString(NA_STRING);
-  SEXP out = Rf_ScalarString(Rf_mkCharLenCE(str, jsonlength, CE_UTF8));
+
+  //Here PROTECT() avoids a false positive in rchk
+  SEXP out = PROTECT(Rf_ScalarString(Rf_mkCharLenCE(str, jsonlength, CE_UTF8)));
   bson_free(str);
+  UNPROTECT(1);
   return out;
 }
 

@@ -118,12 +118,12 @@ SEXP R_mongo_cursor_next_page(SEXP ptr, SEXP size, SEXP as_json){
   for(int i = 0; i < total; i++){
     SET_VECTOR_ELT(shortlist, i, VECTOR_ELT(list, i));
   }
-  UNPROTECT(2);
 
   //also check for errors
   bson_error_t err;
   if(mongoc_cursor_error (c, &err))
     stop(err.message);
 
+  UNPROTECT(2);
   return shortlist;
 }
