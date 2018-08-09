@@ -34,16 +34,11 @@ SEXP R_mongo_collection_name (SEXP ptr){
   return mkStringUTF8(name);
 }
 
-SEXP R_mongo_collection_count (SEXP ptr, SEXP ptr_query, SEXP no_timeout){
+SEXP R_mongo_collection_count (SEXP ptr, SEXP ptr_filter){
   mongoc_collection_t *col = r2col(ptr);
-  bson_t *query = r2bson(ptr_query);
-
+  bson_t *filter = r2bson(ptr_filter);
   bson_error_t err;
-  mongoc_query_flags_t flags = MONGOC_QUERY_NONE;
-  if(Rf_asLogical(no_timeout))
-    flags += MONGOC_QUERY_NO_CURSOR_TIMEOUT;
-
-  int64_t count = mongoc_collection_count (col, flags, query, 0, 0, NULL, &err);
+  int64_t count = mongoc_collection_count_documents (col, filter, NULL, NULL, NULL, &err);
   if (count < 0)
     stop(err.message);
 

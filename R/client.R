@@ -54,9 +54,8 @@ mongo_collection_rename <- function(col, db = NULL, name){
 }
 
 #' @useDynLib mongolite R_mongo_collection_count
-mongo_collection_count <- function(col, query = "{}", no_timeout = FALSE){
-  stopifnot(is.logical(no_timeout))
-  .Call(R_mongo_collection_count, col, bson_or_json(query), no_timeout)
+mongo_collection_count <- function(col, query = "{}"){
+  .Call(R_mongo_collection_count, col, bson_or_json(query))
 }
 
 #returns data
