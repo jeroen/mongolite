@@ -52,6 +52,18 @@ static SEXP create_outlist(mongoc_gridfs_file_t * file){
   return out;
 }
 
+/* find either by string or by query */
+static mongoc_gridfs_file_t * find_single_file(SEXP ptr_fs, SEXP name){
+  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
+  bson_error_t err;
+  mongoc_gridfs_file_t * file = Rf_isString(name) ?
+  mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err) :
+    mongoc_gridfs_find_one_with_opts(fs, r2bson(name), NULL, &err);
+  if(file == NULL)
+    stop("File not found. %s", err.message);
+  return file;
+}
+
 SEXP R_mongo_gridfs_new(SEXP ptr_client, SEXP prefix, SEXP db) {
   mongoc_client_t *client = r2client(ptr_client);
   bson_error_t err;
@@ -116,12 +128,7 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type,
 }
 
 SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
-  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
-  bson_error_t err;
-  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
-  if(file == NULL)
-    stop("File not found. %s", err.message);
-
+  mongoc_gridfs_file_t *file = find_single_file(ptr_fs, name);
   mongoc_stream_t * stream = mongoc_stream_gridfs_new (file);
   if(!stream)
     stop("Failed to create mongoc_stream_gridfs_new");
@@ -152,14 +159,11 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
 }
 
 SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
-  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
   bson_error_t err;
-  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
-  if(file == NULL)
-    stop("File not found. %s", err.message);
+  mongoc_gridfs_file_t *file = find_single_file(ptr_fs, name);
   if(!mongoc_gridfs_file_remove(file, &err))
     stop(err.message);
-  SEXP val = get_file_id(file);
+  SEXP val = create_outlist(file);
   mongoc_gridfs_file_destroy (file);
   return val;
 }
@@ -215,11 +219,7 @@ static SEXP R_make_stream_ptr(mongoc_gridfs_file_t * file, SEXP ptr_fs){
 }
 
 SEXP R_new_read_stream(SEXP ptr_fs, SEXP name){
-  mongoc_gridfs_t *fs = r2gridfs(ptr_fs);
-  bson_error_t err;
-  mongoc_gridfs_file_t * file = mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err);
-  if(file == NULL)
-    stop("File not found. %s", err.message);
+  mongoc_gridfs_file_t * file = find_single_file(ptr_fs, name);
   return R_make_stream_ptr(file, ptr_fs);
 }
 

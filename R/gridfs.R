@@ -111,11 +111,6 @@ fs_object <- function(fs, orig){
     }
     download <- function(name, path = "."){
       check_fs()
-      if(length(path) == 1 && isTRUE(file.info(path)$isdir)){
-        path <- normalizePath(file.path(path, name), mustWork = FALSE)
-      } else if(length(name) != length(path)){
-        stop("Argument 'path' must be an existing dir or vector of filenames equal length as 'name'")
-      }
       mongo_gridfs_download(fs, name, path)
     }
     read <- function(name, con = NULL, progress = TRUE){
@@ -198,13 +193,17 @@ mongo_gridfs_upload <- function(fs, name, path, type, metadata){
 
 #' @useDynLib mongolite R_mongo_gridfs_download
 mongo_gridfs_download <- function(fs, name, path){
-  stopifnot(is.character(name))
+  if(length(path) == 1 && isTRUE(file.info(path)$isdir)){
+    path <- normalizePath(file.path(path, name), mustWork = FALSE)
+  } else if(length(name) != length(path)){
+    stop("Argument 'path' must be an existing dir or vector of filenames equal length as 'name'")
+  }
   path <- normalizePath(path, mustWork = FALSE)
   lapply(path, function(x){ dir.create(dirname(x), showWarnings = FALSE, recursive = TRUE)})
   stopifnot(length(name) == length(path))
   out <- vector("list", length(name))
   for(i in seq_along(name)){
-    out[[i]] <- .Call(R_mongo_gridfs_download, fs, name[i], path[i])
+    out[[i]] <- .Call(R_mongo_gridfs_download, fs, name_or_query(name[i]), path[i])
   }
   df <- list_to_df(out)
   df$path = path
@@ -213,13 +212,15 @@ mongo_gridfs_download <- function(fs, name, path){
 
 #' @useDynLib mongolite R_mongo_gridfs_remove
 mongo_gridfs_remove <- function(fs, name){
-  vapply(name, function(x){
-    .Call(R_mongo_gridfs_remove, fs, x)
-  }, character(1))
+  out <- lapply(name, function(x){
+    .Call(R_mongo_gridfs_remove, fs, name_or_query(x))
+  })
+  list_to_df(out)
 }
 
 #' @useDynLib mongolite R_new_read_stream R_stream_read_chunk R_stream_close
 mongo_gridfs_read_stream <- function(fs, name, con, progress = TRUE){
+  name <- name_or_query(name)
   stream <- .Call(R_new_read_stream, fs, name)
   size <- attr(stream, 'size')
   if(length(con) && is.character(con))
@@ -302,4 +303,21 @@ list_to_df <- function(list, cols = c("id", "name", "size", "date", "type", "met
   df <- structure(out, class="data.frame", names = cols, row.names = seq_along(list))
   class(df$date) = c("POSIXct", "POSIXt")
   df
+}
+
+name_or_query <- function(x){
+  if(!is.character(x)){
+    stop("Parameter 'name' must be a json query or filename (without spaces)")
+  }
+  if(grepl("^id:", x)){
+    x <- sprintf('{"_id": {"$oid":"%s"}}', sub("^id:", "", x))
+  }
+  if(jsonlite::validate(x)){
+    return(bson_or_json(x))
+  } else {
+    if(grepl("[\t {]", x)){
+      stop("Parameter 'name' does not contain valid json or filename (no spaces)")
+    }
+    return(x)
+  }
 }
