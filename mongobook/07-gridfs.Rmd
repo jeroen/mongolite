@@ -111,9 +111,43 @@ list.files('outputfiles')
 
 This makes a convenient way to store an large set of files into GridFS.
 
+## Select by ID
+
+If your GridFS contains duplicate filenames, you can use their unique ID to refer to them: 
+
 ```{r}
-# All done
-unlink('outputfiles', recursive = TRUE)
-mb$drop()
+allfiles <- mb$find()
+head(allfiles)
 ```
+
+To select a file by it's id, prefix the name with "id:" for example:
+
+```{r}
+id <- paste0("id:", allfiles$id[1])
+print(id)
+mb$read(id, tempfile())
+```
+
+Same for `download()` and `remove()`:
+
+```{r}
+# Remove a file by id
+mb$remove(id)
+```
+
+
+
+```{r, error = TRUE, echo = FALSE}
+subjects$drop()
+dmd$drop()
+flt$drop()
+mt$drop()
+issues$drop()
+mb$drop()
+unlink('outputfiles', recursive = TRUE)
+unlink("dump.json")
+unlink("flights.bson")
+unlink("mtcars.json")
+```
+
 
