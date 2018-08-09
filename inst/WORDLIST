@@ -1,7 +1,9 @@
 arXiv
 bson
 datetime
+filepath
 github
+gridfs
 GridFS
 int
 io

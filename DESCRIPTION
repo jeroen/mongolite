@@ -1,10 +1,10 @@
 Package: mongolite
 Type: Package
 Title: Fast and Simple 'MongoDB' Client for R
-Description: High-performance 'MongoDB' client based on 'libmongoc' and 'jsonlite'.
+Description: High-performance MongoDB client based on 'mongo-c-driver' and 'jsonlite'.
     Includes support for aggregation, indexing, map-reduce, streaming, encryption,
-    enterprise authentication. The online user manual provides an overview of the 
-    available methods in the package: <https://jeroen.github.io/mongolite/>.
+    enterprise authentication, and GridFS. The online user manual provides an overview 
+    of the available methods in the package: <https://jeroen.github.io/mongolite/>.
 Version: 2.0
 Authors@R: c(
     person("Jeroen", "Ooms", ,"jeroen@berkeley.edu", role = c("aut", "cre")),
