@@ -23,8 +23,9 @@ fi
 # Default
 PKG_LIBS="-lssl -lcrypto $SASL_LIBS"
 
-# Use pkg-config if available
-if [ $(command -v pkg-config) ]; then
+# Use pkg-config if openssl 1.0 is available
+pkg-config ${PKG_CONFIG_NAME} --atleast-version=1.0
+if [ $? -eq 0 ]; then
   PKGCONFIG_CFLAGS="$(pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME})"
   PKGCONFIG_LIBS="$(pkg-config --libs ${PKG_CONFIG_NAME})"
 fi
