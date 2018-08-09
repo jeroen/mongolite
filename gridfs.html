@@ -174,7 +174,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul></li>
 <li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
-<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#aggregation-iterators"><i class="fa fa-check"></i><b>6.2</b> Aggregation Iterators</a></li>
+<li class="chapter" data-level="6.3" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.3</b> Map/Reduce</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="server-tools.html"><a href="server-tools.html"><i class="fa fa-check"></i><b>7</b> Server Tools</a><ul>
 <li class="chapter" data-level="7.1" data-path="server-tools.html"><a href="server-tools.html#running-commands"><i class="fa fa-check"></i><b>7.1</b> Running Commands</a></li>
@@ -185,6 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>8.2</b> GridFS Methods</a></li>
 <li class="chapter" data-level="8.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>8.3</b> Read / Write</a></li>
 <li class="chapter" data-level="8.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>8.4</b> Vectorized Upload/Download</a></li>
+<li class="chapter" data-level="8.5" data-path="gridfs.html"><a href="gridfs.html#select-by-id-1"><i class="fa fa-check"></i><b>8.5</b> Select by ID</a></li>
 </ul></li>
 <li class="divider"></li>
 <li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
@@ -216,8 +218,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="connecting-to-gridfs" class="section level2">
 <h2><span class="header-section-number">8.1</span> Connecting to GridFS</h2>
 <p>The GridFS API is different from normal Mongo collections. Connecting works similar as with regular <code>mongo()</code> with one important difference: instead of specifying a <code>collection</code> name, we need to set a name <code>prefix</code>:</p>
-<div class="sourceCode" id="cb173"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb173-1" data-line-number="1"><span class="kw">library</span>(mongolite)</a>
-<a class="sourceLine" id="cb173-2" data-line-number="2">fs &lt;-<span class="st"> </span><span class="kw">gridfs</span>(<span class="dt">db =</span> <span class="st">&quot;test&quot;</span>, <span class="dt">prefix =</span> <span class="st">&quot;fs&quot;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb177"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb177-1" data-line-number="1"><span class="kw">library</span>(mongolite)</a>
+<a class="sourceLine" id="cb177-2" data-line-number="2">fs &lt;-<span class="st"> </span><span class="kw">gridfs</span>(<span class="dt">db =</span> <span class="st">&quot;test&quot;</span>, <span class="dt">prefix =</span> <span class="st">&quot;fs&quot;</span>)</a></code></pre></div>
 <p>Under the hood, GridFS stores files in two collections. In the case of <code>prefix = &quot;fs&quot;</code>:</p>
 <ul>
 <li><code>fs.chunks</code> stores the binary chunks.</li>
@@ -228,8 +230,9 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="gridfs-methods" class="section level2">
 <h2><span class="header-section-number">8.2</span> GridFS Methods</h2>
 <p>To get an overview of available methods, print the gridfs object. The methods are described in the <code>?gridfs</code> manual page.</p>
-<div class="sourceCode" id="cb174"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb174-1" data-line-number="1"><span class="kw">print</span>(fs)</a></code></pre></div>
+<div class="sourceCode" id="cb178"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb178-1" data-line-number="1"><span class="kw">print</span>(fs)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; &lt;gridfs&gt; 
+#&gt;  $disconnect(gc = TRUE) 
 #&gt;  $download(name, path = &quot;.&quot;) 
 #&gt;  $drop() 
 #&gt;  $find(filter = &quot;{}&quot;, options = &quot;{}&quot;) 
@@ -250,44 +253,44 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h2><span class="header-section-number">8.3</span> Read / Write</h2>
 <p>The <code>fs$read()</code> and <code>fs$write()</code> methods send data from/to an R <a href="https://stackoverflow.com/questions/30445875/what-exactly-is-a-connection-in-r">connection</a>, such as a file, socket or url. This is the recommended way to to send/receive data with GridFS. You get a nice progress counter and the transfer can be interrupted if needed.</p>
 <p>Both <code>read()</code> and <code>write()</code> methods have a <code>con</code> argument that specifies the input or output connection. You can also pass a string, which is treated as a file path. Here we stream a file from a URL:</p>
-<div class="sourceCode" id="cb176"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb176-1" data-line-number="1"><span class="co"># Stream data from a URL into GridFS</span></a>
-<a class="sourceLine" id="cb176-2" data-line-number="2">con &lt;-<span class="st"> </span><span class="kw">url</span>(<span class="st">&#39;https://cloud.r-project.org/src/base/R-3/R-3.5.1.tar.gz&#39;</span>)</a>
-<a class="sourceLine" id="cb176-3" data-line-number="3">fs<span class="op">$</span><span class="kw">write</span>(con, <span class="st">&#39;source.tar.gz&#39;</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>, </a>
-<a class="sourceLine" id="cb176-4" data-line-number="4">         <span class="dt">metadata =</span> <span class="st">&#39;{&quot;This is&quot; : &quot;just a test&quot;}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb180"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb180-1" data-line-number="1"><span class="co"># Stream data from a URL into GridFS</span></a>
+<a class="sourceLine" id="cb180-2" data-line-number="2">con &lt;-<span class="st"> </span><span class="kw">url</span>(<span class="st">&#39;https://cloud.r-project.org/src/base/R-3/R-3.5.1.tar.gz&#39;</span>)</a>
+<a class="sourceLine" id="cb180-3" data-line-number="3">fs<span class="op">$</span><span class="kw">write</span>(con, <span class="st">&#39;source.tar.gz&#39;</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>, </a>
+<a class="sourceLine" id="cb180-4" data-line-number="4">         <span class="dt">metadata =</span> <span class="st">&#39;{&quot;This is&quot; : &quot;just a test&quot;}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 6
-#&gt;  $ id      : chr &quot;5b636bc047a3020d733c034a&quot;
+#&gt;  $ id      : chr &quot;5b6ca17a47a302fe131620dc&quot;
 #&gt;  $ name    : chr &quot;source.tar.gz&quot;
 #&gt;  $ size    : num 29812849
-#&gt;  $ date    : POSIXct[1:1], format: &quot;2018-08-02 22:38:24&quot;
+#&gt;  $ date    : POSIXct[1:1], format: &quot;2018-08-09 22:18:02&quot;
 #&gt;  $ type    : chr NA
 #&gt;  $ metadata: chr &quot;{ \&quot;This is\&quot; : \&quot;just a test\&quot; }&quot;</code></pre>
 <p>In addition, for <code>fs$write()</code> you can set <code>con</code> to a raw vector with data to upload.</p>
-<div class="sourceCode" id="cb178"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb178-1" data-line-number="1">buf &lt;-<span class="st"> </span><span class="kw">serialize</span>(mtcars, <span class="ot">NULL</span>)</a>
-<a class="sourceLine" id="cb178-2" data-line-number="2">fs<span class="op">$</span><span class="kw">write</span>(buf, <span class="st">&quot;mtcars&quot;</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb182"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb182-1" data-line-number="1">buf &lt;-<span class="st"> </span><span class="kw">serialize</span>(mtcars, <span class="ot">NULL</span>)</a>
+<a class="sourceLine" id="cb182-2" data-line-number="2">fs<span class="op">$</span><span class="kw">write</span>(buf, <span class="st">&quot;mtcars&quot;</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 6
-#&gt;  $ id      : chr &quot;5b636bc347a3020d733c034b&quot;
+#&gt;  $ id      : chr &quot;5b6ca17d47a302fe131620dd&quot;
 #&gt;  $ name    : chr &quot;mtcars&quot;
 #&gt;  $ size    : num 3798
-#&gt;  $ date    : POSIXct[1:1], format: &quot;2018-08-02 22:38:27&quot;
+#&gt;  $ date    : POSIXct[1:1], format: &quot;2018-08-09 22:18:05&quot;
 #&gt;  $ type    : chr NA
 #&gt;  $ metadata: chr NA</code></pre>
 <p>The <code>fs$find()</code> method shows a list of files:</p>
-<div class="sourceCode" id="cb180"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb180-1" data-line-number="1"><span class="co"># List files in the GridFS</span></a>
-<a class="sourceLine" id="cb180-2" data-line-number="2">fs<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb184"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb184-1" data-line-number="1"><span class="co"># List files in the GridFS</span></a>
+<a class="sourceLine" id="cb184-2" data-line-number="2">fs<span class="op">$</span><span class="kw">find</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                         id          name     size                date type                      metadata
-#&gt; 1 5b636bc047a3020d733c034a source.tar.gz 29812849 2018-08-02 22:38:24 &lt;NA&gt; { &quot;This is&quot; : &quot;just a test&quot; }
-#&gt; 2 5b636bc347a3020d733c034b        mtcars     3798 2018-08-02 22:38:27 &lt;NA&gt;                          &lt;NA&gt;</code></pre>
+#&gt; 1 5b6ca17a47a302fe131620dc source.tar.gz 29812849 2018-08-09 22:18:02 &lt;NA&gt; { &quot;This is&quot; : &quot;just a test&quot; }
+#&gt; 2 5b6ca17d47a302fe131620dd        mtcars     3798 2018-08-09 22:18:05 &lt;NA&gt;                          &lt;NA&gt;</code></pre>
 <p>We can read the data to disk using <code>fs$read()</code>:</p>
-<div class="sourceCode" id="cb182"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb182-1" data-line-number="1"><span class="co"># Stream the file from GridFS to disk</span></a>
-<a class="sourceLine" id="cb182-2" data-line-number="2">out &lt;-<span class="st"> </span>fs<span class="op">$</span><span class="kw">read</span>(<span class="st">&#39;source.tar.gz&#39;</span>, <span class="kw">file</span>(<span class="st">&#39;source.tar.gz&#39;</span>), <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb182-3" data-line-number="3"><span class="kw">file.info</span>(<span class="st">&#39;source.tar.gz&#39;</span>)<span class="op">$</span>size</a></code></pre></div>
+<div class="sourceCode" id="cb186"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb186-1" data-line-number="1"><span class="co"># Stream the file from GridFS to disk</span></a>
+<a class="sourceLine" id="cb186-2" data-line-number="2">out &lt;-<span class="st"> </span>fs<span class="op">$</span><span class="kw">read</span>(<span class="st">&#39;source.tar.gz&#39;</span>, <span class="kw">file</span>(<span class="st">&#39;source.tar.gz&#39;</span>), <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb186-3" data-line-number="3"><span class="kw">file.info</span>(<span class="st">&#39;source.tar.gz&#39;</span>)<span class="op">$</span>size</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 29812849</code></pre>
-<div class="sourceCode" id="cb184"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb184-1" data-line-number="1"><span class="co"># Cleanup</span></a>
-<a class="sourceLine" id="cb184-2" data-line-number="2"><span class="kw">unlink</span>(<span class="st">&#39;source.tar.gz&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb188"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb188-1" data-line-number="1"><span class="co"># Cleanup</span></a>
+<a class="sourceLine" id="cb188-2" data-line-number="2"><span class="kw">unlink</span>(<span class="st">&#39;source.tar.gz&#39;</span>)</a></code></pre></div>
 <p>For <code>fs$read()</code> you can set <code>con</code> to <code>NULL</code> in which case the file will be buffered in memory and returned as a raw vector. This is useful for e.g. unserializing R objects.</p>
-<div class="sourceCode" id="cb185"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb185-1" data-line-number="1">out &lt;-<span class="st"> </span>fs<span class="op">$</span><span class="kw">read</span>(<span class="st">&#39;mtcars&#39;</span>, <span class="dt">con =</span> <span class="ot">NULL</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb185-2" data-line-number="2">df &lt;-<span class="st"> </span><span class="kw">unserialize</span>(out<span class="op">$</span>data)</a>
-<a class="sourceLine" id="cb185-3" data-line-number="3"><span class="kw">head</span>(df)</a></code></pre></div>
+<div class="sourceCode" id="cb189"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb189-1" data-line-number="1">out &lt;-<span class="st"> </span>fs<span class="op">$</span><span class="kw">read</span>(<span class="st">&#39;mtcars&#39;</span>, <span class="dt">con =</span> <span class="ot">NULL</span>, <span class="dt">progress =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb189-2" data-line-number="2">df &lt;-<span class="st"> </span><span class="kw">unserialize</span>(out<span class="op">$</span>data)</a>
+<a class="sourceLine" id="cb189-3" data-line-number="3"><span class="kw">head</span>(df)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                    mpg cyl disp  hp drat    wt  qsec vs am gear carb
 #&gt; Mazda RX4         21.0   6  160 110 3.90 2.620 16.46  0  1    4    4
 #&gt; Mazda RX4 Wag     21.0   6  160 110 3.90 2.875 17.02  0  1    4    4
@@ -296,30 +299,30 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; Hornet Sportabout 18.7   8  360 175 3.15 3.440 17.02  0  0    3    2
 #&gt; Valiant           18.1   6  225 105 2.76 3.460 20.22  1  0    3    1</code></pre>
 <p>When done we trash the GridFS:</p>
-<div class="sourceCode" id="cb187"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb187-1" data-line-number="1">fs<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb191"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb191-1" data-line-number="1">fs<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] TRUE</code></pre>
 </div>
 <div id="vectorized-uploaddownload" class="section level2">
 <h2><span class="header-section-number">8.4</span> Vectorized Upload/Download</h2>
 <p>The <code>fs$upload()</code> and <code>fs$download()</code> methods provide an alternative API specifically for transferring files between GridFS and your local disk. This API is vectorized so you can transfer many files at once. However transfers cannot be interrupted and will block R until completed. This API is only recommended to upload/download a large number of small files.</p>
-<div class="sourceCode" id="cb189"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb189-1" data-line-number="1"><span class="co"># Start a new GridFS and upload all files from this book</span></a>
-<a class="sourceLine" id="cb189-2" data-line-number="2">mb &lt;-<span class="st"> </span>mongolite<span class="op">::</span><span class="kw">gridfs</span>(<span class="dt">prefix =</span> <span class="st">&#39;mongobook&#39;</span>)</a>
-<a class="sourceLine" id="cb189-3" data-line-number="3">mb<span class="op">$</span><span class="kw">upload</span>(<span class="kw">list.files</span>(<span class="st">&quot;.&quot;</span>, <span class="dt">recursive =</span> <span class="ot">TRUE</span>))</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;                          id               name  size                date             type metadata
-#&gt; 1  5b636bc347a3020d733c034d      _bookdown.yml    89 2018-08-02 22:38:27             &lt;NA&gt;     &lt;NA&gt;
-#&gt; 2  5b636bc347a3020d733c034e          _build.sh    80 2018-08-02 22:38:27 application/x-sh     &lt;NA&gt;
-#&gt; 3  5b636bc347a3020d733c034f        _output.yml   342 2018-08-02 22:38:27             &lt;NA&gt;     &lt;NA&gt;
-#&gt; 4  5b636bc347a3020d733c0350  01-connecting.Rmd  9155 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 5  5b636bc347a3020d733c0351     02-queries.Rmd  5998 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 6  5b636bc347a3020d733c0352      03-insert.Rmd  3121 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 7  5b636bc347a3020d733c0353      04-export.Rmd  2039 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 8  5b636bc347a3020d733c0354 05-calculation.Rmd  2022 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 9  5b636bc347a3020d733c0355    06-commands.Rmd   669 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 10 5b636bc347a3020d733c0356      07-gridfs.Rmd  3920 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 11 5b636bc347a3020d733c0357          index.Rmd  3539 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 12 5b636bc347a3020d733c0358      fighist-1.png 47647 2018-08-02 22:38:27        image/png     &lt;NA&gt;
-#&gt; 13 5b636bc347a3020d733c0359     figstats-1.png 52834 2018-08-02 22:38:27        image/png     &lt;NA&gt;
-#&gt; 14 5b636bc347a3020d733c035a      mongobook.Rmd 30751 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
+<div class="sourceCode" id="cb193"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb193-1" data-line-number="1"><span class="co"># Start a new GridFS and upload all files from this book</span></a>
+<a class="sourceLine" id="cb193-2" data-line-number="2">mb &lt;-<span class="st"> </span>mongolite<span class="op">::</span><span class="kw">gridfs</span>(<span class="dt">prefix =</span> <span class="st">&#39;mongobook&#39;</span>)</a>
+<a class="sourceLine" id="cb193-3" data-line-number="3">mb<span class="op">$</span><span class="kw">upload</span>(<span class="kw">list.files</span>(<span class="st">&quot;.&quot;</span>, <span class="dt">recursive =</span> <span class="ot">TRUE</span>))</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                          id               name     size                date             type metadata
+#&gt; 1  5b6ca17d47a302fe131620de      _bookdown.yml       89 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 2  5b6ca17d47a302fe131620df          _build.sh       80 2018-08-09 22:18:05 application/x-sh     &lt;NA&gt;
+#&gt; 3  5b6ca17d47a302fe131620e0        _output.yml      342 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 4  5b6ca17d47a302fe131620e1  01-connecting.Rmd     9135 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 5  5b6ca17d47a302fe131620e2     02-queries.Rmd     5998 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 6  5b6ca17d47a302fe131620e3      03-insert.Rmd     3121 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 7  5b6ca17d47a302fe131620e4      04-export.Rmd     2296 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 8  5b6ca17d47a302fe131620e5 05-calculation.Rmd     2622 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 9  5b6ca17d47a302fe131620e6    06-commands.Rmd      491 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 10 5b6ca17d47a302fe131620e7      07-gridfs.Rmd     4465 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 11 5b6ca17d47a302fe131620e8          dump.json 10986497 2018-08-09 22:18:05 application/json     &lt;NA&gt;
+#&gt; 12 5b6ca17d47a302fe131620e9       flights.bson 79319562 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 13 5b6ca17e47a302fe131620ea          index.Rmd     3575 2018-08-09 22:18:06  text/x-markdown     &lt;NA&gt;
+#&gt; 14 5b6ca17e47a302fe131620eb      fighist-1.png    48856 2018-08-09 22:18:06        image/png     &lt;NA&gt;
 #&gt;                                                                                      path
 #&gt; 1                               /Users/jeroen/workspace/mongobook/mongobook/_bookdown.yml
 #&gt; 2                                   /Users/jeroen/workspace/mongobook/mongobook/_build.sh
@@ -331,30 +334,30 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 8                          /Users/jeroen/workspace/mongobook/mongobook/05-calculation.Rmd
 #&gt; 9                             /Users/jeroen/workspace/mongobook/mongobook/06-commands.Rmd
 #&gt; 10                              /Users/jeroen/workspace/mongobook/mongobook/07-gridfs.Rmd
-#&gt; 11                                  /Users/jeroen/workspace/mongobook/mongobook/index.Rmd
-#&gt; 12  /Users/jeroen/workspace/mongobook/mongobook/mongobook_files/figure-html/fighist-1.png
-#&gt; 13 /Users/jeroen/workspace/mongobook/mongobook/mongobook_files/figure-html/figstats-1.png
-#&gt; 14                              /Users/jeroen/workspace/mongobook/mongobook/mongobook.Rmd
-#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 3 rows ]</code></pre>
+#&gt; 11                                  /Users/jeroen/workspace/mongobook/mongobook/dump.json
+#&gt; 12                               /Users/jeroen/workspace/mongobook/mongobook/flights.bson
+#&gt; 13                                  /Users/jeroen/workspace/mongobook/mongobook/index.Rmd
+#&gt; 14  /Users/jeroen/workspace/mongobook/mongobook/mongobook_files/figure-html/fighist-1.png
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 6 rows ]</code></pre>
 <p>In the same way we can download all files in one command:</p>
-<div class="sourceCode" id="cb191"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb191-1" data-line-number="1">files &lt;-<span class="st"> </span>mb<span class="op">$</span><span class="kw">find</span>()</a>
-<a class="sourceLine" id="cb191-2" data-line-number="2"><span class="kw">dir.create</span>(<span class="st">&#39;outputfiles&#39;</span>)</a>
-<a class="sourceLine" id="cb191-3" data-line-number="3">mb<span class="op">$</span><span class="kw">download</span>(files<span class="op">$</span>name, <span class="st">&#39;outputfiles&#39;</span>)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;                          id               name  size                date             type metadata
-#&gt; 1  5b636bc347a3020d733c034d      _bookdown.yml    89 2018-08-02 22:38:27             &lt;NA&gt;     &lt;NA&gt;
-#&gt; 2  5b636bc347a3020d733c034e          _build.sh    80 2018-08-02 22:38:27 application/x-sh     &lt;NA&gt;
-#&gt; 3  5b636bc347a3020d733c034f        _output.yml   342 2018-08-02 22:38:27             &lt;NA&gt;     &lt;NA&gt;
-#&gt; 4  5b636bc347a3020d733c0350  01-connecting.Rmd  9155 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 5  5b636bc347a3020d733c0351     02-queries.Rmd  5998 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 6  5b636bc347a3020d733c0352      03-insert.Rmd  3121 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 7  5b636bc347a3020d733c0353      04-export.Rmd  2039 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 8  5b636bc347a3020d733c0354 05-calculation.Rmd  2022 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 9  5b636bc347a3020d733c0355    06-commands.Rmd   669 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 10 5b636bc347a3020d733c0356      07-gridfs.Rmd  3920 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 11 5b636bc347a3020d733c0357          index.Rmd  3539 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
-#&gt; 12 5b636bc347a3020d733c0358      fighist-1.png 47647 2018-08-02 22:38:27        image/png     &lt;NA&gt;
-#&gt; 13 5b636bc347a3020d733c0359     figstats-1.png 52834 2018-08-02 22:38:27        image/png     &lt;NA&gt;
-#&gt; 14 5b636bc347a3020d733c035a      mongobook.Rmd 30751 2018-08-02 22:38:27  text/x-markdown     &lt;NA&gt;
+<div class="sourceCode" id="cb195"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb195-1" data-line-number="1">files &lt;-<span class="st"> </span>mb<span class="op">$</span><span class="kw">find</span>()</a>
+<a class="sourceLine" id="cb195-2" data-line-number="2"><span class="kw">dir.create</span>(<span class="st">&#39;outputfiles&#39;</span>)</a>
+<a class="sourceLine" id="cb195-3" data-line-number="3">mb<span class="op">$</span><span class="kw">download</span>(files<span class="op">$</span>name, <span class="st">&#39;outputfiles&#39;</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                          id               name     size                date             type metadata
+#&gt; 1  5b6ca17d47a302fe131620de      _bookdown.yml       89 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 2  5b6ca17d47a302fe131620df          _build.sh       80 2018-08-09 22:18:05 application/x-sh     &lt;NA&gt;
+#&gt; 3  5b6ca17d47a302fe131620e0        _output.yml      342 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 4  5b6ca17d47a302fe131620e1  01-connecting.Rmd     9135 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 5  5b6ca17d47a302fe131620e2     02-queries.Rmd     5998 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 6  5b6ca17d47a302fe131620e3      03-insert.Rmd     3121 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 7  5b6ca17d47a302fe131620e4      04-export.Rmd     2296 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 8  5b6ca17d47a302fe131620e5 05-calculation.Rmd     2622 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 9  5b6ca17d47a302fe131620e6    06-commands.Rmd      491 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 10 5b6ca17d47a302fe131620e7      07-gridfs.Rmd     4465 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 11 5b6ca17d47a302fe131620e8          dump.json 10986497 2018-08-09 22:18:05 application/json     &lt;NA&gt;
+#&gt; 12 5b6ca17d47a302fe131620e9       flights.bson 79319562 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 13 5b6ca17e47a302fe131620ea          index.Rmd     3575 2018-08-09 22:18:06  text/x-markdown     &lt;NA&gt;
+#&gt; 14 5b6ca17e47a302fe131620eb      fighist-1.png    48856 2018-08-09 22:18:06        image/png     &lt;NA&gt;
 #&gt;                              path
 #&gt; 1       outputfiles/_bookdown.yml
 #&gt; 2           outputfiles/_build.sh
@@ -366,21 +369,51 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 8  outputfiles/05-calculation.Rmd
 #&gt; 9     outputfiles/06-commands.Rmd
 #&gt; 10      outputfiles/07-gridfs.Rmd
-#&gt; 11          outputfiles/index.Rmd
-#&gt; 12      outputfiles/fighist-1.png
-#&gt; 13     outputfiles/figstats-1.png
-#&gt; 14      outputfiles/mongobook.Rmd
-#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 3 rows ]</code></pre>
-<div class="sourceCode" id="cb193"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb193-1" data-line-number="1"><span class="kw">list.files</span>(<span class="st">&#39;outputfiles&#39;</span>)</a></code></pre></div>
+#&gt; 11          outputfiles/dump.json
+#&gt; 12       outputfiles/flights.bson
+#&gt; 13          outputfiles/index.Rmd
+#&gt; 14      outputfiles/fighist-1.png
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 6 rows ]</code></pre>
+<div class="sourceCode" id="cb197"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb197-1" data-line-number="1"><span class="kw">list.files</span>(<span class="st">&#39;outputfiles&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;  [1] &quot;_bookdown.yml&quot;      &quot;_build.sh&quot;          &quot;_output.yml&quot;        &quot;01-connecting.Rmd&quot;  &quot;02-queries.Rmd&quot;    
 #&gt;  [6] &quot;03-insert.Rmd&quot;      &quot;04-export.Rmd&quot;      &quot;05-calculation.Rmd&quot; &quot;06-commands.Rmd&quot;    &quot;07-gridfs.Rmd&quot;     
-#&gt; [11] &quot;fighist-1.png&quot;      &quot;figstats-1.png&quot;     &quot;index.Rmd&quot;          &quot;mongobook.Rmd&quot;      &quot;mongobook.Rproj&quot;   
-#&gt; [16] &quot;style.css&quot;          &quot;toc.css&quot;</code></pre>
+#&gt; [11] &quot;dump.json&quot;          &quot;fighist-1.png&quot;      &quot;figstats-1.png&quot;     &quot;flights.bson&quot;       &quot;index.Rmd&quot;         
+#&gt; [16] &quot;mongobook.Rmd&quot;      &quot;mongobook.Rproj&quot;    &quot;mtcars.json&quot;        &quot;style.css&quot;          &quot;toc.css&quot;</code></pre>
 <p>This makes a convenient way to store an large set of files into GridFS.</p>
-<div class="sourceCode" id="cb195"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb195-1" data-line-number="1"><span class="co"># All done</span></a>
-<a class="sourceLine" id="cb195-2" data-line-number="2"><span class="kw">unlink</span>(<span class="st">&#39;outputfiles&#39;</span>, <span class="dt">recursive =</span> <span class="ot">TRUE</span>)</a>
-<a class="sourceLine" id="cb195-3" data-line-number="3">mb<span class="op">$</span><span class="kw">drop</span>()</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; [1] TRUE</code></pre>
+</div>
+<div id="select-by-id-1" class="section level2">
+<h2><span class="header-section-number">8.5</span> Select by ID</h2>
+<p>If your GridFS contains duplicate filenames, you can use their unique ID to refer to them:</p>
+<div class="sourceCode" id="cb199"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb199-1" data-line-number="1">allfiles &lt;-<span class="st"> </span>mb<span class="op">$</span><span class="kw">find</span>()</a>
+<a class="sourceLine" id="cb199-2" data-line-number="2"><span class="kw">head</span>(allfiles)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                         id              name size                date             type metadata
+#&gt; 1 5b6ca17d47a302fe131620de     _bookdown.yml   89 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 2 5b6ca17d47a302fe131620df         _build.sh   80 2018-08-09 22:18:05 application/x-sh     &lt;NA&gt;
+#&gt; 3 5b6ca17d47a302fe131620e0       _output.yml  342 2018-08-09 22:18:05             &lt;NA&gt;     &lt;NA&gt;
+#&gt; 4 5b6ca17d47a302fe131620e1 01-connecting.Rmd 9135 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 5 5b6ca17d47a302fe131620e2    02-queries.Rmd 5998 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;
+#&gt; 6 5b6ca17d47a302fe131620e3     03-insert.Rmd 3121 2018-08-09 22:18:05  text/x-markdown     &lt;NA&gt;</code></pre>
+<p>To select a file by it’s id, prefix the name with “id:” for example:</p>
+<div class="sourceCode" id="cb201"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb201-1" data-line-number="1">id &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="st">&quot;id:&quot;</span>, allfiles<span class="op">$</span>id[<span class="dv">1</span>])</a>
+<a class="sourceLine" id="cb201-2" data-line-number="2"><span class="kw">print</span>(id)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; [1] &quot;id:5b6ca17d47a302fe131620de&quot;</code></pre>
+<div class="sourceCode" id="cb203"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb203-1" data-line-number="1">mb<span class="op">$</span><span class="kw">read</span>(id, <span class="kw">tempfile</span>())</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; 
+[{ &quot;_id&quot; : { &quot;$oid&quot; : &quot;5b6ca17d47a302fe131620de&quot; } }]: read 89 B (100%)     
+[{ &quot;_id&quot; : { &quot;$oid&quot; : &quot;5b6ca17d47a302fe131620de&quot; } }]: read 89 B (done)</code></pre>
+<pre class="outputcode"><code>#&gt; List of 6
+#&gt;  $ id      : chr &quot;5b6ca17d47a302fe131620de&quot;
+#&gt;  $ name    : chr &quot;_bookdown.yml&quot;
+#&gt;  $ size    : num 89
+#&gt;  $ date    : POSIXct[1:1], format: &quot;2018-08-09 22:18:05&quot;
+#&gt;  $ type    : chr NA
+#&gt;  $ metadata: chr NA</code></pre>
+<p>Same for <code>download()</code> and <code>remove()</code>:</p>
+<div class="sourceCode" id="cb206"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb206-1" data-line-number="1"><span class="co"># Remove a file by id</span></a>
+<a class="sourceLine" id="cb206-2" data-line-number="2">mb<span class="op">$</span><span class="kw">remove</span>(id)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;                         id          name size                date type metadata
+#&gt; 1 5b6ca17d47a302fe131620de _bookdown.yml   89 2018-08-09 22:18:05 &lt;NA&gt;     &lt;NA&gt;</code></pre>
+<pre><code>#&gt; [1] TRUE</code></pre>
 
 </div>
 </div>

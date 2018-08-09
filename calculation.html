@@ -174,7 +174,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul></li>
 <li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
-<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#aggregation-iterators"><i class="fa fa-check"></i><b>6.2</b> Aggregation Iterators</a></li>
+<li class="chapter" data-level="6.3" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.3</b> Map/Reduce</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="server-tools.html"><a href="server-tools.html"><i class="fa fa-check"></i><b>7</b> Server Tools</a><ul>
 <li class="chapter" data-level="7.1" data-path="server-tools.html"><a href="server-tools.html#running-commands"><i class="fa fa-check"></i><b>7.1</b> Running Commands</a></li>
@@ -185,6 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>8.2</b> GridFS Methods</a></li>
 <li class="chapter" data-level="8.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>8.3</b> Read / Write</a></li>
 <li class="chapter" data-level="8.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>8.4</b> Vectorized Upload/Download</a></li>
+<li class="chapter" data-level="8.5" data-path="gridfs.html"><a href="gridfs.html#select-by-id-1"><i class="fa fa-check"></i><b>8.5</b> Select by ID</a></li>
 </ul></li>
 <li class="divider"></li>
 <li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
@@ -212,77 +214,99 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="aggregate" class="section level2">
 <h2><span class="header-section-number">6.1</span> Aggregate</h2>
 <p>The <code>aggregate</code>() method allows you to run an aggregation <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/">pipeline</a>. For example the pipeline below calculates the total flights per carrier and the average distance:</p>
-<div class="sourceCode" id="cb159"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb159-1" data-line-number="1">stats &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">aggregate</span>(</a>
-<a class="sourceLine" id="cb159-2" data-line-number="2">  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,</a>
-<a class="sourceLine" id="cb159-3" data-line-number="3">  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span></a>
-<a class="sourceLine" id="cb159-4" data-line-number="4">)</a>
-<a class="sourceLine" id="cb159-5" data-line-number="5"><span class="kw">names</span>(stats) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;carrier&quot;</span>, <span class="st">&quot;count&quot;</span>, <span class="st">&quot;average&quot;</span>)</a>
-<a class="sourceLine" id="cb159-6" data-line-number="6"><span class="kw">print</span>(stats)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;    carrier  count   average
-#&gt; 1       OO     64  500.8125
-#&gt; 2       F9   1370 1620.0000
-#&gt; 3       YV   1202  375.0333
-#&gt; 4       EV 108346  562.9917
-#&gt; 5       FL   6520  664.8294
-#&gt; 6       9E  36920  530.2358
-#&gt; 7       AS   1428 2402.0000
-#&gt; 8       US  41072  553.4563
-#&gt; 9       MQ  52794  569.5327
-#&gt; 10      UA 117330 1529.1149
-#&gt; 11      DL  96220 1236.9012
-#&gt; 12      B6 109270 1068.6215
-#&gt; 13      VX  10324 2499.4822
-#&gt; 14      WN  24550  996.2691
-#&gt; 15      HA    684 4983.0000
-#&gt; 16      AA  65458 1340.2360</code></pre>
+<div class="sourceCode" id="cb160"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb160-1" data-line-number="1">stats &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">aggregate</span>(</a>
+<a class="sourceLine" id="cb160-2" data-line-number="2">  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,</a>
+<a class="sourceLine" id="cb160-3" data-line-number="3">  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span></a>
+<a class="sourceLine" id="cb160-4" data-line-number="4">)</a>
+<a class="sourceLine" id="cb160-5" data-line-number="5"><span class="kw">names</span>(stats) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;carrier&quot;</span>, <span class="st">&quot;count&quot;</span>, <span class="st">&quot;average&quot;</span>)</a>
+<a class="sourceLine" id="cb160-6" data-line-number="6"><span class="kw">print</span>(stats)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;    carrier count   average
+#&gt; 1       OO    32  500.8125
+#&gt; 2       F9   685 1620.0000
+#&gt; 3       YV   601  375.0333
+#&gt; 4       EV 54173  562.9917
+#&gt; 5       FL  3260  664.8294
+#&gt; 6       9E 18460  530.2358
+#&gt; 7       AS   714 2402.0000
+#&gt; 8       US 20536  553.4563
+#&gt; 9       MQ 26397  569.5327
+#&gt; 10      UA 58665 1529.1149
+#&gt; 11      DL 48110 1236.9012
+#&gt; 12      B6 54635 1068.6215
+#&gt; 13      VX  5162 2499.4822
+#&gt; 14      WN 12275  996.2691
+#&gt; 15      HA   342 4983.0000
+#&gt; 16      AA 32729 1340.2360</code></pre>
 <p>Let’s make a pretty plot:</p>
-<div class="sourceCode" id="cb161"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb161-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
-<a class="sourceLine" id="cb161-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(carrier, count), <span class="dt">data =</span> stats) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb162"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb162-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
+<a class="sourceLine" id="cb162-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(carrier, count), <span class="dt">data =</span> stats) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
 <p><img src="mongobook_files/figure-html/figstats-1.png" width="672" /></p>
 <p>Check the <a href="https://docs.mongodb.com/manual/reference/method/db.collection.aggregate/#db.collection.aggregate">MongoDB manual</a> for detailed description of the pipeline syntax and supported options.</p>
 </div>
+<div id="aggregation-iterators" class="section level2">
+<h2><span class="header-section-number">6.2</span> Aggregation Iterators</h2>
+<p>If you are expecting a lot of data or do not want to automatically simplify the results into data frames, run the aggregation with <code>iterate = TRUE</code>:</p>
+<div class="sourceCode" id="cb163"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb163-1" data-line-number="1">iter &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">aggregate</span>(</a>
+<a class="sourceLine" id="cb163-2" data-line-number="2">  <span class="st">&#39;[{&quot;$group&quot;:{&quot;_id&quot;:&quot;$carrier&quot;, &quot;count&quot;: {&quot;$sum&quot;:1}, &quot;average&quot;:{&quot;$avg&quot;:&quot;$distance&quot;}}}]&#39;</span>,</a>
+<a class="sourceLine" id="cb163-3" data-line-number="3">  <span class="dt">options =</span> <span class="st">&#39;{&quot;allowDiskUse&quot;:true}&#39;</span>,</a>
+<a class="sourceLine" id="cb163-4" data-line-number="4">  <span class="dt">iterate =</span> <span class="ot">TRUE</span></a>
+<a class="sourceLine" id="cb163-5" data-line-number="5">)</a></code></pre></div>
+<p>This will return the results in the form of an iterator just like when using the <a href="query-data.html#iterating">iterate method</a>. You can then iterate over the results one by one or in pages:</p>
+<div class="sourceCode" id="cb164"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb164-1" data-line-number="1"><span class="co"># Get the first 10 results</span></a>
+<a class="sourceLine" id="cb164-2" data-line-number="2">iter<span class="op">$</span><span class="kw">json</span>(<span class="dv">10</span>)</a></code></pre></div>
+<pre class="outputcode"><code>#&gt;  [1] &quot;{ \&quot;_id\&quot; : \&quot;OO\&quot;, \&quot;count\&quot; : 32, \&quot;average\&quot; : 500.8125 }&quot;           
+#&gt;  [2] &quot;{ \&quot;_id\&quot; : \&quot;F9\&quot;, \&quot;count\&quot; : 685, \&quot;average\&quot; : 1620.0 }&quot;            
+#&gt;  [3] &quot;{ \&quot;_id\&quot; : \&quot;YV\&quot;, \&quot;count\&quot; : 601, \&quot;average\&quot; : 375.033277870216 }&quot;  
+#&gt;  [4] &quot;{ \&quot;_id\&quot; : \&quot;EV\&quot;, \&quot;count\&quot; : 54173, \&quot;average\&quot; : 562.9917301977 }&quot;  
+#&gt;  [5] &quot;{ \&quot;_id\&quot; : \&quot;FL\&quot;, \&quot;count\&quot; : 3260, \&quot;average\&quot; : 664.829447852761 }&quot; 
+#&gt;  [6] &quot;{ \&quot;_id\&quot; : \&quot;9E\&quot;, \&quot;count\&quot; : 18460, \&quot;average\&quot; : 530.235752979415 }&quot;
+#&gt;  [7] &quot;{ \&quot;_id\&quot; : \&quot;AS\&quot;, \&quot;count\&quot; : 714, \&quot;average\&quot; : 2402.0 }&quot;            
+#&gt;  [8] &quot;{ \&quot;_id\&quot; : \&quot;US\&quot;, \&quot;count\&quot; : 20536, \&quot;average\&quot; : 553.456271912739 }&quot;
+#&gt;  [9] &quot;{ \&quot;_id\&quot; : \&quot;MQ\&quot;, \&quot;count\&quot; : 26397, \&quot;average\&quot; : 569.532712050612 }&quot;
+#&gt; [10] &quot;{ \&quot;_id\&quot; : \&quot;UA\&quot;, \&quot;count\&quot; : 58665, \&quot;average\&quot; : 1529.11487258161 }&quot;</code></pre>
+</div>
 <div id="mapreduce" class="section level2">
-<h2><span class="header-section-number">6.2</span> Map/Reduce</h2>
+<h2><span class="header-section-number">6.3</span> Map/Reduce</h2>
 <p>The <code>mapreduce()</code> method allow for running a custom in-database mapreduce job by providing custom <code>map</code> and <code>reduce</code> JavaScript functions. Running JavaScript is slower using the aggregate system, but you can implement fully customized database operations.</p>
 <p>Below is a simple example to do “binning” of distances to create a histogram.</p>
-<div class="sourceCode" id="cb162"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb162-1" data-line-number="1"><span class="co"># Map-reduce (binning)</span></a>
-<a class="sourceLine" id="cb162-2" data-line-number="2">histdata &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">mapreduce</span>(</a>
-<a class="sourceLine" id="cb162-3" data-line-number="3">  <span class="dt">map =</span> <span class="st">&quot;function(){emit(Math.floor(this.distance/100)*100, 1)}&quot;</span>, </a>
-<a class="sourceLine" id="cb162-4" data-line-number="4">  <span class="dt">reduce =</span> <span class="st">&quot;function(id, counts){return Array.sum(counts)}&quot;</span></a>
-<a class="sourceLine" id="cb162-5" data-line-number="5">)</a>
-<a class="sourceLine" id="cb162-6" data-line-number="6"><span class="kw">names</span>(histdata) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;distance&quot;</span>, <span class="st">&quot;count&quot;</span>)</a>
-<a class="sourceLine" id="cb162-7" data-line-number="7"><span class="kw">print</span>(histdata)</a></code></pre></div>
+<div class="sourceCode" id="cb166"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb166-1" data-line-number="1"><span class="co"># Map-reduce (binning)</span></a>
+<a class="sourceLine" id="cb166-2" data-line-number="2">histdata &lt;-<span class="st"> </span>flt<span class="op">$</span><span class="kw">mapreduce</span>(</a>
+<a class="sourceLine" id="cb166-3" data-line-number="3">  <span class="dt">map =</span> <span class="st">&quot;function(){emit(Math.floor(this.distance/100)*100, 1)}&quot;</span>, </a>
+<a class="sourceLine" id="cb166-4" data-line-number="4">  <span class="dt">reduce =</span> <span class="st">&quot;function(id, counts){return Array.sum(counts)}&quot;</span></a>
+<a class="sourceLine" id="cb166-5" data-line-number="5">)</a>
+<a class="sourceLine" id="cb166-6" data-line-number="6"><span class="kw">names</span>(histdata) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;distance&quot;</span>, <span class="st">&quot;count&quot;</span>)</a>
+<a class="sourceLine" id="cb166-7" data-line-number="7"><span class="kw">print</span>(histdata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    distance count
-#&gt; 1         0  3266
-#&gt; 2       100 32034
-#&gt; 3       200 67274
-#&gt; 4       300 15496
-#&gt; 5       400 42364
-#&gt; 6       500 53850
-#&gt; 7       600 15692
-#&gt; 8       700 97808
-#&gt; 9       800 15148
-#&gt; 10      900 36410
-#&gt; 11     1000 98654
-#&gt; 12     1100 12672
-#&gt; 13     1200   664
-#&gt; 14     1300 18168
-#&gt; 15     1400 18626
-#&gt; 16     1500 17546
-#&gt; 17     1600 18440
-#&gt; 18     1700   486
-#&gt; 19     1800   630
-#&gt; 20     1900  4934
-#&gt; 21     2100  9312
-#&gt; 22     2200 11994
-#&gt; 23     2300    38
-#&gt; 24     2400 52104
-#&gt; 25     2500 28512
-#&gt; 26     3300    16
-#&gt; 27     4900  1414</code></pre>
+#&gt; 1         0  1633
+#&gt; 2       100 16017
+#&gt; 3       200 33637
+#&gt; 4       300  7748
+#&gt; 5       400 21182
+#&gt; 6       500 26925
+#&gt; 7       600  7846
+#&gt; 8       700 48904
+#&gt; 9       800  7574
+#&gt; 10      900 18205
+#&gt; 11     1000 49327
+#&gt; 12     1100  6336
+#&gt; 13     1200   332
+#&gt; 14     1300  9084
+#&gt; 15     1400  9313
+#&gt; 16     1500  8773
+#&gt; 17     1600  9220
+#&gt; 18     1700   243
+#&gt; 19     1800   315
+#&gt; 20     1900  2467
+#&gt; 21     2100  4656
+#&gt; 22     2200  5997
+#&gt; 23     2300    19
+#&gt; 24     2400 26052
+#&gt; 25     2500 14256
+#&gt; 26     3300     8
+#&gt; 27     4900   707</code></pre>
 <p>From this data we can create a pretty histogram:</p>
-<div class="sourceCode" id="cb164"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb164-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
-<a class="sourceLine" id="cb164-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(distance, count), <span class="dt">data =</span> histdata) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
+<div class="sourceCode" id="cb168"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb168-1" data-line-number="1"><span class="kw">library</span>(ggplot2)</a>
+<a class="sourceLine" id="cb168-2" data-line-number="2"><span class="kw">ggplot</span>(<span class="kw">aes</span>(distance, count), <span class="dt">data =</span> histdata) <span class="op">+</span><span class="st"> </span><span class="kw">geom_col</span>()</a></code></pre></div>
 <p><img src="mongobook_files/figure-html/fighist-1.png" width="672" /></p>
 <p>Obviously we could have done binning in R instead, however if we are dealing with loads of data, doing it in database can be much more efficient.</p>
 

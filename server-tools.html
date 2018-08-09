@@ -174,7 +174,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul></li>
 <li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
-<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#aggregation-iterators"><i class="fa fa-check"></i><b>6.2</b> Aggregation Iterators</a></li>
+<li class="chapter" data-level="6.3" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.3</b> Map/Reduce</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="server-tools.html"><a href="server-tools.html"><i class="fa fa-check"></i><b>7</b> Server Tools</a><ul>
 <li class="chapter" data-level="7.1" data-path="server-tools.html"><a href="server-tools.html#running-commands"><i class="fa fa-check"></i><b>7.1</b> Running Commands</a></li>
@@ -185,6 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>8.2</b> GridFS Methods</a></li>
 <li class="chapter" data-level="8.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>8.3</b> Read / Write</a></li>
 <li class="chapter" data-level="8.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>8.4</b> Vectorized Upload/Download</a></li>
+<li class="chapter" data-level="8.5" data-path="gridfs.html"><a href="gridfs.html#select-by-id-1"><i class="fa fa-check"></i><b>8.5</b> Select by ID</a></li>
 </ul></li>
 <li class="divider"></li>
 <li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
@@ -211,11 +213,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="running-commands" class="section level2">
 <h2><span class="header-section-number">7.1</span> Running Commands</h2>
 <p>For mongodb operations that mongolite currently does not implement, you can still use the raw database command using the <code>run()</code> method:</p>
-<div class="sourceCode" id="cb164"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb164-1" data-line-number="1">col &lt;-<span class="st"> </span><span class="kw">mongo</span>()</a>
-<a class="sourceLine" id="cb164-2" data-line-number="2">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;ping&quot;: 1}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb169"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb169-1" data-line-number="1">col &lt;-<span class="st"> </span><span class="kw">mongo</span>()</a>
+<a class="sourceLine" id="cb169-2" data-line-number="2">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;ping&quot;: 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; $ok
 #&gt; [1] 1</code></pre>
-<div class="sourceCode" id="cb166"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb166-1" data-line-number="1">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listCollections&quot;:1}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb171"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb171-1" data-line-number="1">col<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listCollections&quot;:1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; $cursor
 #&gt; $cursor$id
 #&gt; [1] 0
@@ -225,33 +227,39 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt; 
 #&gt; $cursor$firstBatch
 #&gt;       name       type info.readOnly                                                      info.uuid idIndex.v
-#&gt; 1   mtcars collection         FALSE b9, 29, 55, a0, dc, 10, 44, 76, 8c, 61, 7a, 02, 1b, 22, b8, 8c         2
-#&gt; 2  flights collection         FALSE 6f, 99, 82, 4a, d3, d5, 43, e5, 9c, 80, 5b, 18, 7c, 72, f3, a1         2
-#&gt; 3   issues collection         FALSE 01, 4f, 87, e5, db, 23, 40, 8e, b4, 24, 7a, 54, ab, ca, af, 99         2
-#&gt; 4 subjects collection         FALSE d5, 51, 9e, 4c, 5f, e2, 4a, 62, 8f, 52, 6e, 74, a9, 39, 2d, 9c         2
-#&gt; 5 diamonds collection         FALSE 84, 76, 53, e2, 67, ce, 4a, ad, 94, 47, 89, e1, 85, 6b, 49, 36         2
+#&gt; 1 flights3 collection         FALSE f5, d9, 8a, 65, 8e, fc, 4f, 12, 9f, c3, fd, 8e, 24, 52, 53, a0         2
+#&gt; 2   mtcars collection         FALSE 8b, c3, 77, 90, f4, fd, 41, 3e, ad, cf, 87, 50, 8c, 72, 64, b5         2
+#&gt; 3  flights collection         FALSE e4, 27, 08, b2, 51, 5b, 43, 87, 8a, 05, 8e, b0, d6, 04, 42, 92         2
+#&gt; 4   issues collection         FALSE 92, 5a, ff, 84, 07, b6, 46, 26, a5, 56, 91, e9, 8d, f7, 21, a4         2
+#&gt; 5 diamonds collection         FALSE a0, 66, 0f, bc, c7, 46, 49, ea, a6, 1b, b8, 33, 45, d7, 81, c8         2
+#&gt; 6 flights2 collection         FALSE 1a, 02, 83, 24, ce, 54, 4c, 36, 82, bd, 05, e4, 78, ee, 89, aa         2
+#&gt; 7     iris collection         FALSE df, 64, d5, 0f, 9c, 70, 4a, 49, 9c, 7e, a0, 74, 57, 85, 9c, 3b         2
+#&gt; 8 subjects collection         FALSE 00, 26, 2d, 7f, 85, f0, 4d, db, a4, 1f, 31, 9e, 0b, a2, b2, 64         2
 #&gt;   idIndex._id idIndex.name    idIndex.ns
-#&gt; 1           1         _id_   test.mtcars
-#&gt; 2           1         _id_  test.flights
-#&gt; 3           1         _id_   test.issues
-#&gt; 4           1         _id_ test.subjects
+#&gt; 1           1         _id_ test.flights3
+#&gt; 2           1         _id_   test.mtcars
+#&gt; 3           1         _id_  test.flights
+#&gt; 4           1         _id_   test.issues
 #&gt; 5           1         _id_ test.diamonds
+#&gt; 6           1         _id_ test.flights2
+#&gt; 7           1         _id_     test.iris
+#&gt; 8           1         _id_ test.subjects
 #&gt; 
 #&gt; 
 #&gt; $ok
 #&gt; [1] 1</code></pre>
 <p>Some commands can only be run on the <code>admin</code> database:</p>
-<div class="sourceCode" id="cb168"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb168-1" data-line-number="1">admin &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">db =</span> <span class="st">&quot;admin&quot;</span>)</a>
-<a class="sourceLine" id="cb168-2" data-line-number="2">admin<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listDatabases&quot;:1}&#39;</span>)</a></code></pre></div>
+<div class="sourceCode" id="cb173"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb173-1" data-line-number="1">admin &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="dt">db =</span> <span class="st">&quot;admin&quot;</span>)</a>
+<a class="sourceLine" id="cb173-2" data-line-number="2">admin<span class="op">$</span><span class="kw">run</span>(<span class="st">&#39;{&quot;listDatabases&quot;:1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; $databases
 #&gt;     name sizeOnDisk empty
 #&gt; 1  admin      32768 FALSE
 #&gt; 2 config      73728 FALSE
-#&gt; 3  local      65536 FALSE
-#&gt; 4   test    3203072 FALSE
+#&gt; 3  local      73728 FALSE
+#&gt; 4   test   72740864 FALSE
 #&gt; 
 #&gt; $totalSize
-#&gt; [1] 3375104
+#&gt; [1] 72921088
 #&gt; 
 #&gt; $ok
 #&gt; [1] 1</code></pre>
@@ -259,19 +267,20 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="server-info" class="section level2">
 <h2><span class="header-section-number">7.2</span> Server Info</h2>
 <p>Some server information is available in the <code>$info()</code> method:</p>
-<div class="sourceCode" id="cb170"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb170-1" data-line-number="1">col<span class="op">$</span><span class="kw">info</span>()</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; List of 3
+<div class="sourceCode" id="cb175"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb175-1" data-line-number="1">col<span class="op">$</span><span class="kw">info</span>()</a></code></pre></div>
+<pre class="outputcode"><code>#&gt; List of 4
 #&gt;  $ collection: chr &quot;test&quot;
+#&gt;  $ db        : NULL
 #&gt;  $ stats     : NULL
 #&gt;  $ server    :List of 25
 #&gt;   ..$ host                     : chr &quot;Jeroens-MBP.fritz.box&quot;
-#&gt;   ..$ version                  : chr &quot;4.0.0&quot;
+#&gt;   ..$ version                  : chr &quot;4.0.1&quot;
 #&gt;   ..$ process                  : chr &quot;mongod&quot;
-#&gt;   ..$ pid                      : num 799
-#&gt;   ..$ uptime                   : num 13477
-#&gt;   ..$ uptimeMillis             : num 13476592
-#&gt;   ..$ uptimeEstimate           : num 13476
-#&gt;   ..$ localTime                : POSIXct[1:1], format: &quot;2018-08-03 00:26:47&quot;
+#&gt;   ..$ pid                      : num 64577
+#&gt;   ..$ uptime                   : num 5625
+#&gt;   ..$ uptimeMillis             : num 5625324
+#&gt;   ..$ uptimeEstimate           : num 5625
+#&gt;   ..$ localTime                : POSIXct[1:1], format: &quot;2018-08-09 22:18:01&quot;
 #&gt;   ..$ asserts                  :List of 5
 #&gt;   ..$ connections              :List of 3
 #&gt;   ..$ extra_info               :List of 2

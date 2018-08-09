@@ -174,7 +174,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul></li>
 <li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
-<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#aggregation-iterators"><i class="fa fa-check"></i><b>6.2</b> Aggregation Iterators</a></li>
+<li class="chapter" data-level="6.3" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.3</b> Map/Reduce</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="server-tools.html"><a href="server-tools.html"><i class="fa fa-check"></i><b>7</b> Server Tools</a><ul>
 <li class="chapter" data-level="7.1" data-path="server-tools.html"><a href="server-tools.html#running-commands"><i class="fa fa-check"></i><b>7.1</b> Running Commands</a></li>
@@ -185,6 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>8.2</b> GridFS Methods</a></li>
 <li class="chapter" data-level="8.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>8.3</b> Read / Write</a></li>
 <li class="chapter" data-level="8.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>8.4</b> Vectorized Upload/Download</a></li>
+<li class="chapter" data-level="8.5" data-path="gridfs.html"><a href="gridfs.html#select-by-id-1"><i class="fa fa-check"></i><b>8.5</b> Select by ID</a></li>
 </ul></li>
 <li class="divider"></li>
 <li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
@@ -221,29 +223,29 @@ we start by creating a new collection <strong>diamonds</strong> and insert an ex
 #&gt;  $ writeErrors: list()</code></pre>
 <p>The next chapter explains inserting data in more detail. For now let’s verify all our data was inserted:</p>
 <div class="sourceCode" id="cb56"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb56-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">count</span>() <span class="op">==</span><span class="st"> </span><span class="kw">nrow</span>(ggplot2<span class="op">::</span>diamonds)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; [1] FALSE</code></pre>
+<pre class="outputcode"><code>#&gt; [1] TRUE</code></pre>
 <p>Seems good!</p>
 <div id="query-syntax" class="section level2">
 <h2><span class="header-section-number">3.1</span> Query syntax</h2>
 <p>MongoDB uses <a href="https://docs.mongodb.com/manual/tutorial/query-documents/">JSON based syntax</a> to query documents. The empty query <code>{}</code> means: select all data. The same query parameter is used for multiple operations such as <code>find()</code>, <code>iterate()</code>, <code>count()</code>, <code>remove()</code> and <code>update()</code>. We need to specify the JSON query as a string in R.</p>
 <div class="sourceCode" id="cb58"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb58-1" data-line-number="1"><span class="co"># Get all records</span></a>
 <a class="sourceLine" id="cb58-2" data-line-number="2">dmd<span class="op">$</span><span class="kw">count</span>(<span class="st">&#39;{}&#39;</span>)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; [1] 107880</code></pre>
+<pre class="outputcode"><code>#&gt; [1] 53940</code></pre>
 <div class="sourceCode" id="cb60"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb60-1" data-line-number="1"><span class="co"># Read all the data back into R</span></a>
 <a class="sourceLine" id="cb60-2" data-line-number="2">alldata &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{}&#39;</span>)</a>
 <a class="sourceLine" id="cb60-3" data-line-number="3"><span class="kw">print</span>(alldata)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;        carat       cut color clarity depth table price     x     y     z
-#&gt; 1       0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
-#&gt; 2       0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
-#&gt; 3       0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
-#&gt; 4       0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
-#&gt; 5       0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
-#&gt; 6       0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
-#&gt; 7       0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
-#&gt; 8       0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
-#&gt; 9       0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
-#&gt; 10      0.23 Very Good     H     VS1  59.4  61.0   338  4.00  4.05  2.39
-#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 107870 rows ]</code></pre>
+<pre class="outputcode"><code>#&gt;       carat       cut color clarity depth table price     x     y     z
+#&gt; 1      0.23     Ideal     E     SI2  61.5  55.0   326  3.95  3.98  2.43
+#&gt; 2      0.21   Premium     E     SI1  59.8  61.0   326  3.89  3.84  2.31
+#&gt; 3      0.23      Good     E     VS1  56.9  65.0   327  4.05  4.07  2.31
+#&gt; 4      0.29   Premium     I     VS2  62.4  58.0   334  4.20  4.23  2.63
+#&gt; 5      0.31      Good     J     SI2  63.3  58.0   335  4.34  4.35  2.75
+#&gt; 6      0.24 Very Good     J    VVS2  62.8  57.0   336  3.94  3.96  2.48
+#&gt; 7      0.24 Very Good     I    VVS1  62.3  57.0   336  3.95  3.98  2.47
+#&gt; 8      0.26 Very Good     H     SI1  61.9  55.0   337  4.07  4.11  2.53
+#&gt; 9      0.22      Fair     E     VS2  65.1  61.0   337  3.87  3.78  2.49
+#&gt; 10     0.23 Very Good     H     VS1  59.4  61.0   338  4.00  4.05  2.39
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 53930 rows ]</code></pre>
 <p>To query all rows where <code>cut == &quot;Premium&quot; AND price &lt; 1000</code> you would run:</p>
 <div class="sourceCode" id="cb62"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb62-1" data-line-number="1">premium_diamonds &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>)</a>
 <a class="sourceLine" id="cb62-2" data-line-number="2"><span class="kw">print</span>(premium_diamonds)</a></code></pre></div>
@@ -258,10 +260,10 @@ we start by creating a new collection <strong>diamonds</strong> and insert an ex
 #&gt; 8     0.22 Premium     E     VS2  61.6  58.0   404 3.93 3.89 2.41
 #&gt; 9     0.22 Premium     D     VS2  59.3  62.0   404 3.91 3.88 2.31
 #&gt; 10    0.30 Premium     J     SI2  59.3  61.0   405 4.43 4.38 2.61
-#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 6390 rows ]</code></pre>
+#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 3190 rows ]</code></pre>
 <p>We can confirm that we get the same subset in R:</p>
 <div class="sourceCode" id="cb64"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb64-1" data-line-number="1"><span class="kw">nrow</span>(premium_diamonds)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt; [1] 6400</code></pre>
+<pre class="outputcode"><code>#&gt; [1] 3200</code></pre>
 <div class="sourceCode" id="cb66"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb66-1" data-line-number="1"><span class="kw">nrow</span>(<span class="kw">subset</span>(ggplot2<span class="op">::</span>diamonds, cut <span class="op">==</span><span class="st"> &quot;Premium&quot;</span> <span class="op">&amp;</span><span class="st"> </span>price <span class="op">&lt;</span><span class="st"> </span><span class="dv">1000</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; [1] 3200</code></pre>
 <p>To learn more about mongo data queries, study the
@@ -277,11 +279,11 @@ we start by creating a new collection <strong>diamonds</strong> and insert an ex
 <a class="sourceLine" id="cb68-5" data-line-number="5">)</a>
 <a class="sourceLine" id="cb68-6" data-line-number="6"><span class="kw">print</span>(test)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;                        _id     cut clarity
-#&gt; 1 5b636b1847a3020d441129ac Premium     SI1
-#&gt; 2 5b636b1847a3020d441129ae Premium     VS2
-#&gt; 3 5b636b1847a3020d441129b7 Premium     SI1
-#&gt; 4 5b636b1847a3020d441129b9 Premium     SI2
-#&gt; 5 5b636b1847a3020d441129ba Premium      I1</code></pre>
+#&gt; 1 5b6ca13c47a302fe131029dc Premium     SI1
+#&gt; 2 5b6ca13c47a302fe131029de Premium     VS2
+#&gt; 3 5b6ca13c47a302fe131029e7 Premium     SI1
+#&gt; 4 5b6ca13c47a302fe131029e9 Premium     SI2
+#&gt; 5 5b6ca13c47a302fe131029ea Premium      I1</code></pre>
 <p>By default mongo always includes the <code>id</code> field. To prevent this we need to explicitly disable it:</p>
 <div class="sourceCode" id="cb70"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb70-1" data-line-number="1">test &lt;-<span class="st"> </span>dmd<span class="op">$</span><span class="kw">find</span>(</a>
 <a class="sourceLine" id="cb70-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;, &quot;price&quot; : { &quot;$lt&quot; : 1000 } }&#39;</span>, </a>
@@ -303,12 +305,12 @@ we start by creating a new collection <strong>diamonds</strong> and insert an ex
 <div class="sourceCode" id="cb72"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb72-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">find</span>(<span class="st">&#39;{&quot;cut&quot; : &quot;Premium&quot;}&#39;</span>, <span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot;: -1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">7</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   carat     cut color clarity depth table price    x    y    z
 #&gt; 1  2.29 Premium     I     VS2  60.8    60 18823 8.50 8.47 5.16
-#&gt; 2  2.29 Premium     I     VS2  60.8    60 18823 8.50 8.47 5.16
-#&gt; 3  2.29 Premium     I     SI1  61.8    59 18797 8.52 8.45 5.24
-#&gt; 4  2.29 Premium     I     SI1  61.8    59 18797 8.52 8.45 5.24
-#&gt; 5  2.04 Premium     H     SI1  58.1    60 18795 8.37 8.28 4.84
-#&gt; 6  2.00 Premium     I     VS1  60.8    59 18795 8.13 8.02 4.91
-#&gt; 7  2.04 Premium     H     SI1  58.1    60 18795 8.37 8.28 4.84</code></pre>
+#&gt; 2  2.29 Premium     I     SI1  61.8    59 18797 8.52 8.45 5.24
+#&gt; 3  2.04 Premium     H     SI1  58.1    60 18795 8.37 8.28 4.84
+#&gt; 4  2.00 Premium     I     VS1  60.8    59 18795 8.13 8.02 4.91
+#&gt; 5  1.71 Premium     F     VS2  62.3    59 18791 7.57 7.53 4.70
+#&gt; 6  2.05 Premium     F     SI2  60.2    59 18784 8.28 8.33 5.00
+#&gt; 7  2.55 Premium     I     VS1  61.8    62 18766 8.70 8.65 5.36</code></pre>
 <p>Note that usually you should only sort by fields that have an index set on them. Sorting by unindexed fields can be very slow and the server might reach the memory limits on the server.</p>
 </div>
 <div id="indexing" class="section level2">
@@ -316,7 +318,7 @@ we start by creating a new collection <strong>diamonds</strong> and insert an ex
 <p>By default a collection only has an index for <code>_id</code>, which means that selecting or sorting by any other field is relatively slow.</p>
 <div class="sourceCode" id="cb74"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb74-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.002   0.000   0.189</code></pre>
+#&gt;   0.001   0.001   0.096</code></pre>
 <p>By adding an index, the field gets presorted and selecting or sorting it is almost immediate:</p>
 <div class="sourceCode" id="cb76"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb76-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price    name            ns
@@ -324,7 +326,7 @@ we start by creating a new collection <strong>diamonds</strong> and insert an ex
 #&gt; 2 2      NA         1 price_1 test.diamonds</code></pre>
 <div class="sourceCode" id="cb78"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb78-1" data-line-number="1"><span class="kw">system.time</span>(dmd<span class="op">$</span><span class="kw">find</span>(<span class="dt">sort =</span> <span class="st">&#39;{&quot;price&quot; : 1}&#39;</span>, <span class="dt">limit =</span> <span class="dv">1</span>))</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;    user  system elapsed 
-#&gt;   0.001   0.000   0.002</code></pre>
+#&gt;   0.002   0.000   0.002</code></pre>
 <p>In order to speed up queries involving multiple fields, you need to add a cross-index which intersects both fields:</p>
 <div class="sourceCode" id="cb80"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb80-1" data-line-number="1">dmd<span class="op">$</span><span class="kw">index</span>(<span class="dt">add =</span> <span class="st">&#39;{&quot;depth&quot; : 1}&#39;</span>)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt;   v key._id key.price key.depth    name            ns
@@ -360,12 +362,12 @@ we start by creating a new collection <strong>diamonds</strong> and insert an ex
 <a class="sourceLine" id="cb88-6" data-line-number="6">  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&quot;Found %.2f carat diamond for $%d</span><span class="ch">\n</span><span class="st">&quot;</span>, x<span class="op">$</span>carat, x<span class="op">$</span>price))</a>
 <a class="sourceLine" id="cb88-7" data-line-number="7">}</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; Found 2.29 carat diamond for $18823
-#&gt; Found 2.29 carat diamond for $18823
-#&gt; Found 2.29 carat diamond for $18797
 #&gt; Found 2.29 carat diamond for $18797
 #&gt; Found 2.00 carat diamond for $18795
 #&gt; Found 2.04 carat diamond for $18795
-#&gt; Found 2.00 carat diamond for $18795</code></pre>
+#&gt; Found 1.71 carat diamond for $18791
+#&gt; Found 2.05 carat diamond for $18784
+#&gt; Found 2.55 carat diamond for $18766</code></pre>
 <p>The iterator does not perform any simplification, so each <code>x</code> is simply a named list containing the parsed JSON record.</p>
 </div>
 <div id="select-by-date" class="section level2">
@@ -382,7 +384,7 @@ the column must be in <code>POSIXct</code> type.</p>
 <a class="sourceLine" id="cb90-8" data-line-number="8">issues &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;issues&quot;</span>)</a>
 <a class="sourceLine" id="cb90-9" data-line-number="9">issues<span class="op">$</span><span class="kw">insert</span>(mydata)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; List of 5
-#&gt;  $ nInserted  : num 30
+#&gt;  $ nInserted  : num 9
 #&gt;  $ nMatched   : num 0
 #&gt;  $ nRemoved   : num 0
 #&gt;  $ nUpserted  : num 0
@@ -392,41 +394,12 @@ the column must be in <code>POSIXct</code> type.</p>
 <a class="sourceLine" id="cb92-2" data-line-number="2">  <span class="dt">query =</span> <span class="st">&#39;{&quot;created_at&quot;: { &quot;$gte&quot; : { &quot;$date&quot; : &quot;2017-01-01T00:00:00Z&quot; }}}&#39;</span>,</a>
 <a class="sourceLine" id="cb92-3" data-line-number="3">  <span class="dt">fields =</span> <span class="st">&#39;{&quot;created_at&quot; : true, &quot;user.login&quot; : true, &quot;title&quot;:true, &quot;_id&quot;: false}&#39;</span></a>
 <a class="sourceLine" id="cb92-4" data-line-number="4">)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;                                          title          login          created_at
-#&gt; 1   Moves to canonical extended JSON output...       atheriel 2018-08-02 00:27:48
-#&gt; 2  Updates the specification tests to match...       atheriel 2018-08-01 21:28:49
-#&gt; 3               Request for Query Modifiers...    DavidHeslip 2018-07-24 12:23:27
-#&gt; 4  fixed json default parameter in run func...       LRAbbade 2018-07-11 16:27:03
-#&gt; 5  Why can not I install mongolite packages...  ChangMinSeung 2018-07-07 06:24:32
-#&gt; 6        Error: Unimplemented BSON type 14 ...  stevepetersen 2018-07-01 03:50:14
-#&gt; 7  Add database name to mongo info function...      Serenthia 2018-06-22 18:19:37
-#&gt; 8  Get database name of a connection to a n...      Serenthia 2018-06-21 23:54:15
-#&gt; 9       How to write R NULL value in Mongo?... gonzalezivan90 2018-06-21 22:41:51
-#&gt; 10 How do I close the connection with mongo...  brunoroquette 2018-06-05 18:47:20
-#&gt; 11                  decimals rounding issue...     tomfid1983 2018-05-21 18:49:04
-#&gt; 12 Looking for document to show sample abou...     psramkumar 2018-05-18 11:00:49
-#&gt; 13          How do I create a unique index?...         bidwbb 2018-04-19 19:55:22
-#&gt; 14 undefined symbol: _mongoc_linux_distro_s...         jet456 2018-04-18 20:09:04
-#&gt; 15 Installation failure in alpine linux (Do...        blmayer 2018-04-13 22:11:43
-#&gt; 16  Mongolite connection just stop working....   gliesian-llc 2018-04-02 15:39:50
-#&gt; 17              Get information from GridFS...  FidelCastillo 2018-03-23 10:49:28
-#&gt; 18 Documentation doesn&#39;t match implementati...      joerixaop 2018-02-19 17:10:01
-#&gt; 19            No error on broken connection...         jeroen 2018-01-29 14:39:03
-#&gt; 20               Remove mongolab references...       rlondner 2018-01-11 20:17:44
-#&gt; 21   Unable to install: missing zlib.h file...    rodgersk410 2018-01-02 21:51:11
-#&gt; 22 Reusing the same connection for several ...      mredaelli 2017-12-29 11:56:17
-#&gt; 23       Insert issue with numeric rownames...         jcaude 2017-09-29 11:25:50
-#&gt; 24 Request return type as JSON instead of d...      xiaodaigh 2017-09-25 15:51:37
-#&gt; 25 When do a find() I get Error: Elements n...      xiaodaigh 2017-09-19 13:29:57
-#&gt; 26  Is possible to support connection pool?...       smartguo 2017-08-29 04:34:07
-#&gt; 27            Query Issue with Aggregation ...  koushiksaha89 2017-05-25 09:52:11
-#&gt; 28                      colum has arraylist...   yueming-Chen 2017-05-04 06:25:33
-#&gt; 29 Adding NaN and Infinity values to databa...     LauraPalas 2017-04-20 18:20:16
-#&gt; 30 How to &quot;show databases&quot; and &quot;show collec...   kingsnakexxx 2017-03-31 04:05:58
-#&gt; 31  Moves to canonical extended JSON output...       atheriel 2018-08-02 00:27:48
-#&gt; 32 Updates the specification tests to match...       atheriel 2018-08-01 21:28:49
-#&gt; 33              Request for Query Modifiers...    DavidHeslip 2018-07-24 12:23:27
-#&gt;  [ reached getOption(&quot;max.print&quot;) -- omitted 27 rows ]</code></pre>
+<pre class="outputcode"><code>#&gt;                                         title         login          created_at
+#&gt; 1 Add an opt-in parser tailored to rectang...      atheriel 2018-08-09 17:14:18
+#&gt; 2              Request for Query Modifiers...   DavidHeslip 2018-07-24 12:23:27
+#&gt; 3          How do I create a unique index?...        bidwbb 2018-04-19 19:55:22
+#&gt; 4               Remove mongolab references...      rlondner 2018-01-11 20:17:44
+#&gt; 5            Query Issue with Aggregation ... koushiksaha89 2017-05-25 09:52:11</code></pre>
 <p>Note that confusingly, what R calls a <em>Date</em> is not a timestamp but rather a string which only contains the date (Y-M-D) part of a timestamp. This type cannot be queried in MongoDB.</p>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#date">manual</a> for details.</p>
 </div>
@@ -434,17 +407,16 @@ the column must be in <code>POSIXct</code> type.</p>
 <h2><span class="header-section-number">3.7</span> Select by ID</h2>
 <p>Each record inserted into MongoDB is automatically assigned an <code>&quot;_id&quot;</code> value.</p>
 <div class="sourceCode" id="cb94"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb94-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">fields=</span> <span class="st">&#39;{&quot;created_at&quot;:true, &quot;_id&quot;:true}&#39;</span>, <span class="dt">limit =</span> <span class="dv">10</span>)</a></code></pre></div>
-<pre class="outputcode"><code>#&gt;                         _id          created_at
-#&gt; 1  5b636b1d47a3020d4411fc60 2018-08-02 00:27:48
-#&gt; 2  5b636b1d47a3020d4411fc61 2018-08-01 21:28:49
-#&gt; 3  5b636b1d47a3020d4411fc62 2018-07-24 12:23:27
-#&gt; 4  5b636b1d47a3020d4411fc63 2018-07-11 16:27:03
-#&gt; 5  5b636b1d47a3020d4411fc64 2018-07-07 06:24:32
-#&gt; 6  5b636b1d47a3020d4411fc65 2018-07-01 03:50:14
-#&gt; 7  5b636b1d47a3020d4411fc66 2018-06-22 18:19:37
-#&gt; 8  5b636b1d47a3020d4411fc67 2018-06-21 23:54:15
-#&gt; 9  5b636b1d47a3020d4411fc68 2018-06-21 22:41:51
-#&gt; 10 5b636b1d47a3020d4411fc69 2018-06-05 18:47:20</code></pre>
+<pre class="outputcode"><code>#&gt;                        _id          created_at
+#&gt; 1 5b6ca14047a302fe1310fc8f 2018-08-09 17:14:18
+#&gt; 2 5b6ca14047a302fe1310fc90 2018-07-24 12:23:27
+#&gt; 3 5b6ca14047a302fe1310fc91 2018-04-19 19:55:22
+#&gt; 4 5b6ca14047a302fe1310fc92 2018-01-11 20:17:44
+#&gt; 5 5b6ca14047a302fe1310fc93 2017-05-25 09:52:11
+#&gt; 6 5b6ca14047a302fe1310fc94 2016-05-05 14:22:03
+#&gt; 7 5b6ca14047a302fe1310fc95 2015-08-11 19:10:15
+#&gt; 8 5b6ca14047a302fe1310fc96 2015-05-02 05:51:40
+#&gt; 9 5b6ca14047a302fe1310fc97 2015-04-27 04:29:51</code></pre>
 <p>Use the <code>{&quot;$oid&quot;}</code> operator (similar to <code>ObjectId()</code> in mongo) to select a record by it’s ID, for example:</p>
 <div class="sourceCode" id="cb96"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb96-1" data-line-number="1">issues<span class="op">$</span><span class="kw">find</span>(<span class="dt">query =</span> <span class="st">&#39;{&quot;_id&quot; : {&quot;$oid&quot;:&quot;58a83a6aba7cb2070210433e&quot;}}&#39;</span>)</a></code></pre></div>
 <p>See the MongoDB Extended JSON <a href="https://docs.mongodb.com/manual/reference/mongodb-extended-json/#oid">manual</a> for syntax details.</p>

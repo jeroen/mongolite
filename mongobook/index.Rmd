@@ -1,6 +1,6 @@
 --- 
 title: "Mongolite User Manual"
-date: "Version `r Sys.Date()`"
+date: "Mongolite `r packageVersion('mongolite')` (`r Sys.Date()`)"
 site: bookdown::bookdown_site
 output: bookdown::gitbook
 output_dir: "docs"

@@ -174,7 +174,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul></li>
 <li class="chapter" data-level="6" data-path="calculation.html"><a href="calculation.html"><i class="fa fa-check"></i><b>6</b> Calculation</a><ul>
 <li class="chapter" data-level="6.1" data-path="calculation.html"><a href="calculation.html#aggregate"><i class="fa fa-check"></i><b>6.1</b> Aggregate</a></li>
-<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.2</b> Map/Reduce</a></li>
+<li class="chapter" data-level="6.2" data-path="calculation.html"><a href="calculation.html#aggregation-iterators"><i class="fa fa-check"></i><b>6.2</b> Aggregation Iterators</a></li>
+<li class="chapter" data-level="6.3" data-path="calculation.html"><a href="calculation.html#mapreduce"><i class="fa fa-check"></i><b>6.3</b> Map/Reduce</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="server-tools.html"><a href="server-tools.html"><i class="fa fa-check"></i><b>7</b> Server Tools</a><ul>
 <li class="chapter" data-level="7.1" data-path="server-tools.html"><a href="server-tools.html#running-commands"><i class="fa fa-check"></i><b>7.1</b> Running Commands</a></li>
@@ -185,6 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="gridfs.html"><a href="gridfs.html#gridfs-methods"><i class="fa fa-check"></i><b>8.2</b> GridFS Methods</a></li>
 <li class="chapter" data-level="8.3" data-path="gridfs.html"><a href="gridfs.html#read-write"><i class="fa fa-check"></i><b>8.3</b> Read / Write</a></li>
 <li class="chapter" data-level="8.4" data-path="gridfs.html"><a href="gridfs.html#vectorized-uploaddownload"><i class="fa fa-check"></i><b>8.4</b> Vectorized Upload/Download</a></li>
+<li class="chapter" data-level="8.5" data-path="gridfs.html"><a href="gridfs.html#select-by-id-1"><i class="fa fa-check"></i><b>8.5</b> Select by ID</a></li>
 </ul></li>
 <li class="divider"></li>
 <li><a href="https://github.com/jeroen/mongolite/edit/gh-pages/mongobook" target="blank">(c) Jeroen Ooms, 2018</a></li>
@@ -212,15 +214,16 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h2><span class="header-section-number">2.1</span> Mongo URI Format</h2>
 <p>The <code>mongo()</code> function initiates a connection object to a MongoDB server. For example:</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="kw">library</span>(mongolite)</a>
-<a class="sourceLine" id="cb11-2" data-line-number="2">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test&quot;</span>)</a></code></pre></div>
+<a class="sourceLine" id="cb11-2" data-line-number="2">m &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test&quot;</span>)</a></code></pre></div>
 <p>To get an overview of available methods, simply print the object to the terminal.</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb12-1" data-line-number="1"><span class="kw">print</span>(m)</a></code></pre></div>
 <pre class="outputcode"><code>#&gt; &lt;Mongo collection&gt; &#39;mtcars&#39; 
-#&gt;  $aggregate(pipeline = &quot;{}&quot;, options = &quot;{\&quot;allowDiskUse\&quot;:true}&quot;, handler = NULL, pagesize = 1000) 
+#&gt;  $aggregate(pipeline = &quot;{}&quot;, options = &quot;{\&quot;allowDiskUse\&quot;:true}&quot;, handler = NULL, pagesize = 1000, iterate = FALSE) 
 #&gt;  $count(query = &quot;{}&quot;) 
+#&gt;  $disconnect(gc = TRUE) 
 #&gt;  $distinct(key, query = &quot;{}&quot;) 
 #&gt;  $drop() 
-#&gt;  $export(con = stdout(), bson = FALSE) 
+#&gt;  $export(con = stdout(), bson = FALSE, query = &quot;{}&quot;, fields = &quot;{}&quot;, sort = &quot;{\&quot;_id\&quot;:1}&quot;) 
 #&gt;  $find(query = &quot;{}&quot;, fields = &quot;{\&quot;_id\&quot;:0}&quot;, sort = &quot;{}&quot;, skip = 0, limit = 0, handler = NULL, pagesize = 1000) 
 #&gt;  $import(con, bson = FALSE) 
 #&gt;  $index(add = NULL, remove = NULL) 
@@ -231,7 +234,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 #&gt;  $remove(query, just_one = FALSE) 
 #&gt;  $rename(name, db = NULL) 
 #&gt;  $replace(query, update = &quot;{}&quot;, upsert = FALSE) 
-#&gt;  $run(command = &quot;{\&quot;ping\&quot;: 1}&quot;) 
+#&gt;  $run(command = &quot;{\&quot;ping\&quot;: 1}&quot;, simplify = TRUE) 
 #&gt;  $update(query, update = &quot;{\&quot;$set\&quot;:{}}&quot;, filters = NULL, upsert = FALSE, multiple = FALSE)</code></pre>
 <p>The R manual page for the <code>mongo()</code> function gives some brief descriptions as well.</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb14-1" data-line-number="1">?mongo</a></code></pre></div>
@@ -325,9 +328,9 @@ klist</code></pre>
 <div id="ssh-tunnel" class="section level2">
 <h2><span class="header-section-number">2.3</span> SSH Tunnel</h2>
 <p>To connect to MongoDB via an SSH tunnel, you need to setup the tunnel separately with an SSH client. For example the mongolite manual contains this example:</p>
-<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb27-1" data-line-number="1">con &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test&quot;</span>)</a></code></pre></div>
-<p>Assume we want to tunnel through <code>dev.opencpu.org</code> which runs an SSH server on the standard port 22 with username <code>jeroen</code>. To initiate a tunnel from <code>localhost:9999</code> to <code>ds043942.mongolab.com:43942</code> via the ssh server <code>dev.opencpu.org:22</code>, open a terminal and run:</p>
-<pre><code>ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -vN -p22</code></pre>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb27-1" data-line-number="1">con &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test&quot;</span>)</a></code></pre></div>
+<p>Assume we want to tunnel through <code>dev.opencpu.org</code> which runs an SSH server on the standard port 22 with username <code>jeroen</code>. To initiate a tunnel from <code>localhost:9999</code> to <code>mongo.opencpu.org:43942</code> via the ssh server <code>dev.opencpu.org:22</code>, open a terminal and run:</p>
+<pre><code>ssh -L 9999:mongo.opencpu.org:43942 jeroen@dev.opencpu.org -vN -p22</code></pre>
 <p>Some relevant <code>ssh</code> flags:</p>
 <ul>
 <li><code>-v</code> (optional) show verbose status output</li>
@@ -336,7 +339,7 @@ klist</code></pre>
 <li><code>-i/some/path/id_rsa</code> authenticate with ssh using a private key</li>
 </ul>
 <p>Check <code>man ssh</code> for more ssh options It is also possible to run this command directly from R:</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb29-1" data-line-number="1"><span class="kw">system</span>(<span class="st">&quot;ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -fN -p22&quot;</span>)</a>
+<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb29-1" data-line-number="1"><span class="kw">system</span>(<span class="st">&quot;ssh -L 9999:mongo.opencpu.org:43942 jeroen@dev.opencpu.org -fN -p22&quot;</span>)</a>
 <a class="sourceLine" id="cb29-2" data-line-number="2"><span class="kw">Sys.sleep</span>(<span class="dv">1</span>)</a></code></pre></div>
 <p>Once tunnel has been established, we can connect to our our ssh client which will tunnel traffic to our MongoDB server. In our example we run the ssh client on our localhost port 9999:</p>
 <div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb30-1" data-line-number="1">con &lt;-<span class="st"> </span><span class="kw">mongo</span>(<span class="st">&quot;mtcars&quot;</span>, <span class="dt">url =</span> <span class="st">&quot;mongodb://readwrite:test@localhost:9999/jeroen_test&quot;</span>)</a>
@@ -348,8 +351,8 @@ klist</code></pre>
 #&gt;  $ nUpserted  : num 0
 #&gt;  $ writeErrors: list()</code></pre>
 <pre><code>#&gt;           used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-#&gt; Ncells  577870 30.9    1155822 61.8         NA  1104972 59.1
-#&gt; Vcells 1183163  9.1    8388608 64.0      16384  2069573 15.8</code></pre>
+#&gt; Ncells  576878 30.9    1164368 62.2         NA   892812 47.7
+#&gt; Vcells 1115296  8.6    8388608 64.0      16384  1768567 13.5</code></pre>
 <p>If you want to setup a tunnel client on Windows and you do not have the <code>ssh</code> program, you can an SSH client like putty to setup the tunnel. See <a href="http://realprogrammers.com/how_to/set_up_an_ssh_tunnel_with_putty.html">this example</a>.</p>
 </div>
 <div id="ssl-options" class="section level2">
