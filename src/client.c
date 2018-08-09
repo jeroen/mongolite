@@ -2,15 +2,6 @@
 
 #define safe_string(x) x ? Rf_mkString(x) : R_NilValue
 
-SEXP R_mongo_client_server_status(SEXP ptr_client) {
-  bson_t reply;
-  bson_error_t err;
-  mongoc_client_t *client = r2client(ptr_client);
-  if(!mongoc_client_get_server_status(client, NULL, &reply, &err))
-    stop(err.message);
-  return bson2list(&reply);
-}
-
 SEXP R_default_ssl_options(){
   const mongoc_ssl_opt_t *opt = mongoc_ssl_opt_get_default();
   SEXP out = PROTECT(Rf_allocVector(VECSXP, 6));

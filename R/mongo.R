@@ -257,7 +257,7 @@ mongo_object <- function(col, verbose, orig){
         collection = mongo_collection_name(col),
         db = mongo_get_default_database(client),
         stats = tryCatch(mongo_collection_stats(col), error = function(e) NULL),
-        server = mongo_client_server_status(client)
+        server = mongo_client_server_status(col)
       ), class = "miniprint")
     }
 
