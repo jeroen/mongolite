@@ -75,13 +75,13 @@ post_process <- function(x){
   df
 }
 
-mongo_export <- function(col, con = stdout(), verbose = FALSE){
+mongo_export <- function(col, con = stdout(), query, fields, sort, verbose = FALSE){
   stopifnot(inherits(con, "connection"))
   if(!isOpen(con)){
     open(con, "w")
     on.exit(close(con))
   }
-  cur <- mongo_collection_find(col, query = '{}', fields = '{}', sort = '{"_id":1}')
+  cur <- mongo_collection_find(col, query = query, fields = fields, sort = sort)
   count <- 0;
   pagesize <- 100
   repeat {
@@ -99,13 +99,13 @@ mongo_export <- function(col, con = stdout(), verbose = FALSE){
 }
 
 # Same as mongo_export but with (binary) bson output
-mongo_dump <- function(col, con = stdout(), verbose = FALSE){
+mongo_dump <- function(col, con = stdout(), query, fields, sort, verbose = FALSE){
   stopifnot(inherits(con, "connection"))
   if(!isOpen(con)){
     open(con, "wb")
     on.exit(close(con))
   }
-  cur <- mongo_collection_find(col, query = '{}', fields = '{}')
+  cur <- mongo_collection_find(col, query = query, fields = fields, sort = sort)
   count <- 0
   pagesize <- 100
   repeat {
