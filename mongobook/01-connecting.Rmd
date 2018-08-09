@@ -6,7 +6,7 @@ The `mongo()` function initiates a connection object to a MongoDB server. For ex
 
 ```{r}
 library(mongolite)
-m <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
+m <- mongo("mtcars", url = "mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test")
 ```
 
 To get an overview of available methods, simply print the object to the terminal. 
@@ -145,13 +145,13 @@ m$find()
 To connect to MongoDB via an SSH tunnel, you need to setup the tunnel separately with an SSH client. For example the mongolite manual contains this example:
 
 ```r
-con <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
+con <- mongo("mtcars", url = "mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test")
 ```
 
-Assume we want to tunnel through `dev.opencpu.org` which runs an SSH server on the standard port 22 with username `jeroen`. To initiate a tunnel from `localhost:9999` to `ds043942.mongolab.com:43942` via the ssh server `dev.opencpu.org:22`, open a terminal and run:
+Assume we want to tunnel through `dev.opencpu.org` which runs an SSH server on the standard port 22 with username `jeroen`. To initiate a tunnel from `localhost:9999` to `mongo.opencpu.org:43942` via the ssh server `dev.opencpu.org:22`, open a terminal and run:
 
 ```
-ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -vN -p22
+ssh -L 9999:mongo.opencpu.org:43942 jeroen@dev.opencpu.org -vN -p22
 ```
 
 Some relevant `ssh` flags:
@@ -164,7 +164,7 @@ Some relevant `ssh` flags:
 Check `man ssh` for more ssh options It is also possible to run this command directly from R:
 
 ```{r}
-system("ssh -L 9999:ds043942.mongolab.com:43942 jeroen@dev.opencpu.org -fN -p22")
+system("ssh -L 9999:mongo.opencpu.org:43942 jeroen@dev.opencpu.org -fN -p22")
 Sys.sleep(1)
 ```
 
