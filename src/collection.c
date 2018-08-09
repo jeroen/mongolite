@@ -183,19 +183,6 @@ SEXP R_mongo_collection_find(SEXP ptr_col, SEXP ptr_query, SEXP ptr_opts) {
   return cursor2r(c, ptr_col);
 }
 
-SEXP R_mongo_collection_stats(SEXP ptr_col){
-  mongoc_collection_t *col = r2col(ptr_col);
-  bson_t reply;
-  bson_error_t err;
-  if(!mongoc_collection_stats(col, NULL, &reply, &err))
-    stop(err.message);
-
-  SEXP out = PROTECT(bson2list(&reply));
-  bson_destroy (&reply);
-  UNPROTECT(1);
-  return out;
-}
-
 SEXP R_mongo_collection_find_indexes(SEXP ptr_col) {
   mongoc_collection_t *col = r2col(ptr_col);
   bson_error_t err;
