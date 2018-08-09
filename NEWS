@@ -10,6 +10,7 @@
  - Added m$disconnect() method, with some internal refactoring
  - m$aggregate() gains an iterate parameter
  - m$export() gains query, field and sort parameters
+ - Switch to mongo.opencpu.org in examples
 
 1.6
  - Update mongo-c-driver to upstream 1.9.2

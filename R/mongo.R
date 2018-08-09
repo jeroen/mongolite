@@ -19,8 +19,8 @@
 #' @param options additional connection options such as SSL keys/certs.
 #' @return Upon success returns a pointer to a collection on the server.
 #' The collection can be interfaced using the methods described below.
-#' @examples # Connect to mongolabs
-#' con <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
+#' @examples # Connect to demo server
+#' con <- mongo("mtcars", url = "mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test")
 #' if(con$count() > 0) con$drop()
 #' con$insert(mtcars)
 #' stopifnot(con$count() == nrow(mtcars))

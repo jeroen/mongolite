@@ -59,8 +59,8 @@ and worked examples.
 }
 
 \examples{
-# Connect to mongolabs
-con <- mongo("mtcars", url = "mongodb://readwrite:test@ds043942.mongolab.com:43942/jeroen_test")
+# Connect to demo server
+con <- mongo("mtcars", url = "mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test")
 if(con$count() > 0) con$drop()
 con$insert(mtcars)
 stopifnot(con$count() == nrow(mtcars))
