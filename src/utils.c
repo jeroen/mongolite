@@ -132,6 +132,17 @@ static void fin_gridfs(SEXP ptr){
   R_ClearExternalPtr(ptr);
 }
 
+static void fin_uri(SEXP ptr){
+#ifdef MONGOLITE_DEBUG
+  MONGOC_MESSAGE("destroying mongoc uri.");
+#endif
+
+  if(!R_ExternalPtrAddr(ptr)) return;
+  mongoc_uri_destroy(R_ExternalPtrAddr(ptr));
+  R_SetExternalPtrProtected(ptr, R_NilValue);
+  R_ClearExternalPtr(ptr);
+}
+
 SEXP bson2r(bson_t* b){
   SEXP ptr = PROTECT(R_MakeExternalPtr(b, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_bson, 1);
@@ -168,6 +179,14 @@ SEXP client2r(mongoc_client_t *client){
   SEXP ptr = PROTECT(R_MakeExternalPtr(client, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(ptr, fin_client, 1);
   Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("mongo_client"));
+  UNPROTECT(1);
+  return ptr;
+}
+
+SEXP uri2r(mongoc_uri_t *uri){
+  SEXP ptr = PROTECT(R_MakeExternalPtr(uri, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(ptr, fin_uri, 1);
+  Rf_setAttrib(ptr, R_ClassSymbol, Rf_mkString("mongo_uri"));
   UNPROTECT(1);
   return ptr;
 }
