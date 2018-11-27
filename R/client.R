@@ -167,6 +167,34 @@ mongo_collection_create_index <- function(col, field = '{}'){
   .Call(R_mongo_collection_create_index, col, bson_or_json(field))
 }
 
+#' @useDynLib mongolite R_mongo_collection_create_index_with_opts
+mongo_collection_create_index_with_opts <- function(col, field = '{}', opts = list()){
+  stopifnot(is.character(field))
+  stopifnot(length(field) == 1)
+  stopifnot(is.list(opts))
+  
+  #defaults
+  defL <- list(unique = FALSE)
+
+  if(length(opts)) {
+    stopifnot(all(names(opts) %in% names(defL)))
+  }
+
+  if(!jsonlite::validate(field)){
+    if(grepl("[{}]", field))
+      stop("Index is not valid json or field name.")
+    field <- jsonlite::toJSON(structure(list(1), names = field), auto_unbox = TRUE)
+  }
+
+  #user defined values
+  if("unique" %in% names(opts)) {
+    stopifnot(is.logical(opts$unique))
+    defL$unique <- opts$unique
+  }
+
+  .Call(R_mongo_collection_create_index_with_opts, col, bson_or_json(field), defL$unique)
+}
+
 #' @useDynLib mongolite R_mongo_collection_drop_index
 mongo_collection_drop_index <- function(col, name){
   .Call(R_mongo_collection_drop_index, col, name)
