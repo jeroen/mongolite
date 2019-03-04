@@ -72,3 +72,5 @@ winlibs:
 
 clean:
 	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)
+
+.PHONY: all clean winlibs
