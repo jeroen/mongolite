@@ -9,7 +9,7 @@ PKG_CFLAGS = \
 
 PKG_LIBS = \
 	-L. -L../windows/openssl-1.1.0f/lib${R_ARCH} \
-	-Lmongoc -lstatmongoc -Lbson -lstatbson -lssl -lcrypto \
+	-Lmongoc -lstatmongoc -lssl -lcrypto \
 	-lcrypto -lgdi32 -lcrypt32 -lws2_32 -lsecur32 -ldnsapi -lz
 
 LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
@@ -51,7 +51,7 @@ ifeq "$(WIN)" "32"
 	LIBMONGOC += win32/ipv6.o
 endif
 
-STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
+STATLIB = mongoc/libstatmongoc.a
 
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
@@ -64,8 +64,6 @@ $(SHLIB): $(STATLIB)
 $(OBJECTS): winlibs
 
 $(STATLIB): $(LIBBSON) $(LIBMONGOC)
-	$(AR) rcs bson/libstatbson.a $(LIBBSON)
-	$(AR) rcs mongoc/libstatmongoc.a $(LIBMONGOC)
 
 winlibs:
 	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
