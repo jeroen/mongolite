@@ -50,7 +50,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     source $TMPDIR/autobrew
   fi
   PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-  PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib -lssl -lcrypto"
+  PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib -lssl -lcrypto $SASL_LIBS"
 fi
 
 # Apple has deprecated SASL but there is no alternative yet
