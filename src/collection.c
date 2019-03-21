@@ -149,6 +149,24 @@ SEXP R_mongo_collection_create_index(SEXP ptr_col, SEXP ptr_bson) {
   return Rf_ScalarLogical(1);
 }
 
+SEXP R_mongo_collection_create_index_with_opts(SEXP ptr_col, SEXP ptr_bson, SEXP unique_bool) {
+  mongoc_collection_t *col = r2col(ptr_col);
+  bson_t *keys = r2bson(ptr_bson);
+  bool unique_flag = Rf_asLogical(unique_bool);
+  const char * collection_name = mongoc_collection_get_name(col);
+  char * index_name = mongoc_collection_keys_to_index_string (keys);
+  bson_error_t err;
+
+  //From: https://s3.amazonaws.com/mciuploads/mongo-c-driver/docs/latest/create-indexes.html
+  bson_t * command = BCON_NEW ("createIndexes", BCON_UTF8 (collection_name), "indexes",
+    "[", "{", "key", BCON_DOCUMENT (keys), "name", BCON_UTF8 (index_name), "unique", BCON_BOOL (unique_flag), "}", "]");
+
+  if(!mongoc_collection_write_command_with_opts(col, command, NULL, NULL, &err))
+    stop(err.message);
+
+  return Rf_ScalarLogical(1);
+}
+
 SEXP R_mongo_collection_drop_index(SEXP ptr_col, SEXP name) {
   mongoc_collection_t *col = r2col(ptr_col);
   const char *str =  Rf_translateCharUTF8(Rf_asChar(name));
