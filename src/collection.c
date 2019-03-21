@@ -11,8 +11,9 @@ SEXP R_mongo_get_default_database(SEXP ptr_client) {
   mongoc_client_t *client = r2client(ptr_client);
   mongoc_database_t *db = mongoc_client_get_default_database(client);
   if(db){
-    SEXP out = Rf_mkString(mongoc_database_get_name(db));
+    SEXP out = PROTECT(Rf_mkString(mongoc_database_get_name(db)));
     mongoc_database_destroy(db);
+    UNPROTECT(1);
     return out;
   } else {
     return R_NilValue;

@@ -5,11 +5,12 @@ Description: High-performance MongoDB client based on 'mongo-c-driver' and 'json
     Includes support for aggregation, indexing, map-reduce, streaming, encryption,
     enterprise authentication, and GridFS. The online user manual provides an overview 
     of the available methods in the package: <https://jeroen.github.io/mongolite/>.
-Version: 2.1
+Version: 2.0.2
 Authors@R: c(
-    person("Jeroen", "Ooms", ,"jeroen@berkeley.edu", role = c("aut", "cre")),
-    person("MongoDB, Inc", role = "cph", comment = "Bundled mongo-c-driver, see AUTHORS file")
-  )
+    person("Jeroen", "Ooms", ,"jeroen@berkeley.edu", role = c("aut", "cre"),
+      comment = c(ORCID = "0000-0002-4035-0289")),
+    person("MongoDB, Inc", role = "cph", 
+      comment = "Bundled mongo-c-driver, see AUTHORS file"))
 Imports:
     jsonlite (>= 1.4),
     openssl (>= 1.0),

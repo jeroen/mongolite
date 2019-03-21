@@ -7,10 +7,10 @@ void bson_reader_finalize(void *handle){
 
 ssize_t bson_reader_feed(void *handle, void *buf, size_t count){
   int err;
-  SEXP *con = (SEXP*) handle;
+  SEXP con = (SEXP) handle;
   SEXP x = PROTECT(Rf_lcons(Rf_ScalarInteger(count), R_NilValue));
   SEXP y = PROTECT(Rf_lcons(Rf_mkString("raw"), x));
-  SEXP z = PROTECT(Rf_lcons(*con, y));
+  SEXP z = PROTECT(Rf_lcons(con, y));
   SEXP readbin = PROTECT(Rf_install("readBin"));
   SEXP call = PROTECT(Rf_lcons(readbin, z));
   SEXP res = PROTECT(R_tryEval(call, R_GlobalEnv, &err));
@@ -28,7 +28,7 @@ ssize_t bson_reader_feed(void *handle, void *buf, size_t count){
 SEXP R_mongo_restore(SEXP con, SEXP ptr_col, SEXP verb) {
   bool verbose = Rf_asLogical(verb);
   mongoc_collection_t *col = r2col(ptr_col);
-  bson_reader_t *reader = bson_reader_new_from_handle(&con, bson_reader_feed, bson_reader_finalize);
+  bson_reader_t *reader = bson_reader_new_from_handle(con, bson_reader_feed, bson_reader_finalize);
   mongoc_bulk_operation_t *bulk = NULL;
 
   const bson_t *b;
