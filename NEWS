@@ -1,3 +1,6 @@
+2.0.1
+ - Fix some rchk false positives because cran
+
 2.0
  - Stable GridFS support!
  - Lazy connection pooling: automatically re-use existing connections

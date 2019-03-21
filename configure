@@ -49,8 +49,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > $TMPDIR/autobrew
     source $TMPDIR/autobrew
   fi
-  PKG_CFLAGS="$PKG_CFLAGS -I$BREWDIR/opt/$PKG_BREW_NAME/include"
-  PKG_LIBS="$PKG_CFLAGS -L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+  PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib -lssl -lcrypto $SASL_LIBS"
 fi
 
 # Apple has deprecated SASL but there is no alternative yet

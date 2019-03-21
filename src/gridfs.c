@@ -122,8 +122,9 @@ SEXP R_mongo_gridfs_upload(SEXP ptr_fs, SEXP name, SEXP path, SEXP content_type,
     mongoc_gridfs_file_destroy (file);
     stop(err.message);
   }
-  SEXP val = create_outlist(file);
+  SEXP val = PROTECT(create_outlist(file));
   mongoc_gridfs_file_destroy (file);
+  UNPROTECT(1);
   return val;
 }
 
@@ -153,8 +154,9 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
   }
   fclose(fp);
   mongoc_stream_destroy (stream);
-  SEXP val = create_outlist(file);
-  mongoc_gridfs_file_destroy (file);
+  SEXP val = PROTECT(create_outlist(file));
+  mongoc_gridfs_file_destroy(file);
+  UNPROTECT(1);
   return val;
 }
 
@@ -163,8 +165,9 @@ SEXP R_mongo_gridfs_remove(SEXP ptr_fs, SEXP name){
   mongoc_gridfs_file_t *file = find_single_file(ptr_fs, name);
   if(!mongoc_gridfs_file_remove(file, &err))
     stop(err.message);
-  SEXP val = create_outlist(file);
+  SEXP val = PROTECT(create_outlist(file));
   mongoc_gridfs_file_destroy (file);
+  UNPROTECT(1);
   return val;
 }
 
@@ -273,7 +276,8 @@ SEXP R_stream_write_chunk(SEXP ptr, SEXP buf){
 }
 
 SEXP R_stream_close(SEXP ptr){
-  SEXP val = create_outlist(get_stream_ptr(ptr)->file);
+  SEXP val = PROTECT(create_outlist(get_stream_ptr(ptr)->file));
   fin_filestream(ptr);
+  UNPROTECT(1);
   return val;
 }
