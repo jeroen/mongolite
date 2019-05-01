@@ -3,12 +3,11 @@ cache: packages
 latex: false
 fortran: false
 
+#warnings_are_errors: false
+
 matrix:
   include:
-    - os: linux
-      dist: trusty
-      env: R_CODECOV=true
-      r: devel
+    - dist: xenial
       services: mongodb
       r_check_args: '--run-donttest'
     - os: osx
@@ -18,21 +17,18 @@ matrix:
         - brew install mongodb
         - brew services start mongodb
       r_check_args: '--run-donttest'
-      warnings_are_errors: false
     - os: osx
       brew_packages: openssl@1.1
       before_install: brew uninstall --ignore-dependencies openssl
       env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
-      warnings_are_errors: false
     - os: osx
       brew_packages: libressl
       before_install: brew uninstall --ignore-dependencies openssl openssl@1.1
       env: PKG_CONFIG_PATH="/usr/local/opt/libressl/lib/pkgconfig"
-      warnings_are_errors: false
     - os: osx
       osx_image: xcode7.3
       disable_homebrew: true
-      warnings_are_errors: false
+      before_install: sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
 
 addons:
   apt:
@@ -41,17 +37,3 @@ addons:
     - libsasl2-dev
     - libicu-dev
     - valgrind
-
-r_github_packages:
-  - jimhester/covr
-
-warnings_are_errors: true
-#r_check_revdep: true
-
-notifications:
-  email:
-    on_success: change
-    on_failure: change
-
-after_success:
-  - if [[ "${R_CODECOV}" ]]; then R -e 'covr::codecov(type = "all")'; fi
