@@ -1,3 +1,6 @@
+2.0.2
+ - Try to fix CRAN build on MacOS (CRAN builder has broken openssl)
+
 2.0.1
  - Fix some rchk false positives because cran
 
