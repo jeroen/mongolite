@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Anticonf (tm) script by Jeroen Ooms (2017)
+# Anticonf (tm) script by Jeroen Ooms (2019)
 # This script will query 'pkg-config' for the required cflags and ldflags.
 # If pkg-config is unavailable or does not find the library, try setting
 # INCLUDE_DIR and LIB_DIR manually via e.g:
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
+
+# Special case: On MacOS we now use the native crypto instead of openssl
+if [[ "$OSTYPE" == "darwin"* ]] && [[ -z "$MONGOLITE_USE_OPENSSL" ]]; then
+  echo "Using native crypto for MacOS, don't need OpenSSL"
+  cat src/osx/Makevars > src/Makevars
+  exit 0
+fi
 
 # Library settings
 PKG_CONFIG_NAME="openssl"
