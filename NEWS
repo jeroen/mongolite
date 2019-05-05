@@ -1,3 +1,7 @@
+2.1
+ - Update vendored mongo-c-driver to v1.4.0
+ - MacOS now defaults to OSX native secure transport SSL instead of openssl
+
 2.0.2
  - Try to fix CRAN build on MacOS (CRAN builder has broken openssl)
 
