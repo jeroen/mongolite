@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_LIST_H
 #define MONGOC_LIST_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
+#include <bson/bson.h>
 
 
 BSON_BEGIN_DECLS

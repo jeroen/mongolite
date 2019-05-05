@@ -14,24 +14,22 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_TOPOLOGY_SCANNER_PRIVATE_H
 #define MONGOC_TOPOLOGY_SCANNER_PRIVATE_H
 
 /* TODO: rename to TOPOLOGY scanner */
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
-#include "mongoc-async-private.h"
-#include "mongoc-async-cmd-private.h"
-#include "mongoc-handshake-private.h"
-#include "mongoc-host-list.h"
-#include "mongoc-apm-private.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-async-private.h"
+#include "mongoc/mongoc-async-cmd-private.h"
+#include "mongoc/mongoc-handshake-private.h"
+#include "mongoc/mongoc-host-list.h"
+#include "mongoc/mongoc-apm-private.h"
 
 #ifdef MONGOC_ENABLE_SSL
-#include "mongoc-ssl.h"
+#include "mongoc/mongoc-ssl.h"
 #endif
 
 BSON_BEGIN_DECLS
@@ -132,6 +130,9 @@ mongoc_topology_scanner_add (mongoc_topology_scanner_t *ts,
 
 void
 mongoc_topology_scanner_scan (mongoc_topology_scanner_t *ts, uint32_t id);
+
+void
+mongoc_topology_scanner_disconnect (mongoc_topology_scanner_t *scanner);
 
 void
 mongoc_topology_scanner_node_retire (mongoc_topology_scanner_node_t *node);

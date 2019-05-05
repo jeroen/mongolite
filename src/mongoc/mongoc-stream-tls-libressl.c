@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-#include "mongoc-config.h"
+#include "mongoc/mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_LIBRESSL
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-trace-private.h"
-#include "mongoc-log.h"
-#include "mongoc-stream-tls.h"
-#include "mongoc-stream-tls-private.h"
-#include "mongoc-stream-private.h"
-#include "mongoc-stream-tls-libressl-private.h"
-#include "mongoc-libressl-private.h"
-#include "mongoc-ssl.h"
-#include "mongoc-error.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-stream-socket.h"
-#include "mongoc-socket-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-stream-tls.h"
+#include "mongoc/mongoc-stream-tls-private.h"
+#include "mongoc/mongoc-stream-private.h"
+#include "mongoc/mongoc-stream-tls-libressl-private.h"
+#include "mongoc/mongoc-libressl-private.h"
+#include "mongoc/mongoc-ssl.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-stream-socket.h"
+#include "mongoc/mongoc-socket-private.h"
 
 #include <tls.h>
 
@@ -277,7 +277,7 @@ _mongoc_stream_tls_libressl_writev (mongoc_stream_t *stream,
       mongoc_counter_streams_egress_add (ret);
    }
 
-   TRACE ("Returning %zu", ret);
+   TRACE ("Returning %d", (int) ret);
    RETURN (ret);
 }
 
@@ -451,6 +451,16 @@ _mongoc_stream_tls_libressl_timed_out (mongoc_stream_t *stream)
    RETURN (mongoc_stream_timed_out (tls->base_stream));
 }
 
+static bool
+_mongoc_stream_tls_libressl_should_retry (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
+
+   ENTRY;
+
+   RETURN (mongoc_stream_should_retry (tls->base_stream));
+}
+
 mongoc_stream_t *
 mongoc_stream_tls_libressl_new (mongoc_stream_t *base_stream,
                                 const char *host,
@@ -485,6 +495,7 @@ mongoc_stream_tls_libressl_new (mongoc_stream_t *base_stream,
    tls->parent.get_base_stream = _mongoc_stream_tls_libressl_get_base_stream;
    tls->parent.check_closed = _mongoc_stream_tls_libressl_check_closed;
    tls->parent.timed_out = _mongoc_stream_tls_libressl_timed_out;
+   tls->parent.should_retry = _mongoc_stream_tls_libressl_should_retry;
    memcpy (&tls->ssl_opts, opt, sizeof tls->ssl_opts);
    tls->handshake = mongoc_stream_tls_libressl_handshake;
    tls->ctx = (void *) libressl;

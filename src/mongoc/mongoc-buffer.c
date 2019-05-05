@@ -15,12 +15,12 @@
  */
 
 
-#include <bson.h>
+#include <bson/bson.h>
 #include <stdarg.h>
 
-#include "mongoc-error.h"
-#include "mongoc-buffer-private.h"
-#include "mongoc-trace-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-buffer-private.h"
+#include "mongoc/mongoc-trace-private.h"
 
 
 #undef MONGOC_LOG_DOMAIN
@@ -230,7 +230,7 @@ _mongoc_buffer_append_from_stream (mongoc_buffer_t *buffer,
  * _mongoc_buffer_fill:
  * @buffer: A mongoc_buffer_t.
  * @stream: A stream to read from.
- * @min_bytes: The minumum number of bytes to read.
+ * @min_bytes: The minimum number of bytes to read.
  * @error: A location for a bson_error_t or NULL.
  *
  * Attempts to fill the entire buffer, or at least @min_bytes.
@@ -333,15 +333,9 @@ _mongoc_buffer_try_append_from_stream (mongoc_buffer_t *buffer,
    BSON_ASSERT ((buffer->datalen + size) < INT_MAX);
 
    if (!SPACE_FOR (buffer, size)) {
-      if (buffer->len) {
-         memmove (&buffer->data[0], buffer->data, buffer->len);
-      }
-
-      if (!SPACE_FOR (buffer, size)) {
-         buffer->datalen = bson_next_power_of_two (size + buffer->len);
-         buffer->data = (uint8_t *) buffer->realloc_func (
-            buffer->data, buffer->datalen, NULL);
-      }
+      buffer->datalen = bson_next_power_of_two (size + buffer->len);
+      buffer->data =
+         (uint8_t *) buffer->realloc_func (buffer->data, buffer->datalen, NULL);
    }
 
    buf = &buffer->data[buffer->len];

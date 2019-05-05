@@ -15,8 +15,8 @@
  */
 
 
-#include "bson-private.h"
-#include "bson-writer.h"
+#include "bson/bson-private.h"
+#include "bson/bson-writer.h"
 
 
 struct _bson_writer_t {
@@ -113,7 +113,7 @@ bson_writer_destroy (bson_writer_t *writer) /* IN */
  *       document currently being written.
  *
  *       This is useful if you want to check to see if you've passed a given
- *       memory boundry that cannot be sent in a packet. See
+ *       memory boundary that cannot be sent in a packet. See
  *       bson_writer_rollback() to abort the current document being written.
  *
  * Returns:

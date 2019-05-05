@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "mongoc-config.h"
+#include "mongoc/mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
 
-#include <bson.h>
+#include <bson/bson.h>
 #include <limits.h>
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -28,20 +28,20 @@
 
 #include <string.h>
 
-#include "mongoc-init.h"
-#include "mongoc-socket.h"
-#include "mongoc-ssl.h"
-#include "mongoc-openssl-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-thread-private.h"
-#include "mongoc-util-private.h"
+#include "mongoc/mongoc-init.h"
+#include "mongoc/mongoc-socket.h"
+#include "mongoc/mongoc-ssl.h"
+#include "mongoc/mongoc-openssl-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-thread-private.h"
+#include "mongoc/mongoc-util-private.h"
 
 #ifdef _WIN32
 #include <wincrypt.h>
 #endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-static mongoc_mutex_t *gMongocOpenSslThreadLocks;
+static bson_mutex_t *gMongocOpenSslThreadLocks;
 
 static void
 _mongoc_openssl_thread_startup (void);
@@ -130,7 +130,7 @@ _mongoc_openssl_import_cert_store (LPWSTR store_name,
                      (LPTSTR) &msg,
                      0,
                      NULL);
-      MONGOC_ERROR ("Can't open CA store: 0x%.8X: '%s'", (unsigned int) GetLastError (), msg);
+      MONGOC_ERROR ("Can't open CA store: 0x%.8X: '%s'", GetLastError (), msg);
       LocalFree (msg);
       return false;
    }
@@ -626,9 +626,9 @@ _mongoc_openssl_thread_locking_callback (int mode,
                                          int line)
 {
    if (mode & CRYPTO_LOCK) {
-      mongoc_mutex_lock (&gMongocOpenSslThreadLocks[type]);
+      bson_mutex_lock (&gMongocOpenSslThreadLocks[type]);
    } else {
-      mongoc_mutex_unlock (&gMongocOpenSslThreadLocks[type]);
+      bson_mutex_unlock (&gMongocOpenSslThreadLocks[type]);
    }
 }
 
@@ -637,11 +637,11 @@ _mongoc_openssl_thread_startup (void)
 {
    int i;
 
-   gMongocOpenSslThreadLocks = (mongoc_mutex_t *) OPENSSL_malloc (
-      CRYPTO_num_locks () * sizeof (mongoc_mutex_t));
+   gMongocOpenSslThreadLocks = (bson_mutex_t *) OPENSSL_malloc (
+      CRYPTO_num_locks () * sizeof (bson_mutex_t));
 
    for (i = 0; i < CRYPTO_num_locks (); i++) {
-      mongoc_mutex_init (&gMongocOpenSslThreadLocks[i]);
+      bson_mutex_init (&gMongocOpenSslThreadLocks[i]);
    }
 
    if (!CRYPTO_get_locking_callback ()) {
@@ -665,7 +665,7 @@ _mongoc_openssl_thread_cleanup (void)
    }
 
    for (i = 0; i < CRYPTO_num_locks (); i++) {
-      mongoc_mutex_destroy (&gMongocOpenSslThreadLocks[i]);
+      bson_mutex_destroy (&gMongocOpenSslThreadLocks[i]);
    }
    OPENSSL_free (gMongocOpenSslThreadLocks);
 }

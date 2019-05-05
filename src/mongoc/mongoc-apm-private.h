@@ -17,12 +17,8 @@
 #ifndef MONGOC_APM_PRIVATE_H
 #define MONGOC_APM_PRIVATE_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
-#include "mongoc-apm.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-apm.h"
 
 BSON_BEGIN_DECLS
 

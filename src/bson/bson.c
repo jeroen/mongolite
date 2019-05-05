@@ -15,11 +15,11 @@
  */
 
 
-#include "bson.h"
-#include "bson-config.h"
-#include "bson-private.h"
-#include "bson-string.h"
-#include "bson-iso8601-private.h"
+#include "bson/bson.h"
+#include "bson/bson-config.h"
+#include "bson/bson-private.h"
+#include "bson/bson-string.h"
+#include "bson/bson-iso8601-private.h"
 
 #include "common-b64-private.h"
 
@@ -873,7 +873,7 @@ bson_append_binary (bson_t *bson,           /* IN */
  *       a boolean indicated by @value.
  *
  * Returns:
- *       true if succesful; otherwise false.
+ *       true if successful; otherwise false.
  *
  * Side effects:
  *       None.
@@ -2246,11 +2246,11 @@ should_ignore (const char *first_exclude, va_list args, const char *name)
 }
 
 
-static void
-_bson_copy_to_excluding_va (const bson_t *src,
-                            bson_t *dst,
-                            const char *first_exclude,
-                            va_list args)
+void
+bson_copy_to_excluding_noinit_va (const bson_t *src,
+                                  bson_t *dst,
+                                  const char *first_exclude,
+                                  va_list args)
 {
    bson_iter_t iter;
 
@@ -2286,7 +2286,7 @@ bson_copy_to_excluding (const bson_t *src,
    bson_init (dst);
 
    va_start (args, first_exclude);
-   _bson_copy_to_excluding_va (src, dst, first_exclude, args);
+   bson_copy_to_excluding_noinit_va (src, dst, first_exclude, args);
    va_end (args);
 }
 
@@ -2303,7 +2303,7 @@ bson_copy_to_excluding_noinit (const bson_t *src,
    BSON_ASSERT (first_exclude);
 
    va_start (args, first_exclude);
-   _bson_copy_to_excluding_va (src, dst, first_exclude, args);
+   bson_copy_to_excluding_noinit_va (src, dst, first_exclude, args);
    va_end (args);
 }
 
@@ -2636,7 +2636,7 @@ _bson_as_json_visit_double (const bson_iter_t *iter,
       }
    } else {
       start_len = str->len;
-      bson_string_append_printf (str, "%.15g", v_double);
+      bson_string_append_printf (str, "%.20g", v_double);
 
       /* ensure trailing ".0" to distinguish "3" from "3.0" */
       if (strspn (&str->str[start_len], "0123456789-") ==
@@ -3229,7 +3229,6 @@ bson_array_as_json (const bson_t *bson, size_t *length)
    state.depth = 0;
    state.err_offset = &err_offset;
    state.mode = BSON_JSON_MODE_LEGACY;
-   bson_iter_visit_all (&iter, &bson_as_json_visitors, &state);
 
    if (bson_iter_visit_all (&iter, &bson_as_json_visitors, &state) ||
        err_offset != -1) {
@@ -3429,7 +3428,7 @@ _bson_iter_validate_document (const bson_iter_t *iter,
       state->phase = BSON_VALIDATE_PHASE_LF_REF_KEY;
    }
 
-   bson_iter_visit_all (&child, &bson_validate_funcs, state);
+   (void) bson_iter_visit_all (&child, &bson_validate_funcs, state);
 
    if (state->phase == BSON_VALIDATE_PHASE_LF_ID_KEY ||
        state->phase == BSON_VALIDATE_PHASE_LF_REF_UTF8 ||

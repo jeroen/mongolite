@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
+#include "bson/bson-prelude.h"
+
 
 #ifndef BSON_OID_H
 #define BSON_OID_H
 
 
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
-
-
 #include <time.h>
 
-#include "bson-context.h"
-#include "bson-macros.h"
-#include "bson-types.h"
-#include "bson-endian.h"
+#include "bson/bson-context.h"
+#include "bson/bson-macros.h"
+#include "bson/bson-types.h"
+#include "bson/bson-endian.h"
 
 
 BSON_BEGIN_DECLS
@@ -54,7 +51,8 @@ bson_oid_init_from_data (bson_oid_t *oid, const uint8_t *data);
 BSON_EXPORT (void)
 bson_oid_init_from_string (bson_oid_t *oid, const char *str);
 BSON_EXPORT (void)
-bson_oid_init_sequence (bson_oid_t *oid, bson_context_t *context);
+bson_oid_init_sequence (bson_oid_t *oid,
+                        bson_context_t *context) BSON_GNUC_DEPRECATED;
 BSON_EXPORT (void)
 bson_oid_to_string (const bson_oid_t *oid, char str[25]);
 
@@ -146,8 +144,8 @@ bson_oid_copy_unsafe (const bson_oid_t *src, bson_oid_t *dst)
  * @hex: A character to parse to its integer value.
  *
  * This function contains a jump table to return the integer value for a
- * character containing a hexidecimal value (0-9, a-f, A-F). If the character
- * is not a hexidecimal character then zero is returned.
+ * character containing a hexadecimal value (0-9, a-f, A-F). If the character
+ * is not a hexadecimal character then zero is returned.
  *
  * Returns: An integer between 0 and 15.
  */
@@ -202,9 +200,9 @@ bson_oid_parse_hex_char (char hex)
 /**
  * bson_oid_init_from_string_unsafe:
  * @oid: A bson_oid_t to store the result.
- * @str: A 24-character hexidecimal encoded string.
+ * @str: A 24-character hexadecimal encoded string.
  *
- * Parses a string containing 24 hexidecimal encoded bytes into a bson_oid_t.
+ * Parses a string containing 24 hexadecimal encoded bytes into a bson_oid_t.
  * This function is meant to be as fast as possible and inlined into your
  * code. For that purpose, the function does not perform any sort of bounds
  * checking and it is the callers responsibility to ensure they are passing

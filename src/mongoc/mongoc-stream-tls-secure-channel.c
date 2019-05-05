@@ -49,23 +49,23 @@
  * Thanks for code and inspiration!
  */
 
-#include "mongoc-config.h"
+#include "mongoc/mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_SECURE_CHANNEL
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-trace-private.h"
-#include "mongoc-log.h"
-#include "mongoc-stream-tls.h"
-#include "mongoc-stream-tls-private.h"
-#include "mongoc-stream-private.h"
-#include "mongoc-stream-tls-secure-channel-private.h"
-#include "mongoc-secure-channel-private.h"
-#include "mongoc-ssl.h"
-#include "mongoc-error.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-errno-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-stream-tls.h"
+#include "mongoc/mongoc-stream-tls-private.h"
+#include "mongoc/mongoc-stream-private.h"
+#include "mongoc/mongoc-stream-tls-secure-channel-private.h"
+#include "mongoc/mongoc-secure-channel-private.h"
+#include "mongoc/mongoc-ssl.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-errno-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "stream-tls-secure-channel"
@@ -456,7 +456,7 @@ _mongoc_stream_tls_secure_channel_writev (mongoc_stream_t *stream,
       mongoc_counter_streams_egress_add (ret);
    }
 
-   TRACE ("Returning %zu", ret);
+   TRACE ("Returning %d", (int) ret);
    RETURN (ret);
 }
 
@@ -474,10 +474,10 @@ _mongoc_stream_tls_secure_channel_debuf (
 
    secure_channel->decdata_offset -= s;
 
-   TRACE ("decrypted data returned %zu", s);
-   TRACE ("decrypted data buffer: offset %zu length %zu",
-          secure_channel->decdata_offset,
-          secure_channel->decdata_length);
+   TRACE ("decrypted data returned %d", (int) s);
+   TRACE ("decrypted data buffer: offset %d length %d",
+          (int) secure_channel->decdata_offset,
+          (int) secure_channel->decdata_length);
 
    return (ssize_t) s;
 }
@@ -496,9 +496,9 @@ _mongoc_stream_tls_secure_channel_decrypt (
    SecBufferDesc inbuf_desc;
    SECURITY_STATUS sspi_status = SEC_E_OK;
 
-   TRACE ("encrypted data buffer: offset %zu length %zu",
-          secure_channel->encdata_offset,
-          secure_channel->encdata_length);
+   TRACE ("encrypted data buffer: offset %d length %d",
+          (int) secure_channel->encdata_offset,
+          (int) secure_channel->encdata_length);
 
    /* decrypt loop */
    while (secure_channel->encdata_offset > 0 && sspi_status == SEC_E_OK) {
@@ -553,10 +553,10 @@ _mongoc_stream_tls_secure_channel_decrypt (
                secure_channel->decdata_offset += size;
             }
 
-            TRACE ("decrypted data added: %zu", size);
-            TRACE ("decrypted data cached: offset %zu length %zu",
-                   secure_channel->decdata_offset,
-                   secure_channel->decdata_length);
+            TRACE ("decrypted data added: %d", (int) size);
+            TRACE ("decrypted data cached: offset %d length %d",
+                   (int) secure_channel->decdata_offset,
+                   (int) secure_channel->decdata_length);
          }
 
          /* check for remaining encrypted data */
@@ -577,9 +577,9 @@ _mongoc_stream_tls_secure_channel_decrypt (
                secure_channel->encdata_offset = inbuf[3].cbBuffer;
             }
 
-            TRACE ("encrypted data cached: offset %zu length %zu",
-                   secure_channel->encdata_offset,
-                   secure_channel->encdata_length);
+            TRACE ("encrypted data cached: offset %d length %d",
+                   (int) secure_channel->encdata_offset,
+                   (int) secure_channel->encdata_length);
          } else {
             /* reset encrypted buffer offset, because there is no data remaining
              */
@@ -609,13 +609,13 @@ _mongoc_stream_tls_secure_channel_decrypt (
       }
    }
 
-   TRACE ("encrypted data buffer: offset %zu length %zu",
-          secure_channel->encdata_offset,
-          secure_channel->encdata_length);
+   TRACE ("encrypted data buffer: offset %d length %d",
+          (int) secure_channel->encdata_offset,
+          (int) secure_channel->encdata_length);
 
-   TRACE ("decrypted data buffer: offset %zu length %zu",
-          secure_channel->decdata_offset,
-          secure_channel->decdata_length);
+   TRACE ("decrypted data buffer: offset %d length %d",
+          (int) secure_channel->decdata_offset,
+          (int) secure_channel->decdata_length);
 }
 
 
@@ -630,7 +630,7 @@ _mongoc_stream_tls_secure_channel_read (mongoc_stream_t *stream,
    ssize_t size = 0;
    ssize_t nread;
 
-   TRACE ("client wants to read %zu bytes", len);
+   TRACE ("client wants to read %d bytes", (int) len);
    BSON_ASSERT (len > 0);
 
    /*
@@ -903,6 +903,16 @@ _mongoc_stream_tls_secure_channel_timed_out (mongoc_stream_t *stream)
    RETURN (mongoc_stream_timed_out (tls->base_stream));
 }
 
+static bool
+_mongoc_stream_tls_secure_channel_should_retry (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
+
+   ENTRY;
+
+   RETURN (mongoc_stream_should_retry (tls->base_stream));
+}
+
 mongoc_stream_t *
 mongoc_stream_tls_secure_channel_new (mongoc_stream_t *base_stream,
                                       const char *host,
@@ -942,6 +952,7 @@ mongoc_stream_tls_secure_channel_new (mongoc_stream_t *base_stream,
       _mongoc_stream_tls_secure_channel_get_base_stream;
    tls->parent.check_closed = _mongoc_stream_tls_secure_channel_check_closed;
    tls->parent.timed_out = _mongoc_stream_tls_secure_channel_timed_out;
+   tls->parent.should_retry = _mongoc_stream_tls_secure_channel_should_retry;
    memcpy (&tls->ssl_opts, opt, sizeof tls->ssl_opts);
    tls->handshake = mongoc_stream_tls_secure_channel_handshake;
    tls->ctx = (void *) secure_channel;

@@ -15,41 +15,41 @@
  */
 
 
-#include "mongoc-config.h"
+#include "mongoc/mongoc-config.h"
 
 #include <string.h>
 
-#include "mongoc-cluster-private.h"
-#include "mongoc-client-private.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-config.h"
-#include "mongoc-error.h"
-#include "mongoc-host-list-private.h"
-#include "mongoc-log.h"
-#include "mongoc-cluster-sasl-private.h"
+#include "mongoc/mongoc-cluster-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-config.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-host-list-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-cluster-sasl-private.h"
 #ifdef MONGOC_ENABLE_SSL
-#include "mongoc-ssl.h"
-#include "mongoc-ssl-private.h"
-#include "mongoc-stream-tls.h"
+#include "mongoc/mongoc-ssl.h"
+#include "mongoc/mongoc-ssl-private.h"
+#include "mongoc/mongoc-stream-tls.h"
 #endif
 #include "common-b64-private.h"
-#include "mongoc-scram-private.h"
-#include "mongoc-set-private.h"
-#include "mongoc-socket.h"
-#include "mongoc-stream-private.h"
-#include "mongoc-stream-socket.h"
-#include "mongoc-stream-tls.h"
-#include "mongoc-thread-private.h"
-#include "mongoc-topology-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-util-private.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-uri-private.h"
-#include "mongoc-rpc-private.h"
-#include "mongoc-compression-private.h"
-#include "mongoc-cmd-private.h"
-#include "utlist.h"
-#include "mongoc-handshake-private.h"
+#include "mongoc/mongoc-scram-private.h"
+#include "mongoc/mongoc-set-private.h"
+#include "mongoc/mongoc-socket.h"
+#include "mongoc/mongoc-stream-private.h"
+#include "mongoc/mongoc-stream-socket.h"
+#include "mongoc/mongoc-stream-tls.h"
+#include "mongoc/mongoc-thread-private.h"
+#include "mongoc/mongoc-topology-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-uri-private.h"
+#include "mongoc/mongoc-rpc-private.h"
+#include "mongoc/mongoc-compression-private.h"
+#include "mongoc/mongoc-cmd-private.h"
+#include "mongoc/utlist.h"
+#include "mongoc/mongoc-handshake-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "cluster"
@@ -556,9 +556,19 @@ mongoc_cluster_run_command_monitored (mongoc_cluster_t *cluster,
          cluster, cmd, server_stream->stream, compressor_id, reply, error);
    }
    if (retval && callbacks->succeeded) {
+      bson_t fake_reply = BSON_INITIALIZER;
+      /*
+       * Unacknowledged writes must provide a CommandSucceededEvent with an
+       * {ok: 1} reply.
+       * https://github.com/mongodb/specifications/blob/master/source/command-monitoring/command-monitoring.rst#unacknowledged-acknowledged-writes
+       */
+      if (!cmd->is_acknowledged) {
+         bson_append_int32 (&fake_reply, "ok", 2, 1);
+      }
       mongoc_apm_command_succeeded_init (&succeeded_event,
                                          bson_get_monotonic_time () - started,
-                                         reply,
+                                         cmd->is_acknowledged ? reply
+                                                              : &fake_reply,
                                          cmd->command_name,
                                          request_id,
                                          cmd->operation_id,
@@ -568,6 +578,7 @@ mongoc_cluster_run_command_monitored (mongoc_cluster_t *cluster,
 
       callbacks->succeeded (&succeeded_event);
       mongoc_apm_command_succeeded_cleanup (&succeeded_event);
+      bson_destroy (&fake_reply);
    }
    if (!retval && callbacks->failed) {
       mongoc_apm_command_failed_init (&failed_event,
@@ -758,7 +769,7 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
              !bson_iter_as_bool (&iter)) {
             /* ismaster response returned ok: 0. According to auth spec: "If the
              * isMaster of the MongoDB Handshake fails with an error, drivers
-             * MUST treat this an an authentication error." */
+             * MUST treat this an authentication error." */
             error->domain = MONGOC_ERROR_CLIENT;
             error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
          }
@@ -1482,6 +1493,48 @@ _mongoc_cluster_auth_node (
    RETURN (ret);
 }
 
+static bool
+_mongoc_cluster_disconnect_node_in_set (uint32_t id, void *item, void *ctx)
+{
+   mongoc_cluster_t *cluster = (mongoc_cluster_t *) ctx;
+
+   mongoc_cluster_disconnect_node (cluster, id, false, NULL);
+
+   return true;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_cluster_disconnect --
+ *
+ *       Disconnects all nodes in this cluster.
+ *
+ * Returns:
+ *       None.
+ *
+ * Side effects:
+ *       Clears the cluster's set of nodes and frees them if pooled.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+mongoc_cluster_disconnect (mongoc_cluster_t *cluster)
+{
+   mongoc_topology_t *topology;
+
+   BSON_ASSERT (cluster);
+
+   topology = cluster->client->topology;
+   /* in the single-threaded use case we share topology's streams */
+   if (topology->single_threaded) {
+      mongoc_topology_scanner_disconnect (topology->scanner);
+   } else {
+      mongoc_set_for_each_with_id (
+         cluster->nodes, _mongoc_cluster_disconnect_node_in_set, cluster);
+   }
+}
 
 /*
  *--------------------------------------------------------------------------
@@ -1914,7 +1967,7 @@ _mongoc_cluster_create_server_stream (mongoc_topology_t *topology,
 
    /* can't just use mongoc_topology_server_by_id(), since we must hold the
     * lock while copying topology->description.logical_time below */
-   mongoc_mutex_lock (&topology->mutex);
+   bson_mutex_lock (&topology->mutex);
 
    sd = mongoc_server_description_new_copy (
       mongoc_topology_description_server_by_id (
@@ -1925,7 +1978,7 @@ _mongoc_cluster_create_server_stream (mongoc_topology_t *topology,
          mongoc_server_stream_new (&topology->description, sd, stream);
    }
 
-   mongoc_mutex_unlock (&topology->mutex);
+   bson_mutex_unlock (&topology->mutex);
 
    return server_stream;
 }

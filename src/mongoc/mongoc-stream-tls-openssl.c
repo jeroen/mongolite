@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "mongoc-config.h"
+#include "mongoc/mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
 
-#include <bson.h>
+#include <bson/bson.h>
 
 #include <errno.h>
 #include <string.h>
@@ -27,17 +27,17 @@
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
 
-#include "mongoc-counters-private.h"
-#include "mongoc-errno-private.h"
-#include "mongoc-stream-tls.h"
-#include "mongoc-stream-private.h"
-#include "mongoc-stream-tls-private.h"
-#include "mongoc-stream-tls-openssl-bio-private.h"
-#include "mongoc-stream-tls-openssl-private.h"
-#include "mongoc-openssl-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-log.h"
-#include "mongoc-error.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-errno-private.h"
+#include "mongoc/mongoc-stream-tls.h"
+#include "mongoc/mongoc-stream-private.h"
+#include "mongoc/mongoc-stream-tls-private.h"
+#include "mongoc/mongoc-stream-tls-openssl-bio-private.h"
+#include "mongoc/mongoc-stream-tls-openssl-private.h"
+#include "mongoc/mongoc-openssl-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-error.h"
 
 
 #undef MONGOC_LOG_DOMAIN
@@ -45,7 +45,7 @@
 
 #define MONGOC_STREAM_TLS_OPENSSL_BUFFER_SIZE 4096
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L || (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x2070000fL)
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x20700000L)
 static void
 BIO_meth_free (BIO_METHOD *meth)
 {
@@ -627,6 +627,22 @@ _mongoc_stream_tls_openssl_timed_out (mongoc_stream_t *stream)
    RETURN (mongoc_stream_timed_out (tls->base_stream));
 }
 
+static bool
+_mongoc_stream_tls_openssl_should_retry (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
+   mongoc_stream_tls_openssl_t *openssl =
+      (mongoc_stream_tls_openssl_t *) tls->ctx;
+
+   ENTRY;
+
+   if (BIO_should_retry (openssl->bio)) {
+      RETURN (true);
+   }
+
+   RETURN (mongoc_stream_should_retry (tls->base_stream));
+}
+
 /*
  *--------------------------------------------------------------------------
  *
@@ -747,6 +763,7 @@ mongoc_stream_tls_openssl_new (mongoc_stream_t *base_stream,
    tls->parent.get_base_stream = _mongoc_stream_tls_openssl_get_base_stream;
    tls->parent.check_closed = _mongoc_stream_tls_openssl_check_closed;
    tls->parent.timed_out = _mongoc_stream_tls_openssl_timed_out;
+   tls->parent.should_retry = _mongoc_stream_tls_openssl_should_retry;
    memcpy (&tls->ssl_opts, opt, sizeof tls->ssl_opts);
    tls->handshake = mongoc_stream_tls_openssl_handshake;
    tls->ctx = (void *) openssl;

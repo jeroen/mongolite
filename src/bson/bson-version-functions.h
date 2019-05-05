@@ -15,15 +15,13 @@
  */
 
 
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
+#include "bson/bson-prelude.h"
 
 
 #ifndef BSON_VERSION_FUNCTIONS_H
 #define BSON_VERSION_FUNCTIONS_H
 
-#include "bson-types.h"
+#include "bson/bson-types.h"
 
 BSON_BEGIN_DECLS
 

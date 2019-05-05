@@ -1,10 +1,11 @@
 #ifndef MONGOC_OPTS_H
 #define MONGOC_OPTS_H
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-client-session.h"
-#include "mongoc-bulk-operation-private.h"
+#include "mongoc/mongoc-client-session.h"
+#include "mongoc/mongoc-bulk-operation-private.h"
+#include "mongoc/mongoc-opts-helpers-private.h"
 
 /**************************************************
  *
@@ -24,21 +25,21 @@ typedef struct _mongoc_crud_opts_t {
 
 typedef struct _mongoc_update_opts_t {
    mongoc_crud_opts_t crud;
-   mongoc_write_bypass_document_validation_t bypass;
+   bool bypass;
    bson_t collation;
    bool upsert;
 } mongoc_update_opts_t;
 
 typedef struct _mongoc_insert_one_opts_t {
    mongoc_crud_opts_t crud;
-   mongoc_write_bypass_document_validation_t bypass;
+   bool bypass;
    bson_t extra;
 } mongoc_insert_one_opts_t;
 
 typedef struct _mongoc_insert_many_opts_t {
    mongoc_crud_opts_t crud;
    bool ordered;
-   mongoc_write_bypass_document_validation_t bypass;
+   bool bypass;
    bson_t extra;
 } mongoc_insert_many_opts_t;
 
@@ -81,13 +82,11 @@ typedef struct _mongoc_bulk_opts_t {
 
 typedef struct _mongoc_bulk_insert_opts_t {
    bson_validate_flags_t validate;
-   mongoc_write_bypass_document_validation_t bypass;
    bson_t extra;
 } mongoc_bulk_insert_opts_t;
 
 typedef struct _mongoc_bulk_update_opts_t {
    bson_validate_flags_t validate;
-   mongoc_write_bypass_document_validation_t bypass;
    bson_t collation;
    bool upsert;
    bool multi;
@@ -125,6 +124,15 @@ typedef struct _mongoc_bulk_remove_many_opts_t {
    bson_t extra;
 } mongoc_bulk_remove_many_opts_t;
 
+typedef struct _mongoc_change_stream_opts_t {
+   int32_t batchSize;
+   bson_t resumeAfter;
+   mongoc_timestamp_t startAtOperationTime;
+   int64_t maxAwaitTimeMS;
+   const char *fullDocument;
+   bson_t extra;
+} mongoc_change_stream_opts_t;
+
 typedef struct _mongoc_create_index_opts_t {
    mongoc_write_concern_t *writeConcern;
    bool write_concern_owned;
@@ -141,6 +149,21 @@ typedef struct _mongoc_read_write_opts_t {
    uint32_t serverId;
    bson_t extra;
 } mongoc_read_write_opts_t;
+
+typedef struct _mongoc_gridfs_bucket_opts_t {
+   const char *bucketName;
+   int32_t chunkSizeBytes;
+   mongoc_write_concern_t *writeConcern;
+   bool write_concern_owned;
+   mongoc_read_concern_t *readConcern;
+   bson_t extra;
+} mongoc_gridfs_bucket_opts_t;
+
+typedef struct _mongoc_gridfs_bucket_upload_opts_t {
+   int32_t chunkSizeBytes;
+   bson_t metadata;
+   bson_t extra;
+} mongoc_gridfs_bucket_upload_opts_t;
 
 bool
 _mongoc_insert_one_opts_parse (
@@ -283,6 +306,16 @@ void
 _mongoc_bulk_remove_many_opts_cleanup (mongoc_bulk_remove_many_opts_t *mongoc_bulk_remove_many_opts);
 
 bool
+_mongoc_change_stream_opts_parse (
+   mongoc_client_t *client,
+   const bson_t *opts,
+   mongoc_change_stream_opts_t *mongoc_change_stream_opts,
+   bson_error_t *error);
+
+void
+_mongoc_change_stream_opts_cleanup (mongoc_change_stream_opts_t *mongoc_change_stream_opts);
+
+bool
 _mongoc_create_index_opts_parse (
    mongoc_client_t *client,
    const bson_t *opts,
@@ -301,5 +334,25 @@ _mongoc_read_write_opts_parse (
 
 void
 _mongoc_read_write_opts_cleanup (mongoc_read_write_opts_t *mongoc_read_write_opts);
+
+bool
+_mongoc_gridfs_bucket_opts_parse (
+   mongoc_client_t *client,
+   const bson_t *opts,
+   mongoc_gridfs_bucket_opts_t *mongoc_gridfs_bucket_opts,
+   bson_error_t *error);
+
+void
+_mongoc_gridfs_bucket_opts_cleanup (mongoc_gridfs_bucket_opts_t *mongoc_gridfs_bucket_opts);
+
+bool
+_mongoc_gridfs_bucket_upload_opts_parse (
+   mongoc_client_t *client,
+   const bson_t *opts,
+   mongoc_gridfs_bucket_upload_opts_t *mongoc_gridfs_bucket_upload_opts,
+   bson_error_t *error);
+
+void
+_mongoc_gridfs_bucket_upload_opts_cleanup (mongoc_gridfs_bucket_upload_opts_t *mongoc_gridfs_bucket_upload_opts);
 
 #endif /* MONGOC_OPTS_H */

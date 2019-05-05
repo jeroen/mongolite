@@ -15,14 +15,14 @@
  */
 
 
-#include "mongoc-bulk-operation.h"
-#include "mongoc-bulk-operation-private.h"
-#include "mongoc-client-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-util-private.h"
-#include "mongoc-opts-private.h"
-#include "mongoc-write-command-private.h"
+#include "mongoc/mongoc-bulk-operation.h"
+#include "mongoc/mongoc-bulk-operation-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-opts-private.h"
+#include "mongoc/mongoc-write-command-private.h"
 
 
 /*
@@ -50,8 +50,7 @@ mongoc_bulk_operation_new (bool ordered)
    mongoc_bulk_operation_t *bulk;
 
    bulk = (mongoc_bulk_operation_t *) bson_malloc0 (sizeof *bulk);
-   bulk->flags.bypass_document_validation =
-      MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT;
+   bulk->flags.bypass_document_validation = false;
    bulk->flags.ordered = ordered;
    bulk->server_id = 0;
 
@@ -267,7 +266,7 @@ mongoc_bulk_operation_remove (mongoc_bulk_operation_t *bulk, /* IN */
    BULK_EXIT_IF_PRIOR_ERROR;
 
    if (!mongoc_bulk_operation_remove_many_with_opts (
-         bulk, selector, NULL, error)) {
+          bulk, selector, NULL, error)) {
       MONGOC_WARNING ("%s", error->message);
    }
 
@@ -290,7 +289,7 @@ mongoc_bulk_operation_remove_one (mongoc_bulk_operation_t *bulk, /* IN */
    BULK_EXIT_IF_PRIOR_ERROR;
 
    if (!mongoc_bulk_operation_remove_one_with_opts (
-         bulk, selector, NULL, error)) {
+          bulk, selector, NULL, error)) {
       MONGOC_WARNING ("%s", error->message);
    }
 
@@ -381,7 +380,7 @@ mongoc_bulk_operation_insert_with_opts (mongoc_bulk_operation_t *bulk,
    _mongoc_write_command_init_insert (
       &command,
       document,
-      opts,
+      &insert_opts.extra,
       bulk->flags,
       bulk->operation_id,
       !mongoc_write_concern_is_acknowledged (bulk->write_concern));
@@ -574,8 +573,10 @@ mongoc_bulk_operation_update (mongoc_bulk_operation_t *bulk,
       BSON_APPEND_BOOL (&opts, "upsert", upsert);
    }
 
-   mongoc_bulk_operation_update_many_with_opts (
-      bulk, selector, document, &opts, error);
+   if (!mongoc_bulk_operation_update_many_with_opts (
+          bulk, selector, document, &opts, error)) {
+      MONGOC_WARNING ("%s", error->message);
+   }
 
    bson_destroy (&opts);
 
@@ -603,7 +604,7 @@ mongoc_bulk_operation_update_one (mongoc_bulk_operation_t *bulk,
    BSON_APPEND_BOOL (&opts, "upsert", upsert);
 
    if (!mongoc_bulk_operation_update_one_with_opts (
-         bulk, selector, document, &opts, error)) {
+          bulk, selector, document, &opts, error)) {
       MONGOC_WARNING ("%s", error->message);
    }
 
@@ -930,7 +931,5 @@ mongoc_bulk_operation_set_bypass_document_validation (
 {
    BSON_ASSERT (bulk);
 
-   bulk->flags.bypass_document_validation =
-      bypass ? MONGOC_BYPASS_DOCUMENT_VALIDATION_TRUE
-             : MONGOC_BYPASS_DOCUMENT_VALIDATION_FALSE;
+   bulk->flags.bypass_document_validation = bypass;
 }

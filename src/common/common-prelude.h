@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 MongoDB, Inc.
+ * Copyright 2018-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc-config.h"
-
-#ifdef MONGOC_ENABLE_SASL_GSSAPI
-#include "mongoc-gssapi-private.h"
-#include "mongoc-trace-private.h"
-
-#undef MONGOC_LOG_DOMAIN
-#define MONGOC_LOG_DOMAIN "GSSAPI"
-
-/* ... */
-
+#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION) && \
+   !defined(BSON_COMPILATION) && !defined(BSON_INSIDE)
+#error "Only <mongoc/mongoc.h> or <bson/bson.h> can be included directly."
 #endif

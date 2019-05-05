@@ -16,7 +16,7 @@
 
 
 #if !defined (MONGOC_INSIDE) && !defined (MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
+#error "Only <mongoc/mongoc.h> can be included directly."
 #endif
 
 
@@ -37,7 +37,7 @@
  *
  * MONGOC minor version component (e.g. 2 if %MONGOC_VERSION is 1.2.3)
  */
-#define MONGOC_MINOR_VERSION (12)
+#define MONGOC_MINOR_VERSION (14)
 
 
 /**
@@ -51,7 +51,7 @@
 /**
  * MONGOC_PRERELEASE_VERSION:
  *
- * MONGOC prerelease version component (e.g. rc0 if %MONGOC_VERSION is 1.2.3-rc0)
+ * MONGOC prerelease version component (e.g. pre if %MONGOC_VERSION is 1.2.3-pre)
  */
 #define MONGOC_PRERELEASE_VERSION ()
 
@@ -61,7 +61,7 @@
  *
  * MONGOC version.
  */
-#define MONGOC_VERSION (1.12.0)
+#define MONGOC_VERSION (1.14.0)
 
 
 /**
@@ -70,7 +70,7 @@
  * MONGOC version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define MONGOC_VERSION_S "1.12.0"
+#define MONGOC_VERSION_S "1.14.0"
 
 
 /**

@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_QUEUE_PRIVATE_H
 #define MONGOC_QUEUE_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
+#include <bson/bson.h>
 
-#include <bson.h>
-
-#include "mongoc-list-private.h"
+#include "mongoc/mongoc-list-private.h"
 
 
 BSON_BEGIN_DECLS

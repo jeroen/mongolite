@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_STREAM_H
 #define MONGOC_STREAM_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include "mongoc-macros.h"
-#include "mongoc-iovec.h"
-#include "mongoc-socket.h"
+#include "mongoc/mongoc-macros.h"
+#include "mongoc/mongoc-iovec.h"
+#include "mongoc/mongoc-socket.h"
 
 
 BSON_BEGIN_DECLS
@@ -63,7 +61,8 @@ struct _mongoc_stream_t {
                     int32_t timeout);
    void (*failed) (mongoc_stream_t *stream);
    bool (*timed_out) (mongoc_stream_t *stream);
-   void *padding[4];
+   bool (*should_retry) (mongoc_stream_t *stream);
+   void *padding[3];
 };
 
 
@@ -111,6 +110,8 @@ MONGOC_EXPORT (bool)
 mongoc_stream_check_closed (mongoc_stream_t *stream);
 MONGOC_EXPORT (bool)
 mongoc_stream_timed_out (mongoc_stream_t *stream);
+MONGOC_EXPORT (bool)
+mongoc_stream_should_retry (mongoc_stream_t *stream);
 MONGOC_EXPORT (ssize_t)
 mongoc_stream_poll (mongoc_stream_poll_t *streams,
                     size_t nstreams,

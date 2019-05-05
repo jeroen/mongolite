@@ -11,7 +11,7 @@
 
   1. The origin of this software must not be misrepresented; you must not
      claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
+     in a product, an acknowledgement in the product documentation would be
      appreciated but is not required.
   2. Altered source versions must be plainly marked as such, and must not be
      misrepresented as being the original software.
@@ -172,12 +172,12 @@ bson_md5_process (bson_md5_t *md5, const uint8_t *data)
          if (!((data - (const uint8_t *) 0) & 3)) {
 /* data are properly aligned */
 #ifdef __clang__
-/*IGNORE*/ #pragma clang diagnostic push
-/*IGNORE*/ #pragma clang diagnostic ignored "-Wcast-align"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
 #endif
             X = (const uint32_t *) data;
 #ifdef __clang__
-/*IGNORE*/ #pragma clang diagnostic pop
+#pragma clang diagnostic pop
 #endif
          } else {
             /* not aligned */

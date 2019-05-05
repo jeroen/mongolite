@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_ASYNC_PRIVATE_H
 #define MONGOC_ASYNC_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
-#include "mongoc-stream.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-stream.h"
 
 BSON_BEGIN_DECLS
 
@@ -45,7 +43,7 @@ typedef enum {
 typedef void (*mongoc_async_cmd_cb_t) (struct _mongoc_async_cmd *acmd,
                                        mongoc_async_cmd_result_t result,
                                        const bson_t *bson,
-                                       int64_t rtt_msec);
+                                       int64_t duration_usec);
 
 typedef mongoc_stream_t *(*mongoc_async_cmd_initiate_t) (
    struct _mongoc_async_cmd *);

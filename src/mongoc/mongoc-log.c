@@ -19,41 +19,43 @@
 #include <sys/syscall.h>
 #elif defined(_WIN32)
 #include <process.h>
+#elif defined(__FreeBSD__)
+#include <sys/thr.h>
 #else
 #include <unistd.h>
 #endif
 #include <stdarg.h>
 #include <time.h>
 
-#include "mongoc-log.h"
-#include "mongoc-log-private.h"
-#include "mongoc-thread-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-log-private.h"
+#include "mongoc/mongoc-thread-private.h"
 
 
-static mongoc_once_t once = MONGOC_ONCE_INIT;
-static mongoc_mutex_t gLogMutex;
+static bson_once_t once = BSON_ONCE_INIT;
+static bson_mutex_t gLogMutex;
 static mongoc_log_func_t gLogFunc = mongoc_log_default_handler;
 #ifdef MONGOC_TRACE
 static bool gLogTrace = true;
 #endif
 static void *gLogData;
 
-static MONGOC_ONCE_FUN (_mongoc_ensure_mutex_once)
+static BSON_ONCE_FUN (_mongoc_ensure_mutex_once)
 {
-   mongoc_mutex_init (&gLogMutex);
+   bson_mutex_init (&gLogMutex);
 
-   MONGOC_ONCE_RETURN;
+   BSON_ONCE_RETURN;
 }
 
 void
 mongoc_log_set_handler (mongoc_log_func_t log_func, void *user_data)
 {
-   mongoc_once (&once, &_mongoc_ensure_mutex_once);
+   bson_once (&once, &_mongoc_ensure_mutex_once);
 
-   mongoc_mutex_lock (&gLogMutex);
+   bson_mutex_lock (&gLogMutex);
    gLogFunc = log_func;
    gLogData = user_data;
-   mongoc_mutex_unlock (&gLogMutex);
+   bson_mutex_unlock (&gLogMutex);
 }
 
 
@@ -76,7 +78,7 @@ mongoc_log (mongoc_log_level_t log_level,
    char *message;
    int stop_logging;
 
-   mongoc_once (&once, &_mongoc_ensure_mutex_once);
+   bson_once (&once, &_mongoc_ensure_mutex_once);
 
    stop_logging = !gLogFunc;
 #ifdef MONGOC_TRACE
@@ -93,9 +95,9 @@ mongoc_log (mongoc_log_level_t log_level,
    message = bson_strdupv_printf (format, args);
    va_end (args);
 
-   mongoc_mutex_lock (&gLogMutex);
+   bson_mutex_lock (&gLogMutex);
    gLogFunc (log_level, log_domain, message, gLogData);
-   mongoc_mutex_unlock (&gLogMutex);
+   bson_mutex_unlock (&gLogMutex);
 
    bson_free (message);
 }
@@ -171,6 +173,12 @@ mongoc_log_default_handler (mongoc_log_level_t log_level,
    pid = syscall (SYS_gettid);
 #elif defined(_WIN32)
    pid = (int) _getpid ();
+#elif defined(__FreeBSD__)
+   long tid;
+   thr_self (&tid);
+   pid = (int) tid;
+#elif defined(__OpenBSD__)
+   pid = (int) getthrid ();
 #else
    pid = (int) getpid ();
 #endif

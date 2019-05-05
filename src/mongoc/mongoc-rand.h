@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
+#include "mongoc/mongoc-prelude.h"
 
 
 #ifndef MONGOC_RAND_H
 #define MONGOC_RAND_H
 
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-macros.h"
+#include "mongoc/mongoc-macros.h"
 
 BSON_BEGIN_DECLS
 

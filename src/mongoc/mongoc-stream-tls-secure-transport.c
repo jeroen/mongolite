@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc-config.h"
+#include "mongoc/mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_SECURE_TRANSPORT
 
@@ -23,18 +23,18 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-trace-private.h"
-#include "mongoc-log.h"
-#include "mongoc-secure-transport-private.h"
-#include "mongoc-ssl.h"
-#include "mongoc-error.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-stream-tls.h"
-#include "mongoc-stream-tls-private.h"
-#include "mongoc-stream-private.h"
-#include "mongoc-stream-tls-secure-transport-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-secure-transport-private.h"
+#include "mongoc/mongoc-ssl.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-stream-tls.h"
+#include "mongoc/mongoc-stream-tls-private.h"
+#include "mongoc/mongoc-stream-private.h"
+#include "mongoc/mongoc-stream-tls-secure-transport-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "stream-tls-secure_transport"
@@ -277,7 +277,7 @@ _mongoc_stream_tls_secure_transport_writev (mongoc_stream_t *stream,
       mongoc_counter_streams_egress_add (ret);
    }
 
-   TRACE ("Returning %zu", ret);
+   TRACE ("Returning %d", (int) ret);
    RETURN (ret);
 }
 
@@ -457,6 +457,16 @@ _mongoc_stream_tls_secure_channel_timed_out (mongoc_stream_t *stream)
    RETURN (mongoc_stream_timed_out (tls->base_stream));
 }
 
+static bool
+_mongoc_stream_tls_secure_channel_should_retry (mongoc_stream_t *stream)
+{
+   mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
+
+   ENTRY;
+
+   RETURN (mongoc_stream_should_retry (tls->base_stream));
+}
+
 mongoc_stream_t *
 mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
                                         const char *host,
@@ -473,15 +483,14 @@ mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
    if (opt->ca_dir) {
       MONGOC_ERROR ("Setting mongoc_ssl_opt_t.ca_dir has no effect when built "
                     "against Secure Transport");
-      RETURN (false);
+      RETURN (NULL);
    }
    if (opt->crl_file) {
       MONGOC_ERROR (
          "Setting mongoc_ssl_opt_t.crl_file has no effect when built "
          "against Secure Transport");
-      RETURN (false);
+      RETURN (NULL);
    }
-
 
    secure_transport = (mongoc_stream_tls_secure_transport_t *) bson_malloc0 (
       sizeof *secure_transport);
@@ -499,11 +508,11 @@ mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
       _mongoc_stream_tls_secure_transport_get_base_stream;
    tls->parent.check_closed = _mongoc_stream_tls_secure_transport_check_closed;
    tls->parent.timed_out = _mongoc_stream_tls_secure_channel_timed_out;
+   tls->parent.should_retry = _mongoc_stream_tls_secure_channel_should_retry;
    memcpy (&tls->ssl_opts, opt, sizeof tls->ssl_opts);
    tls->handshake = mongoc_stream_tls_secure_transport_handshake;
    tls->ctx = (void *) secure_transport;
    tls->timeout_msec = -1;
-   tls->base_stream = base_stream;
 
    secure_transport->ssl_ctx_ref =
       SSLCreateContext (kCFAllocatorDefault,
@@ -515,8 +524,20 @@ mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
                   mongoc_secure_transport_write);
    SSLSetProtocolVersionMin (secure_transport->ssl_ctx_ref, kTLSProtocol1);
 
-   mongoc_secure_transport_setup_certificate (secure_transport, opt);
-   mongoc_secure_transport_setup_ca (secure_transport, opt);
+   if (opt->pem_file &&
+       !mongoc_secure_transport_setup_certificate (secure_transport, opt)) {
+      mongoc_stream_destroy ((mongoc_stream_t *) tls);
+      RETURN (NULL);
+   }
+
+   if (opt->ca_file &&
+       !mongoc_secure_transport_setup_ca (secure_transport, opt)) {
+      mongoc_stream_destroy ((mongoc_stream_t *) tls);
+      RETURN (NULL);
+   }
+
+   /* don't link base_stream to tls until we're sure we won't destroy tls */
+   tls->base_stream = base_stream;
 
    if (client) {
       SSLSetSessionOption (secure_transport->ssl_ctx_ref,

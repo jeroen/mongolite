@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_STREAM_PRIVATE_H
 #define MONGOC_STREAM_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include "mongoc-iovec.h"
-#include "mongoc-stream.h"
+#include "mongoc/mongoc-iovec.h"
+#include "mongoc/mongoc-stream.h"
 
 
 BSON_BEGIN_DECLS
@@ -33,6 +31,8 @@ BSON_BEGIN_DECLS
 #define MONGOC_STREAM_BUFFERED 3
 #define MONGOC_STREAM_GRIDFS 4
 #define MONGOC_STREAM_TLS 5
+#define MONGOC_STREAM_GRIDFS_UPLOAD 6
+#define MONGOC_STREAM_GRIDFS_DOWNLOAD 7
 
 bool
 mongoc_stream_wait (mongoc_stream_t *stream, int64_t expire_at);

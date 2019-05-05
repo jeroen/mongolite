@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 
 #ifndef MONGOC_HANDSHAKE_PRIVATE_H
 #define MONGOC_HANDSHAKE_PRIVATE_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-#include <bson.h>
-#include <mongoc.h>
+#include <mongoc/mongoc.h>
 
 BSON_BEGIN_DECLS
 
@@ -64,7 +62,7 @@ typedef enum {
    MONGOC_MD_FLAG_ENABLE_COMPRESSION,
    MONGOC_MD_FLAG_ENABLE_COMPRESSION_SNAPPY,
    MONGOC_MD_FLAG_ENABLE_COMPRESSION_ZLIB,
-   MONGOC_MD_FLAG_ENABLE_SASL_GSSAPI,
+   MONGOC_MD_FLAG_ENABLE_SASL_GSSAPI_UNUSED, /* CDRIVER-2654 removed this . */
    MONGOC_MD_FLAG_ENABLE_RES_NSEARCH,
    MONGOC_MD_FLAG_ENABLE_RES_NDESTROY,
    MONGOC_MD_FLAG_ENABLE_RES_NCLOSE,

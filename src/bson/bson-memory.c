@@ -20,9 +20,9 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "bson-atomic.h"
-#include "bson-config.h"
-#include "bson-memory.h"
+#include "bson/bson-atomic.h"
+#include "bson/bson-config.h"
+#include "bson/bson-memory.h"
 
 
 static bson_mem_vtable_t gMemVtable = {
@@ -262,9 +262,9 @@ bson_zero_free (void *mem,   /* IN */
  *
  * bson_mem_set_vtable --
  *
- *       This function will change our allocationt vtable.
+ *       This function will change our allocation vtable.
  *
- *       It is imperitive that this is called at the beginning of the
+ *       It is imperative that this is called at the beginning of the
  *       process before any memory has been allocated by the default
  *       allocator.
  *

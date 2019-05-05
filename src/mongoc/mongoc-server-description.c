@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "mongoc-config.h"
-#include "mongoc-host-list.h"
-#include "mongoc-host-list-private.h"
-#include "mongoc-read-prefs.h"
-#include "mongoc-read-prefs-private.h"
-#include "mongoc-server-description-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-uri.h"
-#include "mongoc-util-private.h"
-#include "mongoc-compression-private.h"
+#include "mongoc/mongoc-config.h"
+#include "mongoc/mongoc-host-list.h"
+#include "mongoc/mongoc-host-list-private.h"
+#include "mongoc/mongoc-read-prefs.h"
+#include "mongoc/mongoc-read-prefs-private.h"
+#include "mongoc/mongoc-server-description-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-uri.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-compression-private.h"
 
 #include <stdio.h>
 
@@ -294,6 +294,13 @@ mongoc_server_description_host (const mongoc_server_description_t *description)
    return &((mongoc_server_description_t *) description)->host;
 }
 
+int64_t
+mongoc_server_description_last_update_time (
+   const mongoc_server_description_t *description)
+{
+   return description->last_update_time_usec;
+}
+
 /*
  *--------------------------------------------------------------------------
  *
@@ -536,7 +543,7 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
                ismaster_response, MONGOC_ERROR_API_VERSION_2, &sd->error);
             /* ismaster response returned ok: 0. According to auth spec: "If the
              * isMaster of the MongoDB Handshake fails with an error, drivers
-             * MUST treat this an an authentication error." */
+             * MUST treat this an authentication error." */
             sd->error.domain = MONGOC_ERROR_CLIENT;
             sd->error.code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
             goto failure;
@@ -842,7 +849,7 @@ mongoc_server_description_filter_stale (mongoc_server_description_t **sds,
  * mongoc_server_description_filter_tags --
  *
  * Given a set of server descriptions, set to NULL any that don't
- * match the the read preference's tag sets.
+ * match the read preference's tag sets.
  *
  * https://github.com/mongodb/specifications/blob/master/source/server-selection/server-selection.rst#tag-set
  *

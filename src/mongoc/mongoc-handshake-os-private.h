@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_HANDSHAKE_OS_PRIVATE
 #define MONGOC_HANDSHAKE_OS_PRIVATE
 

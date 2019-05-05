@@ -15,54 +15,56 @@
  */
 
 
-#include <bson.h>
-#include "mongoc-config.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-config.h"
 #ifdef MONGOC_HAVE_DNSAPI
 /* for DnsQuery_UTF8 */
 #include <Windows.h>
 #include <WinDNS.h>
 #include <ws2tcpip.h>
 #else
+#if defined(MONGOC_HAVE_RES_NSEARCH) || defined(MONGOC_HAVE_RES_SEARCH)
 #include <netdb.h>
 #include <netinet/tcp.h>
-#if defined(MONGOC_HAVE_RES_NSEARCH) || defined(MONGOC_HAVE_RES_SEARCH)
 #include <arpa/nameser.h>
 #include <resolv.h>
-#include <bson-string.h>
+#define BSON_INSIDE
+#include <bson/bson-string.h>
+#undef BSON_INSIDE
 
 #endif
 #endif
 
-#include "mongoc-client-private.h"
-#include "mongoc-collection-private.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-database-private.h"
-#include "mongoc-gridfs-private.h"
-#include "mongoc-error.h"
-#include "mongoc-log.h"
-#include "mongoc-queue-private.h"
-#include "mongoc-socket.h"
-#include "mongoc-stream-buffered.h"
-#include "mongoc-stream-socket.h"
-#include "mongoc-thread-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-uri-private.h"
-#include "mongoc-util-private.h"
-#include "mongoc-set-private.h"
-#include "mongoc-log.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-read-concern-private.h"
-#include "mongoc-host-list-private.h"
-#include "mongoc-read-prefs-private.h"
-#include "mongoc-change-stream-private.h"
-#include "mongoc-client-session-private.h"
-#include "mongoc-cursor-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-collection-private.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-database-private.h"
+#include "mongoc/mongoc-gridfs-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-queue-private.h"
+#include "mongoc/mongoc-socket.h"
+#include "mongoc/mongoc-stream-buffered.h"
+#include "mongoc/mongoc-stream-socket.h"
+#include "mongoc/mongoc-thread-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-uri-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-set-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-read-concern-private.h"
+#include "mongoc/mongoc-host-list-private.h"
+#include "mongoc/mongoc-read-prefs-private.h"
+#include "mongoc/mongoc-change-stream-private.h"
+#include "mongoc/mongoc-client-session-private.h"
+#include "mongoc/mongoc-cursor-private.h"
 
 #ifdef MONGOC_ENABLE_SSL
-#include "mongoc-stream-tls.h"
-#include "mongoc-ssl-private.h"
-#include "mongoc-cmd-private.h"
-#include "mongoc-opts-private.h"
+#include "mongoc/mongoc-stream-tls.h"
+#include "mongoc/mongoc-ssl-private.h"
+#include "mongoc/mongoc-cmd-private.h"
+#include "mongoc/mongoc-opts-private.h"
 #endif
 
 
@@ -2344,10 +2346,10 @@ mongoc_client_kill_cursor (mongoc_client_t *client, int64_t cursor_id)
    topology = client->topology;
    read_prefs = mongoc_read_prefs_new (MONGOC_READ_PRIMARY);
 
-   mongoc_mutex_lock (&topology->mutex);
+   bson_mutex_lock (&topology->mutex);
    if (!mongoc_topology_compatible (&topology->description, NULL, &error)) {
       MONGOC_ERROR ("Could not kill cursor: %s", error.message);
-      mongoc_mutex_unlock (&topology->mutex);
+      bson_mutex_unlock (&topology->mutex);
       mongoc_read_prefs_destroy (read_prefs);
       return;
    }
@@ -2363,7 +2365,7 @@ mongoc_client_kill_cursor (mongoc_client_t *client, int64_t cursor_id)
       server_id = selected_server->id;
    }
 
-   mongoc_mutex_unlock (&topology->mutex);
+   bson_mutex_unlock (&topology->mutex);
 
    if (server_id) {
       _mongoc_client_kill_cursor (client,
@@ -2570,11 +2572,11 @@ mongoc_client_get_server_descriptions (const mongoc_client_t *client,
    topology = client->topology;
 
    /* in case the client is pooled */
-   mongoc_mutex_lock (&topology->mutex);
+   bson_mutex_lock (&topology->mutex);
 
    sds = mongoc_topology_description_get_servers (&topology->description, n);
 
-   mongoc_mutex_unlock (&topology->mutex);
+   bson_mutex_unlock (&topology->mutex);
 
    return sds;
 }
@@ -2688,7 +2690,9 @@ _mongoc_client_pop_server_session (mongoc_client_t *client, bson_error_t *error)
  *       command.
  *
  * Returns:
- *       True on success, false on error and @error is set.
+ *       True on success, false on error and @error is set. Will return false
+ *       if the session is from an outdated client generation, a holdover
+ *       from before a call to mongoc_client_reset.
  *
  * Side effects:
  *       None.
@@ -2739,7 +2743,7 @@ _mongoc_client_push_server_session (mongoc_client_t *client,
  *       End all server sessions in the topology's server session pool.
  *       Don't block long: if server selection or connecting fails, quit.
  *
- *       The server session pool becomes invalid, but it's *not* cleared.
+ *       The server session pool becomes invalid, but may not be empty.
  *       Destroy the topology after this without using any sessions.
  *
  *--------------------------------------------------------------------------
@@ -2805,6 +2809,29 @@ _mongoc_client_end_sessions (mongoc_client_t *client)
       bson_destroy (&cmd);
       mongoc_server_stream_cleanup (stream);
    }
+}
+
+void
+mongoc_client_reset (mongoc_client_t *client)
+{
+   BSON_ASSERT (client);
+
+   client->generation++;
+
+   /* Client sessions are owned and destroyed by the user, but we keep
+      local pointers to them for reference. On reset, clear our local
+      set without destroying the sessions or calling endSessions.
+      client_sessions has no dtor, so it won't destroy its items.
+
+      Destroying the local cache of client sessions here ensures they
+      cannot be used by future operations--lookup for them will fail. */
+   mongoc_set_destroy (client->client_sessions);
+   client->client_sessions = mongoc_set_new (8, NULL, NULL);
+
+   /* Server sessions are owned by us, so we clear the pool on reset. */
+   _mongoc_topology_clear_session_pool (client->topology);
+
+   mongoc_cluster_disconnect (&(client->cluster));
 }
 
 mongoc_change_stream_t *

@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
+#include "bson/bson-prelude.h"
+
 
 #ifndef BSON_DECIMAL128_H
 #define BSON_DECIMAL128_H
 
 
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
-
 #include <string.h>
 
-#include "bson-macros.h"
-#include "bson-config.h"
-#include "bson-types.h"
+#include "bson/bson-macros.h"
+#include "bson/bson-config.h"
+#include "bson/bson-types.h"
 
 
 /**

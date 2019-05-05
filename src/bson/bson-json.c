@@ -20,10 +20,10 @@
 #include <sys/types.h>
 #include <math.h>
 
-#include "bson.h"
-#include "bson-config.h"
-#include "bson-json.h"
-#include "bson-iso8601-private.h"
+#include "bson/bson.h"
+#include "bson/bson-config.h"
+#include "bson/bson-json.h"
+#include "bson/bson-iso8601-private.h"
 
 #include "common-b64-private.h"
 #include "jsonsl/jsonsl.h"
@@ -1763,7 +1763,7 @@ _bson_json_read_start_array (bson_json_reader_t *reader) /* IN */
       return;
    }
 
-   if (bson->n < 0) {
+   if (bson->n == -1) {
       STACK_PUSH_ARRAY (_noop ());
    } else {
       _bson_json_read_fixup_key (bson);

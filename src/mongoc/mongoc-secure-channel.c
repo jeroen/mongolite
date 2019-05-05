@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-#include "mongoc-config.h"
+#include "mongoc/mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_SECURE_CHANNEL
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-log.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-ssl.h"
-#include "mongoc-stream-tls.h"
-#include "mongoc-stream-tls-private.h"
-#include "mongoc-secure-channel-private.h"
-#include "mongoc-stream-tls-secure-channel-private.h"
-#include "mongoc-errno-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-ssl.h"
+#include "mongoc/mongoc-stream-tls.h"
+#include "mongoc/mongoc-stream-tls-private.h"
+#include "mongoc/mongoc-secure-channel-private.h"
+#include "mongoc/mongoc-stream-tls-secure-channel-private.h"
+#include "mongoc/mongoc-errno-private.h"
 
 
 #undef MONGOC_LOG_DOMAIN
@@ -114,7 +114,7 @@ mongoc_secure_channel_setup_certificate_from_file (const char *filename)
       NULL, /* phCertStore, OUT, HCERTSTORE.., unused, for now */
       NULL, /* phMsg, OUT, HCRYPTMSG, only for PKC7, unused */
       (const void **) &cert /* ppvContext, OUT, the Certificate Context */
-   );
+      );
 
    if (!cert) {
       MONGOC_ERROR ("Failed to extract public key from '%s'. Error 0x%.8X",
@@ -317,7 +317,7 @@ mongoc_secure_channel_setup_ca (
 
    file = fopen (opt->ca_file, "rb");
    if (!file) {
-      MONGOC_WARNING ("Couldn't open file '%s'", opt->ca_file);
+      MONGOC_ERROR ("Couldn't open file '%s'", opt->ca_file);
       return false;
    }
 
@@ -431,7 +431,7 @@ mongoc_secure_channel_setup_crl (
       NULL, /* phCertStore, OUT, HCERTSTORE.., unused, for now */
       NULL, /* phMsg, OUT, HCRYPTMSG, only for PKC7, unused */
       (const void **) &cert /* ppvContext, OUT, the Certificate Context */
-   );
+      );
    bson_free (str);
 
    if (!cert) {
@@ -611,7 +611,7 @@ mongoc_secure_channel_handshake_step_1 (mongoc_stream_tls_t *tls,
       &outbuf_desc,                       /* pOutput OUT param */
       &secure_channel->ret_flags,         /* pfContextAttr OUT param */
       &secure_channel->ctxt->time_stamp   /* ptsExpiry OUT param */
-   );
+      );
 
    if (sspi_status != SEC_I_CONTINUE_NEEDED) {
       MONGOC_ERROR ("initial InitializeSecurityContext failed: %d",
@@ -706,9 +706,9 @@ mongoc_secure_channel_handshake_step_2 (mongoc_stream_tls_t *tls,
          secure_channel->encdata_offset += nread;
       }
 
-      TRACE ("encrypted data buffer: offset %zu length %zu",
-             secure_channel->encdata_offset,
-             secure_channel->encdata_length);
+      TRACE ("encrypted data buffer: offset %d length %d",
+             (int) secure_channel->encdata_offset,
+             (int) secure_channel->encdata_length);
 
       /* setup input buffers */
       _mongoc_secure_channel_init_sec_buffer (
