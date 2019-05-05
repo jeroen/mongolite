@@ -38,7 +38,7 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
 	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o
 
-PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -lz -lsasl2 -lresolv
+PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -lz -lsasl2 -lresolv -framework Security
 STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
 PKG_CFLAGS=-Wno-deprecated-declarations
 
