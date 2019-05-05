@@ -1,6 +1,6 @@
 PKG_CPPFLAGS = \
 	-I../windows/openssl-1.1.0f/include \
-	-I. -Icommon -Ijsonsl -Ibson -Imongoc \
+	-I. -Icommon \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
 
