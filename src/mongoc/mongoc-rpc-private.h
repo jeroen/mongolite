@@ -14,21 +14,19 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_RPC_PRIVATE_H
 #define MONGOC_RPC_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
+#include <bson/bson.h>
 #include <stddef.h>
 
-#include "mongoc-array-private.h"
-#include "mongoc-cmd-private.h"
-#include "mongoc-iovec.h"
-#include "mongoc-write-concern.h"
-#include "mongoc-flags.h"
+#include "mongoc/mongoc-array-private.h"
+#include "mongoc/mongoc-cmd-private.h"
+#include "mongoc/mongoc-iovec.h"
+#include "mongoc/mongoc-write-concern.h"
+#include "mongoc/mongoc-flags.h"
 /* forward declaration */
 struct _mongoc_cluster_t;
 
@@ -56,7 +54,6 @@ typedef struct _mongoc_rpc_section_t {
 #define ENUM_FIELD(_name) uint32_t _name;
 #define INT32_FIELD(_name) int32_t _name;
 #define UINT8_FIELD(_name) uint8_t _name;
-#define UINT32_FIELD(_name) uint32_t _name;
 #define INT64_FIELD(_name) int64_t _name;
 #define INT64_ARRAY_FIELD(_len, _name) \
    int32_t _len;                       \
@@ -121,7 +118,6 @@ BSON_STATIC_ASSERT2 (sizeof_reply_header,
 #undef RPC
 #undef ENUM_FIELD
 #undef UINT8_FIELD
-#undef UINT32_FIELD
 #undef INT32_FIELD
 #undef INT64_FIELD
 #undef INT64_ARRAY_FIELD

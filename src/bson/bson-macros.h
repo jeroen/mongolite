@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
+#include "bson/bson-prelude.h"
+
 
 #ifndef BSON_MACROS_H
 #define BSON_MACROS_H
-
-
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
 
 
 #include <stdio.h>
@@ -30,7 +27,7 @@
 #include <algorithm>
 #endif
 
-#include "bson-config.h"
+#include "bson/bson-config.h"
 
 
 #if BSON_OS == 1

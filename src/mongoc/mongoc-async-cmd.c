@@ -15,22 +15,22 @@
  */
 
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-client.h"
-#include "mongoc-async-cmd-private.h"
-#include "mongoc-async-private.h"
-#include "mongoc-error.h"
-#include "mongoc-opcode.h"
-#include "mongoc-rpc-private.h"
-#include "mongoc-stream-private.h"
-#include "mongoc-server-description-private.h"
-#include "mongoc-topology-scanner-private.h"
-#include "mongoc-log.h"
-#include "utlist.h"
+#include "mongoc/mongoc-client.h"
+#include "mongoc/mongoc-async-cmd-private.h"
+#include "mongoc/mongoc-async-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-opcode.h"
+#include "mongoc/mongoc-rpc-private.h"
+#include "mongoc/mongoc-stream-private.h"
+#include "mongoc/mongoc-server-description-private.h"
+#include "mongoc/mongoc-topology-scanner-private.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/utlist.h"
 
 #ifdef MONGOC_ENABLE_SSL
-#include "mongoc-stream-tls.h"
+#include "mongoc/mongoc-stream-tls.h"
 #endif
 
 #undef MONGOC_LOG_DOMAIN
@@ -99,7 +99,7 @@ bool
 mongoc_async_cmd_run (mongoc_async_cmd_t *acmd)
 {
    mongoc_async_cmd_result_t result;
-   int64_t rtt_msec;
+   int64_t duration_usec;
    _mongoc_async_cmd_phase_t phase_callback;
 
    BSON_ASSERT (acmd);
@@ -120,13 +120,13 @@ mongoc_async_cmd_run (mongoc_async_cmd_t *acmd)
       return true;
    }
 
-   rtt_msec = (bson_get_monotonic_time () - acmd->cmd_started) / 1000;
+   duration_usec = bson_get_monotonic_time () - acmd->cmd_started;
 
    if (result == MONGOC_ASYNC_CMD_SUCCESS) {
-      acmd->cb (acmd, result, &acmd->reply, rtt_msec);
+      acmd->cb (acmd, result, &acmd->reply, duration_usec);
    } else {
       /* we're in ERROR, TIMEOUT, or CANCELED */
-      acmd->cb (acmd, result, NULL, rtt_msec);
+      acmd->cb (acmd, result, NULL, duration_usec);
    }
 
    mongoc_async_cmd_destroy (acmd);
@@ -330,6 +330,10 @@ _mongoc_async_cmd_phase_send (mongoc_async_cmd_t *acmd)
       bson_free (iovec);
    }
 
+   if (bytes <= 0 && mongoc_stream_should_retry (acmd->stream)) {
+      return MONGOC_ASYNC_CMD_IN_PROGRESS;
+   }
+
    if (bytes < 0) {
       bson_set_error (&acmd->error,
                       MONGOC_ERROR_STREAM,
@@ -360,6 +364,10 @@ _mongoc_async_cmd_phase_recv_len (mongoc_async_cmd_t *acmd)
       &acmd->buffer, acmd->stream, acmd->bytes_to_read, 0);
    uint32_t msg_len;
 
+   if (bytes <= 0 && mongoc_stream_should_retry (acmd->stream)) {
+      return MONGOC_ASYNC_CMD_IN_PROGRESS;
+   }
+
    if (bytes < 0) {
       bson_set_error (&acmd->error,
                       MONGOC_ERROR_STREAM,
@@ -376,13 +384,14 @@ _mongoc_async_cmd_phase_recv_len (mongoc_async_cmd_t *acmd)
       return MONGOC_ASYNC_CMD_ERROR;
    }
 
-   acmd->bytes_to_read -= bytes;
+   acmd->bytes_to_read = (size_t) (acmd->bytes_to_read - bytes);
 
    if (!acmd->bytes_to_read) {
       memcpy (&msg_len, acmd->buffer.data, 4);
       msg_len = BSON_UINT32_FROM_LE (msg_len);
 
-      if ((msg_len < 16) || (msg_len > MONGOC_DEFAULT_MAX_MSG_SIZE)) {
+      if (msg_len < 16 || msg_len > MONGOC_DEFAULT_MAX_MSG_SIZE ||
+          msg_len < acmd->buffer.len) {
          bson_set_error (&acmd->error,
                          MONGOC_ERROR_PROTOCOL,
                          MONGOC_ERROR_PROTOCOL_INVALID_REPLY,
@@ -390,7 +399,7 @@ _mongoc_async_cmd_phase_recv_len (mongoc_async_cmd_t *acmd)
          return MONGOC_ASYNC_CMD_ERROR;
       }
 
-      acmd->bytes_to_read = msg_len - 4;
+      acmd->bytes_to_read = msg_len - acmd->buffer.len;
       acmd->state = MONGOC_ASYNC_CMD_RECV_RPC;
 
       return _mongoc_async_cmd_phase_recv_rpc (acmd);
@@ -404,6 +413,10 @@ _mongoc_async_cmd_phase_recv_rpc (mongoc_async_cmd_t *acmd)
 {
    ssize_t bytes = _mongoc_buffer_try_append_from_stream (
       &acmd->buffer, acmd->stream, acmd->bytes_to_read, 0);
+
+   if (bytes <= 0 && mongoc_stream_should_retry (acmd->stream)) {
+      return MONGOC_ASYNC_CMD_IN_PROGRESS;
+   }
 
    if (bytes < 0) {
       bson_set_error (&acmd->error,
@@ -421,7 +434,7 @@ _mongoc_async_cmd_phase_recv_rpc (mongoc_async_cmd_t *acmd)
       return MONGOC_ASYNC_CMD_ERROR;
    }
 
-   acmd->bytes_to_read -= bytes;
+   acmd->bytes_to_read = (size_t) (acmd->bytes_to_read - bytes);
 
    if (!acmd->bytes_to_read) {
       if (!_mongoc_rpc_scatter (

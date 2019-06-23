@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_STREAM_BUFFERED_H
 #define MONGOC_STREAM_BUFFERED_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
+#include <bson/bson.h>
 
-#include <bson.h>
-
-#include "mongoc-macros.h"
-#include "mongoc-stream.h"
+#include "mongoc/mongoc-macros.h"
+#include "mongoc/mongoc-stream.h"
 
 
 BSON_BEGIN_DECLS

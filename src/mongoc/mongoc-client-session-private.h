@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_CLIENT_SESSION_PRIVATE_H
 #define MONGOC_CLIENT_SESSION_PRIVATE_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
-#include "mongoc-client-session.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-client-session.h"
 
 /* error labels: see Transactions Spec */
 #define TRANSIENT_TXN_ERR "TransientTransactionError"
 #define UNKNOWN_COMMIT_RESULT "UnknownTransactionCommitResult"
+
+#define MONGOC_DEFAULT_WTIMEOUT_FOR_COMMIT_RETRY 10000
 
 struct _mongoc_transaction_opt_t {
    mongoc_read_concern_t *read_concern;
@@ -75,6 +75,7 @@ struct _mongoc_client_session_t {
    bson_t cluster_time;
    uint32_t operation_timestamp;
    uint32_t operation_increment;
+   uint32_t client_generation;
 };
 
 bool

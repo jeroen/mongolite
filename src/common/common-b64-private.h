@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef BSON_B64_PRIVATE_H
-#define BSON_B64_PRIVATE_H
+#include "common-prelude.h"
 
-#if !defined(MONGOC_COMPILATION) && !defined(BSON_COMPILATION) && \
-   !defined(BSON_INSIDE)
-#error "Only <mongoc.h> or <bson.h> can be included directly."
-#endif
+#ifndef COMMON_B64_PRIVATE_H
+#define COMMON_B64_PRIVATE_H
 
-#include <bson.h>
+#include <bson/bson.h>
 
 int
 bson_b64_ntop (uint8_t const *src,
@@ -33,4 +30,4 @@ bson_b64_ntop (uint8_t const *src,
 int
 bson_b64_pton (char const *src, uint8_t *target, size_t targsize);
 
-#endif /* BSON_B64_PRIVATE_H */
+#endif /* COMMON_B64_PRIVATE_H */

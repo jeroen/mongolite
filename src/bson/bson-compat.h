@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
+#include "bson/bson-prelude.h"
+
 
 #ifndef BSON_COMPAT_H
 #define BSON_COMPAT_H
-
-
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
 
 
 #if defined(__MINGW32__)
@@ -34,8 +31,8 @@
 #endif
 #endif
 
-#include "bson-config.h"
-#include "bson-macros.h"
+#include "bson/bson-config.h"
+#include "bson/bson-macros.h"
 
 
 #ifdef BSON_OS_WIN32
@@ -67,7 +64,7 @@
 #endif
 
 
-#include "bson-macros.h"
+#include "bson/bson-macros.h"
 
 
 #include <errno.h>
@@ -85,7 +82,9 @@
 
 BSON_BEGIN_DECLS
 
-
+#if !defined(_MSC_VER) || (_MSC_VER >= 1800)
+#include <inttypes.h>
+#endif
 #ifdef _MSC_VER
 #ifndef __cplusplus
 /* benign redefinition of type */
@@ -129,8 +128,6 @@ typedef SSIZE_T ssize_t;
 #ifndef PRIu64
 #define PRIu64 "I64u"
 #endif
-#else
-#include <inttypes.h>
 #endif
 
 #if defined(__MINGW32__) && !defined(INIT_ONCE_STATIC_INIT)

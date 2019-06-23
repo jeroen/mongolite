@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_BULK_OPERATION_PRIVATE_H
 #define MONGOC_BULK_OPERATION_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include "mongoc-array-private.h"
-#include "mongoc-client.h"
-#include "mongoc-write-command-private.h"
+#include "mongoc/mongoc-array-private.h"
+#include "mongoc/mongoc-client.h"
+#include "mongoc/mongoc-write-command-private.h"
 
 
 BSON_BEGIN_DECLS
@@ -49,11 +47,6 @@ _mongoc_bulk_operation_new (mongoc_client_t *client,
                             const char *collection,
                             mongoc_bulk_write_flags_t flags,
                             const mongoc_write_concern_t *write_concern);
-
-
-bson_validate_flags_t
-_mongoc_bulk_operation_parse_vflags (const bson_t *opts,
-                                     bson_validate_flags_t default_vflags);
 
 
 BSON_END_DECLS

@@ -1,0 +1,56 @@
+# Special config for native MacOS SSL (Secure Transport) instead of OpenSSL
+PKG_CPPFLAGS=-I. -Icommon \
+	-DBSON_COMPILATION -DBSON_EXTRA_ALIGN \
+	-DMONGOC_COMPILATION -DMONGOC_HAVE_SASL_CLIENT_DONE \
+	-DMONGOC_ENABLE_SSL_SECURE_TRANSPORT -DMONGOC_ENABLE_CRYPTO_COMMON_CRYPTO
+
+LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
+	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
+	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
+	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
+	bson/bson-value.o bson/bson.o bson/bson-decimal128.o jsonsl/jsonsl.o
+
+LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
+	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
+	mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
+	mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
+	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
+	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
+	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
+	mongoc/mongoc-rand-common-crypto.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
+	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
+	mongoc/mongoc-stream-buffered.o	mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
+	mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
+	mongoc/mongoc-write-command.o mongoc/mongoc-write-concern.o mongoc/mongoc-topology-description-apm.o \
+	mongoc/mongoc-async.o mongoc/mongoc-async-cmd.o mongoc/mongoc-host-list.o \
+	mongoc/mongoc-set.o mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
+	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o \
+	mongoc/mongoc-memcmp.o mongoc/mongoc-server-stream.o mongoc/mongoc-find-and-modify.o \
+	mongoc/mongoc-read-concern.o mongoc/mongoc-secure-transport.o mongoc/mongoc-apm.o \
+	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-common-crypto.o mongoc/mongoc-handshake.o \
+	mongoc/mongoc-stream-tls-secure-transport.o \
+	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o \
+	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o mongoc/mongoc-cluster-cyrus.o \
+	mongoc/mongoc-compression.o mongoc/mongoc-cyrus.o mongoc/mongoc-write-command-legacy.o \
+	mongoc/mongoc-stream-file.o \
+	mongoc/mongoc-opts.o mongoc/mongoc-opts-helpers.o \
+	mongoc/mongoc-cursor-cmd.o mongoc/mongoc-cursor-cmd-deprecated.o \
+	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
+	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o
+
+PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -lz -lsasl2 -lresolv -framework Security
+STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
+PKG_CFLAGS=-Wno-deprecated-declarations
+
+# For development only
+# PKG_CFLAGS= -Wall -pedantic
+# all: clean
+
+$(SHLIB): $(STATLIB)
+
+$(STATLIB): $(LIBBSON) $(LIBMONGOC)
+	$(AR) rcs bson/libstatbson.a $(LIBBSON)
+	$(AR) rcs mongoc/libstatmongoc.a $(LIBMONGOC)
+
+clean:
+	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)

@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
+#include "bson/bson-prelude.h"
+
 
 #ifndef BSON_READER_H
 #define BSON_READER_H
 
 
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
-
-
-#include "bson-compat.h"
-#include "bson-oid.h"
-#include "bson-types.h"
+#include "bson/bson-compat.h"
+#include "bson/bson-oid.h"
+#include "bson/bson-types.h"
 
 
 BSON_BEGIN_DECLS

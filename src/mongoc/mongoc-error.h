@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_ERRORS_H
 #define MONGOC_ERRORS_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
+#include <bson/bson.h>
 
-#include <bson.h>
-
-#include "mongoc-macros.h"
+#include "mongoc/mongoc-macros.h"
 
 #define MONGOC_ERROR_API_VERSION_LEGACY 1
 #define MONGOC_ERROR_API_VERSION_2 2
@@ -115,6 +113,9 @@ typedef enum {
    MONGOC_ERROR_CHANGE_STREAM_NO_RESUME_TOKEN,
    MONGOC_ERROR_CLIENT_SESSION_FAILURE,
    MONGOC_ERROR_TRANSACTION_INVALID_STATE,
+   MONGOC_ERROR_GRIDFS_CORRUPT,
+   MONGOC_ERROR_GRIDFS_BUCKET_FILE_NOT_FOUND,
+   MONGOC_ERROR_GRIDFS_BUCKET_STREAM
 } mongoc_error_code_t;
 
 MONGOC_EXPORT (bool)

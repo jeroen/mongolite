@@ -2,8 +2,8 @@
 #define STRICT_R_HEADERS
 
 #include <Rinternals.h>
-#include <bson.h>
-#include <mongoc.h>
+#include <bson/bson.h>
+#include <mongoc/mongoc.h>
 
 #define stop(...) Rf_errorcall(R_NilValue, __VA_ARGS__)
 

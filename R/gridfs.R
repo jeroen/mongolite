@@ -20,18 +20,24 @@
 #' @inheritParams mongo
 #' @export
 #' @param prefix string to prefix the collection name
-#' @examples # New GridFS
+#' @examples # Upload a file to GridFS
 #' fs <- gridfs(url = "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
-#' download.file('https://cloud.r-project.org/doc/manuals/r-devel/NEWS.pdf', 'NEWS.pdf', mode = 'wb')
-#' fs$upload('NEWS.pdf')
-#' fs$download('NEWS.pdf', file.path(tempdir(), 'output.pdf'))
-#' con <- file(file.path(tempdir(), 'output2.pdf'))
-#' fs$read('NEWS.pdf', con)
-#' fs$remove('NEWS.pdf')
+#' input <- file.path(R.home('doc'), "html/logo.jpg")
+#' fs$upload(input, name = 'logo.jpg')
 #'
-#' files <- c('NEWS.pdf', file.path(tempdir(), c('output.pdf', 'output2.pdf')))
+#' # Download the file back to disk
+#' output <- file.path(tempdir(), 'logo1.jpg')
+#' fs$download('logo.jpg', output)
+#'
+#' # Or you can also stream it
+#' con <- file(file.path(tempdir(), 'logo2.jpg'))
+#' fs$read('logo.jpg', con)
+#'
+#' # Delete the file on the server
+#' fs$remove('logo.jpg')
+#'
+#' files <- c(input, file.path(tempdir(), c('logo1.jpg', 'logo2.jpg')))
 #' hashes <- tools::md5sum(files)
-#' unlink(files)
 #' stopifnot(length(unique(hashes)) == 1)
 #'
 #' \donttest{

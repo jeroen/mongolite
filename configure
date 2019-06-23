@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Anticonf (tm) script by Jeroen Ooms (2017)
+# Anticonf (tm) script by Jeroen Ooms (2019)
 # This script will query 'pkg-config' for the required cflags and ldflags.
 # If pkg-config is unavailable or does not find the library, try setting
 # INCLUDE_DIR and LIB_DIR manually via e.g:
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
+
+# Special case: On MacOS we now use the native crypto instead of openssl
+if [[ "$OSTYPE" == "darwin"* ]] && [[ -z "$MONGOLITE_USE_OPENSSL" ]]; then
+  echo "Using native crypto for MacOS, don't need OpenSSL"
+  cat src/osx/Makevars > src/Makevars
+  exit 0
+fi
 
 # Library settings
 PKG_CONFIG_NAME="openssl"
@@ -24,7 +31,7 @@ fi
 PKG_LIBS="-lssl -lcrypto $SASL_LIBS"
 
 # Use pkg-config if openssl 1.0 is available
-pkg-config ${PKG_CONFIG_NAME} --atleast-version=1.0
+pkg-config ${PKG_CONFIG_NAME} --atleast-version=1.0.2
 if [ $? -eq 0 ]; then
   PKGCONFIG_CFLAGS="$(pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME})"
   PKGCONFIG_LIBS="$(pkg-config --libs ${PKG_CONFIG_NAME})"
@@ -39,10 +46,7 @@ elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
   echo "Found pkg-config cflags and libs!"
   PKG_CFLAGS="${PKGCONFIG_CFLAGS}"
   PKG_LIBS="${SASL_LIBS} ${PKGCONFIG_LIBS}"
-fi
-
-# OpenSSL on OSX 10.11 is deprecated but currently keg-only in brew (not linked)
-if [[ "$OSTYPE" == "darwin"* ]]; then
+elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [ $(command -v brew) ]; then
     BREWDIR=$(brew --prefix)
   else

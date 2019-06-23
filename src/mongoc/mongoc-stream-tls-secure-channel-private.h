@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_STREAM_TLS_SECURE_CHANNEL_PRIVATE_H
 #define MONGOC_STREAM_TLS_SECURE_CHANNEL_PRIVATE_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
 #ifdef MONGOC_ENABLE_SSL_SECURE_CHANNEL
-#include <bson.h>
+#include <bson/bson.h>
 
 /* Its mandatory to indicate to Windows who is compiling the code */
 #define SECURITY_WIN32

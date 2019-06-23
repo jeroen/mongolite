@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_FIND_AND_MODIFY_PRIVATE_H
 #define MONGOC_FIND_AND_MODIFY_PRIVATE_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
-#include "mongoc-write-command-private.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-write-command-private.h"
 
 BSON_BEGIN_DECLS
 
@@ -31,7 +29,7 @@ struct _mongoc_find_and_modify_opts_t {
    bson_t *update;
    bson_t *fields;
    mongoc_find_and_modify_flags_t flags;
-   mongoc_write_bypass_document_validation_t bypass_document_validation;
+   bool bypass_document_validation;
    uint32_t max_time_ms;
    bson_t extra;
 };

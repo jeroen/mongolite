@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_CLUSTER_SSPI_PRIVATE_H
 #define MONGOC_CLUSTER_SSPI_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include "mongoc-config.h"
-#include "mongoc-cluster-private.h"
-#include <bson.h>
+#include "mongoc/mongoc-config.h"
+#include "mongoc/mongoc-cluster-private.h"
+#include <bson/bson.h>
 
 bool
 _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,

@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_MATCHER_PRIVATE_H
 #define MONGOC_MATCHER_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
+#include <bson/bson.h>
 
-#include <bson.h>
-
-#include "mongoc-matcher-op-private.h"
+#include "mongoc/mongoc-matcher-op-private.h"
 
 
 BSON_BEGIN_DECLS

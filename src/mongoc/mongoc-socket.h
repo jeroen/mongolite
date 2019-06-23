@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_SOCKET_H
 #define MONGOC_SOCKET_H
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
-#include "mongoc-macros.h"
-#include "mongoc-config.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-macros.h"
+#include "mongoc/mongoc-config.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -40,7 +38,7 @@
 #include <sys/un.h>
 #endif
 
-#include "mongoc-iovec.h"
+#include "mongoc/mongoc-iovec.h"
 
 
 BSON_BEGIN_DECLS

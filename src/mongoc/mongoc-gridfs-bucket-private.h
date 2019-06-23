@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 MongoDB, Inc.
+ * Copyright 2018-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "mongoc/mongoc-prelude.h"
 
-#include "mongoc-config.h"
+#ifndef MONGOC_GRIDFS_BUCKET_PRIVATE_H
+#define MONGOC_GRIDFS_BUCKET_PRIVATE_H
 
-#ifdef MONGOC_ENABLE_SASL_GSSAPI
-#include "mongoc-gssapi-private.h"
-#include "mongoc-trace-private.h"
+#include "mongoc/mongoc-collection.h"
 
-#undef MONGOC_LOG_DOMAIN
-#define MONGOC_LOG_DOMAIN "GSSAPI"
+BSON_BEGIN_DECLS
 
-/* ... */
+struct _mongoc_gridfs_bucket_t {
+   mongoc_collection_t *chunks;
+   mongoc_collection_t *files;
+   int32_t chunk_size;
+   char *bucket_name;
+   bool indexed;
+};
 
-#endif
+BSON_END_DECLS
+
+#endif /* MONGOC_GRIDFS_BUCKET_PRIVATE_H */

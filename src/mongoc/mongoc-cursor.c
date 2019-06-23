@@ -15,18 +15,18 @@
  */
 
 
-#include "mongoc-cursor.h"
-#include "mongoc-cursor-private.h"
-#include "mongoc-client-private.h"
-#include "mongoc-client-session-private.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-error.h"
-#include "mongoc-log.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-read-concern-private.h"
-#include "mongoc-util-private.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-read-prefs-private.h"
+#include "mongoc/mongoc-cursor.h"
+#include "mongoc/mongoc-cursor-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-client-session-private.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-read-concern-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-read-prefs-private.h"
 
 
 #undef MONGOC_LOG_DOMAIN
@@ -236,6 +236,7 @@ _mongoc_cursor_new_with_opts (mongoc_client_t *client,
    mongoc_cursor_t *cursor;
    mongoc_topology_description_type_t td_type;
    uint32_t server_id;
+   mongoc_read_concern_t *read_concern_local = NULL;
    bson_error_t validate_err;
    const char *dollar_field;
    bson_iter_t iter;
@@ -247,6 +248,7 @@ _mongoc_cursor_new_with_opts (mongoc_client_t *client,
    cursor = (mongoc_cursor_t *) bson_malloc0 (sizeof *cursor);
    cursor->client = client;
    cursor->state = UNPRIMED;
+   cursor->client_generation = client->generation;
 
    bson_init (&cursor->opts);
    bson_init (&cursor->error_doc);
@@ -281,6 +283,18 @@ _mongoc_cursor_new_with_opts (mongoc_client_t *client,
          cursor->explicit_session = true;
       }
 
+      if (bson_iter_init_find (&iter, opts, "readConcern")) {
+         read_concern_local =
+            _mongoc_read_concern_new_from_iter (&iter, &cursor->error);
+
+         if (!read_concern_local) {
+            /* invalid read concern */
+            GOTO (finish);
+         }
+
+         read_concern = read_concern_local;
+      }
+
       /* true if there's a valid serverId or no serverId, false on err */
       if (!_mongoc_get_server_id_from_opts (opts,
                                             MONGOC_ERROR_CURSOR,
@@ -294,8 +308,19 @@ _mongoc_cursor_new_with_opts (mongoc_client_t *client,
          (void) mongoc_cursor_set_hint (cursor, server_id);
       }
 
-      bson_copy_to_excluding_noinit (
-         opts, &cursor->opts, "serverId", "sessionId", NULL);
+      bson_copy_to_excluding_noinit (opts,
+                                     &cursor->opts,
+                                     "serverId",
+                                     "sessionId",
+                                     "bypassDocumentValidation",
+                                     NULL);
+
+
+      /* only include bypassDocumentValidation if it's true */
+      if (bson_iter_init_find (&iter, opts, "bypassDocumentValidation") &&
+          bson_iter_as_bool (&iter)) {
+         BSON_APPEND_BOOL (&cursor->opts, "bypassDocumentValidation", true);
+      }
    }
 
    if (_mongoc_client_session_in_txn (cursor->client_session)) {
@@ -356,6 +381,7 @@ _mongoc_cursor_new_with_opts (mongoc_client_t *client,
    (void) _mongoc_read_prefs_validate (cursor->read_prefs, &cursor->error);
 
 finish:
+   mongoc_read_concern_destroy (read_concern_local);
    mongoc_counter_cursors_active_inc ();
 
    RETURN (cursor);
@@ -571,23 +597,26 @@ mongoc_cursor_destroy (mongoc_cursor_t *cursor)
       cursor->impl.destroy (&cursor->impl);
    }
 
-   if (cursor->in_exhaust) {
-      cursor->client->in_exhaust = false;
-      if (cursor->state != DONE) {
-         /* The only way to stop an exhaust cursor is to kill the connection */
-         mongoc_cluster_disconnect_node (
-            &cursor->client->cluster, cursor->server_id, false, NULL);
-      }
-   } else if (cursor->cursor_id) {
-      bson_strncpy (db, cursor->ns, cursor->dblen + 1);
+   if (cursor->client_generation == cursor->client->generation) {
+      if (cursor->in_exhaust) {
+         cursor->client->in_exhaust = false;
+         if (cursor->state != DONE) {
+            /* The only way to stop an exhaust cursor is to kill the connection
+             */
+            mongoc_cluster_disconnect_node (
+               &cursor->client->cluster, cursor->server_id, false, NULL);
+         }
+      } else if (cursor->cursor_id) {
+         bson_strncpy (db, cursor->ns, cursor->dblen + 1);
 
-      _mongoc_client_kill_cursor (cursor->client,
-                                  cursor->server_id,
-                                  cursor->cursor_id,
-                                  cursor->operation_id,
-                                  db,
-                                  cursor->ns + cursor->dblen + 1,
-                                  cursor->client_session);
+         _mongoc_client_kill_cursor (cursor->client,
+                                     cursor->server_id,
+                                     cursor->cursor_id,
+                                     cursor->operation_id,
+                                     db,
+                                     cursor->ns + cursor->dblen + 1,
+                                     cursor->client_session);
+      }
    }
 
    if (cursor->client_session && !cursor->explicit_session) {
@@ -1139,6 +1168,14 @@ mongoc_cursor_next (mongoc_cursor_t *cursor, const bson_t **bson)
 
    TRACE ("cursor_id(%" PRId64 ")", cursor->cursor_id);
 
+   if (cursor->client_generation != cursor->client->generation) {
+      bson_set_error (&cursor->error,
+                      MONGOC_ERROR_CURSOR,
+                      MONGOC_ERROR_CURSOR_INVALID_CURSOR,
+                      "Cannot advance cursor after client reset");
+      RETURN (false);
+   }
+
    if (bson) {
       *bson = NULL;
    }
@@ -1601,7 +1638,7 @@ _mongoc_cursor_prepare_getmore_command (mongoc_cursor_t *cursor,
    int collection_len;
    int64_t batch_size;
    bool await_data;
-   int32_t max_await_time_ms;
+   int64_t max_await_time_ms;
 
    ENTRY;
 
@@ -1631,12 +1668,11 @@ _mongoc_cursor_prepare_getmore_command (mongoc_cursor_t *cursor,
    await_data = _mongoc_cursor_get_opt_bool (cursor, MONGOC_CURSOR_TAILABLE) &&
                 _mongoc_cursor_get_opt_bool (cursor, MONGOC_CURSOR_AWAIT_DATA);
 
-
    if (await_data) {
-      max_await_time_ms =
-         (int32_t) mongoc_cursor_get_max_await_time_ms (cursor);
+      max_await_time_ms = _mongoc_cursor_get_opt_int64 (
+         cursor, MONGOC_CURSOR_MAX_AWAIT_TIME_MS, 0);
       if (max_await_time_ms) {
-         bson_append_int32 (command,
+         bson_append_int64 (command,
                             MONGOC_CURSOR_MAX_TIME_MS,
                             MONGOC_CURSOR_MAX_TIME_MS_LEN,
                             max_await_time_ms);

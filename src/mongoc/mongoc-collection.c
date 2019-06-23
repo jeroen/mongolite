@@ -17,25 +17,26 @@
 
 #include <stdio.h>
 
-#include "mongoc-bulk-operation.h"
-#include "mongoc-bulk-operation-private.h"
-#include "mongoc-change-stream-private.h"
-#include "mongoc-client-private.h"
-#include "mongoc-find-and-modify-private.h"
-#include "mongoc-find-and-modify.h"
-#include "mongoc-collection.h"
-#include "mongoc-collection-private.h"
-#include "mongoc-cursor-private.h"
-#include "mongoc-error.h"
-#include "mongoc-index.h"
-#include "mongoc-log.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-read-concern-private.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-read-prefs-private.h"
-#include "mongoc-util-private.h"
+#include "mongoc/mongoc-bulk-operation.h"
+#include "mongoc/mongoc-bulk-operation-private.h"
+#include "mongoc/mongoc-change-stream-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-find-and-modify-private.h"
+#include "mongoc/mongoc-find-and-modify.h"
+#include "mongoc/mongoc-collection.h"
+#include "mongoc/mongoc-collection-private.h"
+#include "mongoc/mongoc-cursor-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-index.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-read-concern-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-read-prefs-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-write-command-private.h"
+#include "mongoc/mongoc-opts-private.h"
 #include "mongoc-write-command-private.h"
-#include "mongoc-opts-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "collection"
@@ -317,6 +318,23 @@ _make_agg_cmd (const char *coll,
    return true;
 }
 
+
+static bool
+_has_out_key (bson_iter_t *iter)
+{
+   bson_iter_t stage;
+
+   while (bson_iter_next (iter)) {
+      if (BSON_ITER_HOLDS_DOCUMENT (iter) && bson_iter_recurse (iter, &stage)) {
+         if (bson_iter_find (&stage, "$out")) {
+            return true;
+         }
+      }
+   }
+
+   return false;
+}
+
 /*
  *--------------------------------------------------------------------------
  *
@@ -363,10 +381,8 @@ mongoc_collection_aggregate (mongoc_collection_t *collection,       /* IN */
                              const mongoc_read_prefs_t *read_prefs) /* IN */
 {
    mongoc_server_stream_t *server_stream = NULL;
-   bool has_out_key = false;
-   bool has_read_concern;
+   bool has_out_key;
    bool has_write_concern;
-   bson_iter_t kiter;
    bson_iter_t ar;
    mongoc_cursor_t *cursor;
    uint32_t server_id;
@@ -396,7 +412,8 @@ mongoc_collection_aggregate (mongoc_collection_t *collection,       /* IN */
                                     &cursor_opts,
                                     read_prefs,
                                     collection->read_prefs,
-                                    NULL);
+                                    collection->read_concern);
+
    bson_destroy (&command);
    bson_destroy (&cursor_opts);
 
@@ -432,14 +449,19 @@ mongoc_collection_aggregate (mongoc_collection_t *collection,       /* IN */
       GOTO (done);
    }
 
+   /* pipeline could be like {pipeline: [{$out: 'test'}]} or [{$out: 'test'}] */
    if (bson_iter_init_find (&iter, pipeline, "pipeline") &&
        BSON_ITER_HOLDS_ARRAY (&iter) && bson_iter_recurse (&iter, &ar)) {
-      while (bson_iter_next (&ar)) {
-         if (BSON_ITER_HOLDS_DOCUMENT (&ar) &&
-             bson_iter_recurse (&ar, &kiter)) {
-            has_out_key |= bson_iter_find (&kiter, "$out");
-         }
+      has_out_key = _has_out_key (&ar);
+   } else {
+      if (!bson_iter_init (&iter, pipeline)) {
+         bson_set_error (&cursor->error,
+                         MONGOC_ERROR_BSON,
+                         MONGOC_ERROR_BSON_INVALID,
+                         "Pipeline is invalid BSON");
+         GOTO (done);
       }
+      has_out_key = _has_out_key (&iter);
    }
 
    has_write_concern = bson_has_field (&cursor->opts, "writeConcern");
@@ -461,13 +483,6 @@ mongoc_collection_aggregate (mongoc_collection_t *collection,       /* IN */
       mongoc_write_concern_destroy (cursor->write_concern);
       cursor->write_concern = mongoc_write_concern_copy (
          mongoc_collection_get_write_concern (collection));
-   }
-
-   has_read_concern = bson_has_field (&cursor->opts, "readConcern");
-   if (!has_read_concern) {
-      mongoc_read_concern_destroy (cursor->read_concern);
-      cursor->read_concern = mongoc_read_concern_copy (
-         mongoc_collection_get_read_concern (collection));
    }
 
 done:
@@ -1373,6 +1388,11 @@ mongoc_collection_create_index_with_opts (mongoc_collection_t *collection,
       GOTO (done);
    }
 
+   if (!parsed.writeConcern) {
+      parsed.writeConcern = collection->write_concern;
+      parsed.write_concern_owned = false;
+   }
+
    /*
     * Generate the key name if it was not provided.
     */
@@ -2023,16 +2043,16 @@ mongoc_collection_update (mongoc_collection_t *collection,
 }
 
 static bool
-_mongoc_collection_update_or_replace (
-   mongoc_collection_t *collection,
-   const bson_t *selector,
-   const bson_t *update,
-   mongoc_update_opts_t *update_opts,
-   mongoc_write_bypass_document_validation_t bypass,
-   const bson_t *array_filters,
-   bson_t *extra,
-   bson_t *reply,
-   bson_error_t *error)
+_mongoc_collection_update_or_replace (mongoc_collection_t *collection,
+                                      const bson_t *selector,
+                                      const bson_t *update,
+                                      mongoc_update_opts_t *update_opts,
+                                      bool multi,
+                                      bool bypass,
+                                      const bson_t *array_filters,
+                                      bson_t *extra,
+                                      bson_t *reply,
+                                      bson_error_t *error)
 {
    mongoc_write_command_t command;
    mongoc_write_result_t result;
@@ -2058,6 +2078,10 @@ _mongoc_collection_update_or_replace (
       bson_append_array (extra, "arrayFilters", 12, array_filters);
    }
 
+   if (multi) {
+      bson_append_bool (extra, "multi", 5, true);
+   }
+
    _mongoc_write_result_init (&result);
    _mongoc_write_command_init_update_idl (
       &command,
@@ -2066,6 +2090,7 @@ _mongoc_collection_update_or_replace (
       extra,
       ++collection->client->cluster.operation_id);
 
+   command.flags.has_multi_write = multi;
    command.flags.bypass_document_validation = bypass;
    if (!bson_empty (&update_opts->collation)) {
       command.flags.has_collation = true;
@@ -2187,6 +2212,7 @@ mongoc_collection_update_one (mongoc_collection_t *collection,
                                                selector,
                                                update,
                                                &update_one_opts.update,
+                                               false /* multi */,
                                                update_one_opts.update.bypass,
                                                &update_one_opts.arrayFilters,
                                                &update_one_opts.extra,
@@ -2228,12 +2254,11 @@ mongoc_collection_update_many (mongoc_collection_t *collection,
       return false;
    }
 
-   bson_append_bool (&update_many_opts.extra, "multi", 5, true);
-
    ret = _mongoc_collection_update_or_replace (collection,
                                                selector,
                                                update,
                                                &update_many_opts.update,
+                                               true /* multi */,
                                                update_many_opts.update.bypass,
                                                &update_many_opts.arrayFilters,
                                                &update_many_opts.extra,
@@ -2279,6 +2304,7 @@ mongoc_collection_replace_one (mongoc_collection_t *collection,
                                                selector,
                                                replacement,
                                                &replace_one_opts.update,
+                                               false /* multi */,
                                                replace_one_opts.update.bypass,
                                                NULL,
                                                &replace_one_opts.extra,
@@ -2464,6 +2490,7 @@ mongoc_collection_delete (mongoc_collection_t *collection,
 
 static bool
 _mongoc_delete_one_or_many (mongoc_collection_t *collection,
+                            bool multi,
                             const bson_t *selector,
                             mongoc_crud_opts_t *crud,
                             const bson_t *cmd_opts,
@@ -2483,6 +2510,7 @@ _mongoc_delete_one_or_many (mongoc_collection_t *collection,
    BSON_ASSERT (bson_empty0 (reply));
 
    _mongoc_write_result_init (&result);
+   bson_append_int32 (opts, "limit", 5, multi ? 0 : 1);
 
    if (!bson_empty (collation)) {
       bson_append_document (opts, "collation", 9, collation);
@@ -2495,6 +2523,7 @@ _mongoc_delete_one_or_many (mongoc_collection_t *collection,
       opts,
       ++collection->client->cluster.operation_id);
 
+   command.flags.has_multi_write = multi;
    if (!bson_empty (collation)) {
       command.flags.has_collation = true;
    }
@@ -2536,13 +2565,13 @@ mongoc_collection_delete_one (mongoc_collection_t *collection,
    BSON_ASSERT (selector);
 
    _mongoc_bson_init_if_set (reply);
-   bson_append_int32 (&limit, "limit", 5, 1);
    if (!_mongoc_delete_one_opts_parse (
           collection->client, opts, &delete_one_opts, error)) {
       GOTO (done);
    }
 
    ret = _mongoc_delete_one_or_many (collection,
+                                     false /* multi */,
                                      selector,
                                      &delete_one_opts.crud,
                                      &delete_one_opts.extra,
@@ -2580,8 +2609,8 @@ mongoc_collection_delete_many (mongoc_collection_t *collection,
       GOTO (done);
    }
 
-   bson_append_int32 (&limit, "limit", 5, 0);
    ret = _mongoc_delete_one_or_many (collection,
+                                     true /* multi */,
                                      selector,
                                      &delete_many_opts.crud,
                                      &delete_many_opts.extra,
@@ -3179,6 +3208,7 @@ mongoc_collection_find_and_modify_with_opts (
 
    BSON_ASSERT (collection);
    BSON_ASSERT (query);
+   BSON_ASSERT (opts);
 
    reply_ptr = reply ? reply : &reply_local;
    cluster = &collection->client->cluster;
@@ -3235,11 +3265,10 @@ mongoc_collection_find_and_modify_with_opts (
       BSON_APPEND_BOOL (&command, "new", true);
    }
 
-   if (opts->bypass_document_validation !=
-       MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT) {
+   if (opts->bypass_document_validation) {
       BSON_APPEND_BOOL (&command,
                         "bypassDocumentValidation",
-                        !!opts->bypass_document_validation);
+                        opts->bypass_document_validation);
    }
 
    if (opts->max_time_ms > 0) {

@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_MACROS_H
 #define MONGOC_MACROS_H
-
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
 
 /* Decorate public functions:
  * - if MONGOC_STATIC, we're compiling a program that uses libmongoc as

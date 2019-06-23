@@ -1,8 +1,8 @@
-#include "mongoc-opts-helpers-private.h"
-#include "mongoc-client-session-private.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-util-private.h"
-
+#include "mongoc/mongoc-opts-helpers-private.h"
+#include "mongoc/mongoc-client-session-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-read-concern-private.h"
 
 #define BSON_ERR(...)                                                       \
    do {                                                                     \
@@ -21,6 +21,42 @@
       return false;                                     \
    } while (0)
 
+
+bool
+_mongoc_timestamp_empty (mongoc_timestamp_t *timestamp)
+{
+   return (timestamp->timestamp == 0 && timestamp->increment == 0);
+}
+
+void
+_mongoc_timestamp_set (mongoc_timestamp_t *dst, mongoc_timestamp_t *src)
+{
+   dst->timestamp = src->timestamp;
+   dst->increment = src->increment;
+}
+
+void
+_mongoc_timestamp_set_from_bson (mongoc_timestamp_t *timestamp,
+                                 bson_iter_t *iter)
+{
+   bson_iter_timestamp (iter, &(timestamp->timestamp), &(timestamp->increment));
+}
+
+void
+_mongoc_timestamp_append (mongoc_timestamp_t *timestamp,
+                          bson_t *bson,
+                          char *key)
+{
+   bson_append_timestamp (
+      bson, key, strlen (key), timestamp->timestamp, timestamp->increment);
+}
+
+void
+_mongoc_timestamp_clear (mongoc_timestamp_t *timestamp)
+{
+   timestamp->timestamp = 0;
+   timestamp->increment = 0;
+}
 
 bool
 _mongoc_convert_document (mongoc_client_t *client,
@@ -131,6 +167,30 @@ _mongoc_convert_int32_t (mongoc_client_t *client,
 }
 
 bool
+_mongoc_convert_int32_positive (mongoc_client_t *client,
+                                const bson_iter_t *iter,
+                                int32_t *num,
+                                bson_error_t *error)
+{
+   int32_t i;
+
+   if (!_mongoc_convert_int32_t (client, iter, &i, error)) {
+      return false;
+   }
+
+   if (i <= 0) {
+      CONVERSION_ERR (
+         "Invalid field \"%s\" in opts, should be greater than 0, not %d",
+         bson_iter_key (iter),
+         i);
+   }
+
+   *num = i;
+
+   return true;
+}
+
+bool
 _mongoc_convert_bool (mongoc_client_t *client,
                       const bson_iter_t *iter,
                       bool *flag,
@@ -154,6 +214,16 @@ _mongoc_convert_bson_value_t (mongoc_client_t *client,
                               bson_error_t *error)
 {
    bson_value_copy (bson_iter_value ((bson_iter_t *) iter), value);
+   return true;
+}
+
+bool
+_mongoc_convert_timestamp (mongoc_client_t *client,
+                           const bson_iter_t *iter,
+                           mongoc_timestamp_t *timestamp,
+                           bson_error_t *error)
+{
+   bson_iter_timestamp (iter, &timestamp->timestamp, &timestamp->increment);
    return true;
 }
 
@@ -201,30 +271,11 @@ _mongoc_convert_validate_flags (mongoc_client_t *client,
       }
    }
    CONVERSION_ERR ("Invalid type for option \"%s\": \"%s\"."
-                   " \"%s\" must be a a boolean or a bitwise-OR of"
+                   " \"%s\" must be a boolean or a bitwise-OR of"
                    " bson_validate_flags_t values.",
                    bson_iter_key (iter),
                    _mongoc_bson_type_to_str (bson_iter_type (iter)),
                    bson_iter_key (iter));
-}
-
-bool
-_mongoc_convert_mongoc_write_bypass_document_validation_t (
-   mongoc_client_t *client,
-   const bson_iter_t *iter,
-   mongoc_write_bypass_document_validation_t *bdv,
-   bson_error_t *error)
-{
-   if (BSON_ITER_HOLDS_BOOL (iter)) {
-      if (bson_iter_bool (iter) == true) {
-         *bdv = MONGOC_BYPASS_DOCUMENT_VALIDATION_TRUE;
-      } else {
-         *bdv = MONGOC_BYPASS_DOCUMENT_VALIDATION_FALSE;
-      }
-      return true;
-   }
-
-   CONVERSION_ERR ("Invalid field \"%s\" in opts", bson_iter_key (iter));
 }
 
 bool
@@ -262,5 +313,18 @@ _mongoc_convert_server_id (mongoc_client_t *client,
    }
 
    *server_id = (uint32_t) tmp;
+   return true;
+}
+
+bool
+_mongoc_convert_read_concern (mongoc_client_t *client,
+                              const bson_iter_t *iter,
+                              mongoc_read_concern_t **rc,
+                              bson_error_t *error)
+{
+   *rc = _mongoc_read_concern_new_from_iter (iter, error);
+   if (!*rc) {
+      return false;
+   }
    return true;
 }

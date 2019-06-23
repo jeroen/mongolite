@@ -15,20 +15,20 @@
  */
 
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-array-private.h"
-#include "mongoc-buffer-private.h"
-#include "mongoc-error.h"
-#include "mongoc-errno-private.h"
-#include "mongoc-flags.h"
-#include "mongoc-log.h"
-#include "mongoc-opcode.h"
-#include "mongoc-rpc-private.h"
-#include "mongoc-stream.h"
-#include "mongoc-stream-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-util-private.h"
+#include "mongoc/mongoc-array-private.h"
+#include "mongoc/mongoc-buffer-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-errno-private.h"
+#include "mongoc/mongoc-flags.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-opcode.h"
+#include "mongoc/mongoc-rpc-private.h"
+#include "mongoc/mongoc-stream.h"
+#include "mongoc/mongoc-stream-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-util-private.h"
 
 
 #undef MONGOC_LOG_DOMAIN
@@ -72,7 +72,7 @@ mongoc_stream_close (mongoc_stream_t *stream)
  * for @stream.
  * This handler is called upon stream failure, such as network errors, invalid
  * replies
- * or replicaset reconfigures deleteing the stream
+ * or replicaset reconfigures deleting the stream
  */
 void
 mongoc_stream_failed (mongoc_stream_t *stream)
@@ -176,7 +176,7 @@ mongoc_stream_writev (mongoc_stream_t *stream,
  * Simplified access to mongoc_stream_writev(). Creates a single iovec
  * with the buffer provided.
  *
- * Returns: -1 on failure, otherwise the number of bytes write.
+ * Returns: -1 on failure, otherwise the number of bytes written.
  */
 ssize_t
 mongoc_stream_write (mongoc_stream_t *stream,
@@ -207,7 +207,7 @@ mongoc_stream_write (mongoc_stream_t *stream,
  * @stream: A mongoc_stream_t.
  * @iov: An array of iovec containing the location and sizes to read.
  * @iovcnt: the number of elements in @iov.
- * @min_bytes: the minumum number of bytes to return, or -1.
+ * @min_bytes: the minimum number of bytes to return, or -1.
  *
  * Reads into the various buffers pointed to by @iov and associated
  * buffer lengths.
@@ -409,6 +409,17 @@ mongoc_stream_timed_out (mongoc_stream_t *stream)
 
    /* for e.g. a file stream there is no timed_out function */
    RETURN (stream->timed_out && stream->timed_out (stream));
+}
+
+bool
+mongoc_stream_should_retry (mongoc_stream_t *stream)
+{
+   ENTRY;
+
+   BSON_ASSERT (stream);
+
+   /* for e.g. a file stream there is no should_retry function */
+   RETURN (stream->should_retry && stream->should_retry (stream));
 }
 
 bool

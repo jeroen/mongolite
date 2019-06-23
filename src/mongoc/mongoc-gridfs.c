@@ -18,22 +18,22 @@
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "gridfs"
 
-#include "mongoc-bulk-operation.h"
-#include "mongoc-client-private.h"
-#include "mongoc-collection.h"
-#include "mongoc-collection-private.h"
-#include "mongoc-error.h"
-#include "mongoc-index.h"
-#include "mongoc-gridfs.h"
-#include "mongoc-gridfs-private.h"
-#include "mongoc-gridfs-file.h"
-#include "mongoc-gridfs-file-private.h"
-#include "mongoc-gridfs-file-list.h"
-#include "mongoc-gridfs-file-list-private.h"
-#include "mongoc-client.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-cursor-private.h"
-#include "mongoc-util-private.h"
+#include "mongoc/mongoc-bulk-operation.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-collection.h"
+#include "mongoc/mongoc-collection-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-index.h"
+#include "mongoc/mongoc-gridfs.h"
+#include "mongoc/mongoc-gridfs-private.h"
+#include "mongoc/mongoc-gridfs-file.h"
+#include "mongoc/mongoc-gridfs-file-private.h"
+#include "mongoc/mongoc-gridfs-file-list.h"
+#include "mongoc/mongoc-gridfs-file-list-private.h"
+#include "mongoc/mongoc-client.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-cursor-private.h"
+#include "mongoc/mongoc-util-private.h"
 
 #define MONGOC_GRIDFS_STREAM_CHUNK 4096
 
@@ -311,10 +311,15 @@ mongoc_gridfs_create_file_from_stream (mongoc_gridfs_t *gridfs,
 
       if (r > 0) {
          iov.iov_len = r;
-         mongoc_gridfs_file_writev (file, &iov, 1, timeout);
+         if (mongoc_gridfs_file_writev (file, &iov, 1, timeout) < 0) {
+            MONGOC_ERROR ("%s", file->error.message);
+            mongoc_gridfs_file_destroy (file);
+            RETURN (NULL);
+         }
       } else if (r == 0) {
          break;
       } else {
+         MONGOC_ERROR ("Error reading from GridFS file source stream");
          mongoc_gridfs_file_destroy (file);
          RETURN (NULL);
       }
@@ -323,6 +328,8 @@ mongoc_gridfs_create_file_from_stream (mongoc_gridfs_t *gridfs,
    mongoc_stream_failed (stream);
 
    if (-1 == mongoc_gridfs_file_seek (file, 0, SEEK_SET)) {
+      MONGOC_ERROR ("%s", file->error.message);
+      mongoc_gridfs_file_destroy (file);
       RETURN (NULL);
    }
 

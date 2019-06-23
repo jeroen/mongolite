@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef BSON_MD5_PRIVATE_H
-#define BSON_MD5_PRIVATE_H
+#include "common-prelude.h"
 
+#ifndef COMMON_MD5_PRIVATE_H
+#define COMMON_MD5_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION) && !defined(BSON_COMPILATION) && \
-   !defined(BSON_INSIDE)
-#error "Only <mongoc.h> or <bson.h> can be included directly."
-#endif
-
-#include "bson.h"
+#include "bson/bson.h"
 
 BSON_BEGIN_DECLS
 
@@ -36,4 +32,5 @@ _bson_md5_finish (bson_md5_t *pms, uint8_t digest[16]);
 
 BSON_END_DECLS
 
-#endif /* BSON_MD5_PRIVATE_H */
+#endif /* COMMON_MD5_PRIVATE_H */
+

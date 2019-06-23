@@ -23,8 +23,8 @@
 #endif
 
 
-#include "bson-config.h"
-#include "bson-compat.h"
+#include "bson/bson-config.h"
+#include "bson/bson-compat.h"
 
 
 #if defined(BSON_HAVE_CLOCK_GETTIME)
@@ -32,7 +32,7 @@
 #include <sys/time.h>
 #endif
 
-#include "bson-clock.h"
+#include "bson/bson-clock.h"
 
 
 /*
@@ -64,7 +64,7 @@ bson_gettimeofday (struct timeval *tv) /* OUT */
    uint64_t tmp = 0;
 
    /*
-    * The const value is shamelessy stolen from
+    * The const value is shamelessly stolen from
     * http://www.boost.org/doc/libs/1_55_0/boost/chrono/detail/inlined/win/chrono.hpp
     *
     * File times are the number of 100 nanosecond intervals elapsed since

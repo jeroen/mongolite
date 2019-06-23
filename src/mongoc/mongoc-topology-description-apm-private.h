@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_TOPOLOGY_DESCRIPTION_APM_PRIVATE_H
 #define MONGOC_TOPOLOGY_DESCRIPTION_APM_PRIVATE_H
 
-#include <bson.h>
-#include "mongoc-topology-description-private.h"
+#include <bson/bson.h>
+#include "mongoc/mongoc-topology-description-private.h"
 
 /* Application Performance Monitoring for topology events, complies with the
  * SDAM Monitoring Spec:
@@ -29,8 +31,7 @@ https://github.com/mongodb/specifications/blob/master/source/server-discovery-an
 
 void
 _mongoc_topology_description_monitor_server_opening (
-   const mongoc_topology_description_t *td,
-   mongoc_server_description_t *sd);
+   const mongoc_topology_description_t *td, mongoc_server_description_t *sd);
 
 void
 _mongoc_topology_description_monitor_server_changed (

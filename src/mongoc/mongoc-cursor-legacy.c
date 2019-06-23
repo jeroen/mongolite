@@ -20,18 +20,18 @@
  * - receiving OP_REPLY documents in a stream (instead of batch)
  */
 
-#include "mongoc-cursor.h"
-#include "mongoc-cursor-private.h"
-#include "mongoc-client-private.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-error.h"
-#include "mongoc-log.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-read-concern-private.h"
-#include "mongoc-util-private.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-read-prefs-private.h"
-#include "mongoc-rpc-private.h"
+#include "mongoc/mongoc-cursor.h"
+#include "mongoc/mongoc-cursor-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-log.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-read-concern-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-read-prefs-private.h"
+#include "mongoc/mongoc-rpc-private.h"
 
 
 static bool
@@ -51,7 +51,6 @@ _mongoc_cursor_monitor_legacy_get_more (mongoc_cursor_t *cursor,
       RETURN (true);
    }
 
-   bson_init (&doc);
    _mongoc_cursor_prepare_getmore_command (cursor, &doc);
 
    bson_strncpy (db, cursor->ns, cursor->dblen + 1);

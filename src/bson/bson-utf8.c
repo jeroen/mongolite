@@ -17,9 +17,9 @@
 
 #include <string.h>
 
-#include "bson-memory.h"
-#include "bson-string.h"
-#include "bson-utf8.h"
+#include "bson/bson-memory.h"
+#include "bson/bson-string.h"
+#include "bson/bson-utf8.h"
 
 
 /*
@@ -173,7 +173,7 @@ bson_utf8_validate (const char *utf8, /* IN */
       }
 
       /*
-       * Code point wont fit in utf-16, not allowed.
+       * Code point won't fit in utf-16, not allowed.
        */
       if (c > 0x0010FFFF) {
          return false;

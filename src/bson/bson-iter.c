@@ -15,10 +15,10 @@
  */
 
 
-#include "bson-iter.h"
-#include "bson-config.h"
-#include "bson-decimal128.h"
-
+#include "bson/bson-iter.h"
+#include "bson/bson-config.h"
+#include "bson/bson-decimal128.h"
+#include "bson-types.h"
 
 #define ITER_TYPE(i) ((bson_type_t) * ((i)->raw + (i)->type))
 
@@ -293,10 +293,6 @@ bson_iter_find_w_len (bson_iter_t *iter, /* INOUT */
 {
    const char *ikey;
 
-   if (keylen == 0) {
-      return false;
-   }
-
    if (keylen < 0) {
       keylen = (int) strlen (key);
    }
@@ -491,7 +487,9 @@ bson_iter_type (const bson_iter_t *iter) /* IN */
  * _bson_iter_next_internal --
  *
  *       Internal function to advance @iter to the next field and retrieve
- *       the key and BSON type before error-checking.
+ *       the key and BSON type before error-checking. @next_keylen is
+ *       the key length of the next field being iterated or 0 if this is
+ *       not known.
  *
  * Return:
  *       true if an element was decoded, else false.
@@ -509,10 +507,11 @@ bson_iter_type (const bson_iter_t *iter) /* IN */
  */
 
 static bool
-_bson_iter_next_internal (bson_iter_t *iter,   /* INOUT */
-                          const char **key,    /* OUT */
-                          uint32_t *bson_type, /* OUT */
-                          bool *unsupported)   /* OUT */
+_bson_iter_next_internal (bson_iter_t *iter,    /* INOUT */
+                          uint32_t next_keylen, /* IN */
+                          const char **key,     /* OUT */
+                          uint32_t *bson_type,  /* OUT */
+                          bool *unsupported)    /* OUT */
 {
    const uint8_t *data;
    uint32_t o;
@@ -539,12 +538,18 @@ _bson_iter_next_internal (bson_iter_t *iter,   /* INOUT */
    iter->d3 = 0;
    iter->d4 = 0;
 
-   /* iterate from start to end of NULL-terminated key string */
-   for (o = iter->off + 1; o < len; o++) {
-      if (!data[o]) {
-         iter->d1 = ++o;
-         goto fill_data_fields;
+   if (next_keylen == 0) {
+      /* iterate from start to end of NULL-terminated key string */
+      for (o = iter->key; o < len; o++) {
+         if (!data[o]) {
+            iter->d1 = ++o;
+            goto fill_data_fields;
+         }
       }
+   } else {
+      o = iter->key + next_keylen + 1;
+      iter->d1 = o;
+      goto fill_data_fields;
    }
 
    goto mark_invalid;
@@ -613,7 +618,7 @@ fill_data_fields:
       memcpy (&l, iter->raw + iter->d1, sizeof (l));
       l = BSON_UINT32_FROM_LE (l);
 
-      if (l >= (len - o)) {
+      if (l >= (len - o - 4)) {
          iter->err_off = o;
          goto mark_invalid;
       }
@@ -794,7 +799,6 @@ fill_data_fields:
    case BSON_TYPE_MINKEY:
    case BSON_TYPE_NULL:
    case BSON_TYPE_UNDEFINED:
-      iter->d1 = -1;
       iter->next_off = o;
       break;
    default:
@@ -856,7 +860,7 @@ bson_iter_next (bson_iter_t *iter) /* INOUT */
    const char *key;
    bool unsupported;
 
-   return _bson_iter_next_internal (iter, &key, &bson_type, &unsupported);
+   return _bson_iter_next_internal (iter, 0, &key, &bson_type, &unsupported);
 }
 
 
@@ -1885,40 +1889,6 @@ bson_iter_array (const bson_iter_t *iter, /* IN */
 #define VISIT_MINKEY VISIT_FIELD (minkey)
 
 
-/**
- * bson_iter_visit_all:
- * @iter: A #bson_iter_t.
- * @visitor: A #bson_visitor_t containing the visitors.
- * @data: User data for @visitor data parameters.
- *
- *
- * Returns: true if the visitor was pre-maturely ended; otherwise false.
- */
-/*
- *--------------------------------------------------------------------------
- *
- * bson_iter_visit_all --
- *
- *       Visits all fields forward from the current position of @iter. For
- *       each field found a function in @visitor will be called. Typically
- *       you will use this immediately after initializing a bson_iter_t.
- *
- *          bson_iter_init (&iter, b);
- *          bson_iter_visit_all (&iter, my_visitor, NULL);
- *
- *       @iter will no longer be valid after this function has executed and
- *       will need to be reinitialized if intending to reuse.
- *
- * Returns:
- *       true if successfully visited all fields or callback requested
- *       early termination, otherwise false.
- *
- * Side effects:
- *       None.
- *
- *--------------------------------------------------------------------------
- */
-
 bool
 bson_iter_visit_all (bson_iter_t *iter,             /* INOUT */
                      const bson_visitor_t *visitor, /* IN */
@@ -1931,7 +1901,7 @@ bson_iter_visit_all (bson_iter_t *iter,             /* INOUT */
    BSON_ASSERT (iter);
    BSON_ASSERT (visitor);
 
-   while (_bson_iter_next_internal (iter, &key, &bson_type, &unsupported)) {
+   while (_bson_iter_next_internal (iter, 0, &key, &bson_type, &unsupported)) {
       if (*key && !bson_utf8_validate (key, strlen (key), false)) {
          iter->err_off = iter->off;
          break;
@@ -2207,10 +2177,49 @@ bson_iter_overwrite_bool (bson_iter_t *iter, /* IN */
                           bool value)        /* IN */
 {
    BSON_ASSERT (iter);
-   value = !!value;
 
    if (ITER_TYPE (iter) == BSON_TYPE_BOOL) {
       memcpy ((void *) (iter->raw + iter->d1), &value, 1);
+   }
+}
+
+
+void
+bson_iter_overwrite_oid (bson_iter_t *iter, const bson_oid_t *value)
+{
+   BSON_ASSERT (iter);
+
+   if (ITER_TYPE (iter) == BSON_TYPE_OID) {
+      memcpy (
+         (void *) (iter->raw + iter->d1), value->bytes, sizeof (value->bytes));
+   }
+}
+
+
+void
+bson_iter_overwrite_timestamp (bson_iter_t *iter,
+                               uint32_t timestamp,
+                               uint32_t increment)
+{
+   uint64_t value;
+   BSON_ASSERT (iter);
+
+   if (ITER_TYPE (iter) == BSON_TYPE_TIMESTAMP) {
+      value = ((((uint64_t) timestamp) << 32U) | ((uint64_t) increment));
+      value = BSON_UINT64_TO_LE (value);
+      memcpy ((void *) (iter->raw + iter->d1), &value, sizeof (value));
+   }
+}
+
+
+void
+bson_iter_overwrite_date_time (bson_iter_t *iter, int64_t value)
+{
+   BSON_ASSERT (iter);
+
+   if (ITER_TYPE (iter) == BSON_TYPE_DATE_TIME) {
+      value = BSON_UINT64_TO_LE (value);
+      memcpy ((void *) (iter->raw + iter->d1), &value, sizeof (value));
    }
 }
 
@@ -2460,4 +2469,60 @@ bson_iter_value (bson_iter_t *iter) /* IN */
    }
 
    return value;
+}
+
+uint32_t
+bson_iter_key_len (const bson_iter_t *iter)
+{
+   /*
+    * f i e l d n a m e \0 _
+    * ^                    ^
+    * |                    |
+    * iter->key            iter->d1
+    *
+    */
+   BSON_ASSERT (iter->d1 > iter->key);
+   return iter->d1 - iter->key - 1;
+}
+
+bool
+bson_iter_init_from_data_at_offset (bson_iter_t *iter,
+                                    const uint8_t *data,
+                                    size_t length,
+                                    uint32_t offset,
+                                    uint32_t keylen)
+{
+   const char *key;
+   uint32_t bson_type;
+   bool unsupported;
+
+   BSON_ASSERT (iter);
+   BSON_ASSERT (data);
+
+   if (BSON_UNLIKELY ((length < 5) || (length > INT_MAX))) {
+      memset (iter, 0, sizeof *iter);
+      return false;
+   }
+
+   iter->raw = (uint8_t *) data;
+   iter->len = (uint32_t) length;
+   iter->off = 0;
+   iter->type = 0;
+   iter->key = 0;
+   iter->next_off = offset;
+   iter->err_off = 0;
+
+   if (!_bson_iter_next_internal (
+          iter, keylen, &key, &bson_type, &unsupported)) {
+      memset (iter, 0, sizeof *iter);
+      return false;
+   }
+
+   return true;
+}
+
+uint32_t
+bson_iter_offset (bson_iter_t *iter)
+{
+   return iter->off;
 }

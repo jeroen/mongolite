@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-client-private.h"
-#include "mongoc-client-session-private.h"
-#include "mongoc-error.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-write-command-private.h"
-#include "mongoc-write-command-legacy-private.h"
-#include "mongoc-write-concern-private.h"
-#include "mongoc-util-private.h"
-#include "mongoc-opts-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-client-session-private.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-write-command-private.h"
+#include "mongoc/mongoc-write-command-legacy-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc/mongoc-util-private.h"
+#include "mongoc/mongoc-opts-private.h"
 
 
 /*
@@ -342,11 +342,10 @@ _mongoc_write_command_init (bson_t *doc,
    BSON_APPEND_UTF8 (doc, gCommandNames[command->type], collection);
    BSON_APPEND_BOOL (doc, "ordered", command->flags.ordered);
 
-   if (command->flags.bypass_document_validation !=
-       MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT) {
+   if (command->flags.bypass_document_validation) {
       BSON_APPEND_BOOL (doc,
                         "bypassDocumentValidation",
-                        !!command->flags.bypass_document_validation);
+                        command->flags.bypass_document_validation);
    }
 
    EXIT;
@@ -933,8 +932,7 @@ _mongoc_write_command_execute_idl (mongoc_write_command_t *command,
       }
    }
 
-   if (command->flags.bypass_document_validation !=
-       MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT) {
+   if (command->flags.bypass_document_validation) {
       if (!mongoc_write_concern_is_acknowledged (crud->writeConcern)) {
          result->failed = true;
          bson_set_error (
@@ -1221,7 +1219,7 @@ _mongoc_write_result_merge (mongoc_write_result_t *result,   /* IN */
       /* writeConcernError is a subdocument in the server response
        * append it to the result->writeConcernErrors array */
       bson_iter_document (&iter, &len, &data);
-      bson_init_static (&write_concern_error, data, len);
+      BSON_ASSERT (bson_init_static (&write_concern_error, data, len));
 
       bson_uint32_to_string (
          result->n_writeConcernErrors, &key, str, sizeof str);

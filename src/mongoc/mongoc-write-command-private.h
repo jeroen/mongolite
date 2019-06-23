@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_WRITE_COMMAND_PRIVATE_H
 #define MONGOC_WRITE_COMMAND_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
+#include <bson/bson.h>
 
-#include <bson.h>
-
-#include "mongoc-client.h"
-#include "mongoc-error.h"
-#include "mongoc-write-concern.h"
-#include "mongoc-server-stream-private.h"
-#include "mongoc-buffer-private.h"
+#include "mongoc/mongoc-client.h"
+#include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-write-concern.h"
+#include "mongoc/mongoc-server-stream-private.h"
+#include "mongoc/mongoc-buffer-private.h"
 
 
 BSON_BEGIN_DECLS
@@ -39,16 +37,9 @@ struct _mongoc_crud_opts_t;
 #define MONGOC_WRITE_COMMAND_INSERT 1
 #define MONGOC_WRITE_COMMAND_UPDATE 2
 
-
-typedef enum {
-   MONGOC_BYPASS_DOCUMENT_VALIDATION_FALSE = 0,
-   MONGOC_BYPASS_DOCUMENT_VALIDATION_TRUE = 1 << 0,
-   MONGOC_BYPASS_DOCUMENT_VALIDATION_DEFAULT = 1 << 1,
-} mongoc_write_bypass_document_validation_t;
-
 struct _mongoc_bulk_write_flags_t {
    bool ordered;
-   mongoc_write_bypass_document_validation_t bypass_document_validation;
+   bool bypass_document_validation;
    bool has_collation;
    bool has_multi_write;
    bool has_array_filters;

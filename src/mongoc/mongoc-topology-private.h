@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_TOPOLOGY_PRIVATE_H
 #define MONGOC_TOPOLOGY_PRIVATE_H
 
-#include "mongoc-topology-scanner-private.h"
-#include "mongoc-server-description-private.h"
-#include "mongoc-topology-description-private.h"
-#include "mongoc-thread-private.h"
-#include "mongoc-uri.h"
-#include "mongoc-client-session-private.h"
+#include "mongoc/mongoc-topology-scanner-private.h"
+#include "mongoc/mongoc-server-description-private.h"
+#include "mongoc/mongoc-topology-description-private.h"
+#include "mongoc/mongoc-thread-private.h"
+#include "mongoc/mongoc-uri.h"
+#include "mongoc/mongoc-client-session-private.h"
 
 #define MONGOC_TOPOLOGY_MIN_HEARTBEAT_FREQUENCY_MS 500
 #define MONGOC_TOPOLOGY_SOCKET_CHECK_INTERVAL_MS 5000
@@ -52,14 +54,13 @@ typedef struct _mongoc_topology_t {
    /* defaults to 500ms, configurable by tests */
    int64_t min_heartbeat_frequency_msec;
 
-   mongoc_mutex_t mutex;
+   bson_mutex_t mutex;
    mongoc_cond_t cond_client;
    mongoc_cond_t cond_server;
-   mongoc_thread_t thread;
+   bson_thread_t thread;
 
    mongoc_topology_scanner_state_t scanner_state;
    bool scan_requested;
-   bool shutdown_requested;
    bool single_threaded;
    bool stale;
 
@@ -129,6 +130,9 @@ _mongoc_topology_get_type (mongoc_topology_t *topology);
 bool
 _mongoc_topology_start_background_scanner (mongoc_topology_t *topology);
 
+void
+_mongoc_topology_background_thread_stop (mongoc_topology_t *topology);
+
 bool
 _mongoc_topology_set_appname (mongoc_topology_t *topology, const char *appname);
 
@@ -146,6 +150,9 @@ _mongoc_topology_push_server_session (mongoc_topology_t *topology,
 
 bool
 _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd);
+
+void
+_mongoc_topology_clear_session_pool (mongoc_topology_t *topology);
 
 void
 _mongoc_topology_do_blocking_scan (mongoc_topology_t *topology,

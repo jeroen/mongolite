@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
+#include "mongoc/mongoc-prelude.h"
+
 #ifndef MONGOC_SET_PRIVATE_H
 #define MONGOC_SET_PRIVATE_H
 
-#if !defined(MONGOC_COMPILATION)
-#error "Only <mongoc.h> can be included directly."
-#endif
-
-#include <bson.h>
+#include <bson/bson.h>
 
 BSON_BEGIN_DECLS
 
@@ -29,6 +27,9 @@ typedef void (*mongoc_set_item_dtor) (void *item, void *ctx);
 
 /* return true to continue iteration, false to stop */
 typedef bool (*mongoc_set_for_each_cb_t) (void *item, void *ctx);
+typedef bool (*mongoc_set_for_each_with_id_cb_t) (uint32_t id,
+                                                  void *item,
+                                                  void *ctx);
 
 typedef struct {
    uint32_t id;
@@ -73,6 +74,11 @@ mongoc_set_destroy (mongoc_set_t *set);
  */
 void
 mongoc_set_for_each (mongoc_set_t *set, mongoc_set_for_each_cb_t cb, void *ctx);
+
+void
+mongoc_set_for_each_with_id (mongoc_set_t *set,
+                             mongoc_set_for_each_with_id_cb_t cb,
+                             void *ctx);
 
 /* first item in set for which "cb" returns true */
 void *

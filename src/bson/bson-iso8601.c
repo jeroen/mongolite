@@ -15,12 +15,12 @@
  */
 
 
-#include "bson-compat.h"
-#include "bson-macros.h"
-#include "bson-error.h"
-#include "bson-iso8601-private.h"
-#include "bson-json.h"
-#include "bson-timegm-private.h"
+#include "bson/bson-compat.h"
+#include "bson/bson-macros.h"
+#include "bson/bson-error.h"
+#include "bson/bson-iso8601-private.h"
+#include "bson/bson-json.h"
+#include "bson/bson-timegm-private.h"
 
 
 static bool
@@ -110,14 +110,14 @@ _bson_iso8601_date_parse (const char *str,
    const char *ptr;
    int32_t remaining = len;
 
-   const char *year_ptr;
-   const char *month_ptr;
-   const char *day_ptr;
-   const char *hour_ptr;
-   const char *min_ptr;
-   const char *sec_ptr;
-   const char *millis_ptr;
-   const char *tz_ptr;
+   const char *year_ptr = NULL;
+   const char *month_ptr = NULL;
+   const char *day_ptr = NULL;
+   const char *hour_ptr = NULL;
+   const char *min_ptr = NULL;
+   const char *sec_ptr = NULL;
+   const char *millis_ptr = NULL;
+   const char *tz_ptr = NULL;
 
    int32_t year_len = 0;
    int32_t month_len = 0;
@@ -244,7 +244,7 @@ _bson_iso8601_date_parse (const char *str,
          }
 
          /* we inflect the meaning of a 'positive' timezone.  Those are hours
-          * we have to substract, and vice versa */
+          * we have to subtract, and vice versa */
          tz_adjustment =
             (tz_ptr[0] == '-' ? 1 : -1) * ((tz_min * 60) + (tz_hour * 60 * 60));
 

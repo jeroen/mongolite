@@ -15,24 +15,24 @@
  */
 
 
-#include <bson.h>
+#include <bson/bson.h>
 
-#include "mongoc-config.h"
-#include "mongoc-counters-private.h"
-#include "mongoc-init.h"
+#include "mongoc/mongoc-config.h"
+#include "mongoc/mongoc-counters-private.h"
+#include "mongoc/mongoc-init.h"
 
-#include "mongoc-handshake-private.h"
+#include "mongoc/mongoc-handshake-private.h"
 
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
-#include "mongoc-openssl-private.h"
+#include "mongoc/mongoc-openssl-private.h"
 #elif defined(MONGOC_ENABLE_SSL_LIBRESSL)
 #include "tls.h"
 #endif
-#include "mongoc-thread-private.h"
+#include "mongoc/mongoc-thread-private.h"
 #include "common-b64-private.h"
 #if defined(MONGOC_ENABLE_CRYPTO_CNG)
-#include "mongoc-crypto-private.h"
-#include "mongoc-crypto-cng-private.h"
+#include "mongoc/mongoc-crypto-private.h"
+#include "mongoc/mongoc-crypto-cng-private.h"
 #endif
 
 #ifndef MONGOC_NO_AUTOMATIC_GLOBALS
@@ -47,10 +47,10 @@
 static void *
 mongoc_cyrus_mutex_alloc (void)
 {
-   mongoc_mutex_t *mutex;
+   bson_mutex_t *mutex;
 
-   mutex = (mongoc_mutex_t *) bson_malloc0 (sizeof (mongoc_mutex_t));
-   mongoc_mutex_init (mutex);
+   mutex = (bson_mutex_t *) bson_malloc0 (sizeof (bson_mutex_t));
+   bson_mutex_init (mutex);
 
    return (void *) mutex;
 }
@@ -59,7 +59,7 @@ mongoc_cyrus_mutex_alloc (void)
 static int
 mongoc_cyrus_mutex_lock (void *mutex)
 {
-   mongoc_mutex_lock ((mongoc_mutex_t *) mutex);
+   bson_mutex_lock ((bson_mutex_t *) mutex);
 
    return SASL_OK;
 }
@@ -68,7 +68,7 @@ mongoc_cyrus_mutex_lock (void *mutex)
 static int
 mongoc_cyrus_mutex_unlock (void *mutex)
 {
-   mongoc_mutex_unlock ((mongoc_mutex_t *) mutex);
+   bson_mutex_unlock ((bson_mutex_t *) mutex);
 
    return SASL_OK;
 }
@@ -77,14 +77,14 @@ mongoc_cyrus_mutex_unlock (void *mutex)
 static void
 mongoc_cyrus_mutex_free (void *mutex)
 {
-   mongoc_mutex_destroy ((mongoc_mutex_t *) mutex);
+   bson_mutex_destroy ((bson_mutex_t *) mutex);
    bson_free (mutex);
 }
 
 #endif /* MONGOC_ENABLE_SASL_CYRUS */
 
 
-static MONGOC_ONCE_FUN (_mongoc_do_init)
+static BSON_ONCE_FUN (_mongoc_do_init)
 {
 #ifdef MONGOC_ENABLE_SASL_CYRUS
    int status;
@@ -131,17 +131,17 @@ static MONGOC_ONCE_FUN (_mongoc_do_init)
 
    _mongoc_handshake_init ();
 
-   MONGOC_ONCE_RETURN;
+   BSON_ONCE_RETURN;
 }
 
 void
 mongoc_init (void)
 {
-   static mongoc_once_t once = MONGOC_ONCE_INIT;
-   mongoc_once (&once, _mongoc_do_init);
+   static bson_once_t once = BSON_ONCE_INIT;
+   bson_once (&once, _mongoc_do_init);
 }
 
-static MONGOC_ONCE_FUN (_mongoc_do_cleanup)
+static BSON_ONCE_FUN (_mongoc_do_cleanup)
 {
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
    _mongoc_openssl_cleanup ();
@@ -168,14 +168,14 @@ static MONGOC_ONCE_FUN (_mongoc_do_cleanup)
 
    _mongoc_handshake_cleanup ();
 
-   MONGOC_ONCE_RETURN;
+   BSON_ONCE_RETURN;
 }
 
 void
 mongoc_cleanup (void)
 {
-   static mongoc_once_t once = MONGOC_ONCE_INIT;
-   mongoc_once (&once, _mongoc_do_cleanup);
+   static bson_once_t once = BSON_ONCE_INIT;
+   bson_once (&once, _mongoc_do_cleanup);
 }
 
 /*

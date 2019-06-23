@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
+#include "bson/bson-prelude.h"
+
 
 #ifndef BSON_ITER_H
 #define BSON_ITER_H
 
 
-#if !defined(BSON_INSIDE) && !defined(BSON_COMPILATION)
-#error "Only <bson.h> can be included directly."
-#endif
-
-
-#include "bson.h"
-#include "bson-endian.h"
-#include "bson-macros.h"
-#include "bson-types.h"
+#include "bson/bson.h"
+#include "bson/bson-endian.h"
+#include "bson/bson-macros.h"
+#include "bson/bson-types.h"
 
 
 BSON_BEGIN_DECLS
@@ -223,6 +220,12 @@ bson_iter_init_find_case (bson_iter_t *iter,
                           const bson_t *bson,
                           const char *key);
 
+BSON_EXPORT (bool)
+bson_iter_init_from_data_at_offset (bson_iter_t *iter,
+                                    const uint8_t *data,
+                                    size_t length,
+                                    uint32_t offset,
+                                    uint32_t keylen);
 
 BSON_EXPORT (int32_t)
 bson_iter_int32 (const bson_iter_t *iter);
@@ -341,6 +344,9 @@ bson_iter_decimal128_unsafe (const bson_iter_t *iter, bson_decimal128_t *dec)
 
 BSON_EXPORT (const char *)
 bson_iter_key (const bson_iter_t *iter);
+
+BSON_EXPORT (uint32_t)
+bson_iter_key_len (const bson_iter_t *iter);
 
 
 /**
@@ -512,10 +518,27 @@ BSON_EXPORT (void)
 bson_iter_overwrite_bool (bson_iter_t *iter, bool value);
 
 
+BSON_EXPORT (void)
+bson_iter_overwrite_oid (bson_iter_t *iter, const bson_oid_t *value);
+
+
+BSON_EXPORT (void)
+bson_iter_overwrite_timestamp (bson_iter_t *iter,
+                               uint32_t timestamp,
+                               uint32_t increment);
+
+
+BSON_EXPORT (void)
+bson_iter_overwrite_date_time (bson_iter_t *iter, int64_t value);
+
+
 BSON_EXPORT (bool)
 bson_iter_visit_all (bson_iter_t *iter,
                      const bson_visitor_t *visitor,
                      void *data);
+
+BSON_EXPORT (uint32_t)
+bson_iter_offset (bson_iter_t *iter);
 
 
 BSON_END_DECLS

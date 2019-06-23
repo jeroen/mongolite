@@ -15,14 +15,14 @@
  */
 
 
-#include "mongoc-cmd-private.h"
-#include "mongoc-read-prefs-private.h"
-#include "mongoc-trace-private.h"
-#include "mongoc-client-private.h"
-#include "mongoc-read-concern-private.h"
-#include "mongoc-write-concern-private.h"
+#include "mongoc/mongoc-cmd-private.h"
+#include "mongoc/mongoc-read-prefs-private.h"
+#include "mongoc/mongoc-trace-private.h"
+#include "mongoc/mongoc-client-private.h"
+#include "mongoc/mongoc-read-concern-private.h"
+#include "mongoc/mongoc-write-concern-private.h"
 /* For strcasecmp on Windows */
-#include "mongoc-util-private.h"
+#include "mongoc/mongoc-util-private.h"
 
 
 void
@@ -211,6 +211,14 @@ mongoc_cmd_parts_set_read_concern (mongoc_cmd_parts_t *parts,
 
    ENTRY;
 
+   /* In a txn, set read concern in mongoc_cmd_parts_assemble, not here. *
+    * Transactions Spec: "The readConcern MUST NOT be inherited from the
+    * collection, database, or client associated with the driver method that
+    * invokes the first command." */
+   if (_mongoc_client_session_in_txn (parts->assembled.session)) {
+      RETURN (true);
+   }
+
    command_name = _mongoc_get_command_name (parts->body);
 
    if (!command_name) {
@@ -255,6 +263,10 @@ mongoc_cmd_parts_set_write_concern (mongoc_cmd_parts_t *parts,
 
    ENTRY;
 
+   if (!wc) {
+      RETURN (true);
+   }
+
    command_name = _mongoc_get_command_name (parts->body);
 
    if (!command_name) {
@@ -268,7 +280,7 @@ mongoc_cmd_parts_set_write_concern (mongoc_cmd_parts_t *parts,
       (is_fam && max_wire_version >= WIRE_VERSION_FAM_WRITE_CONCERN) ||
       (!is_fam && max_wire_version >= WIRE_VERSION_CMD_WRITE_CONCERN);
 
-   if (wc && wc_allowed) {
+   if (wc_allowed) {
       parts->assembled.is_acknowledged =
          mongoc_write_concern_is_acknowledged (wc);
       bson_destroy (&parts->write_concern_document);
