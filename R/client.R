@@ -156,15 +156,16 @@ mongo_cursor_more <- function(cursor){
 }
 
 #' @useDynLib mongolite R_mongo_collection_create_index
-mongo_collection_create_index <- function(col, field = '{}'){
+mongo_collection_create_index <- function(col, field = '{}', isUnique=F){
   stopifnot(is.character(field))
   stopifnot(length(field) == 1)
+  stopifnot(is.logical(isUnique))
   if(!jsonlite::validate(field)){
     if(grepl("[{}]", field))
       stop("Index is not valid json or field name.")
     field <- jsonlite::toJSON(structure(list(1), names = field), auto_unbox = TRUE)
   }
-  .Call(R_mongo_collection_create_index, col, bson_or_json(field))
+  .Call(R_mongo_collection_create_index, col, bson_or_json(field), isUnique)
 }
 
 #' @useDynLib mongolite R_mongo_collection_drop_index
