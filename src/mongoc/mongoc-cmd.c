@@ -15,14 +15,14 @@
  */
 
 
-#include "mongoc/mongoc-cmd-private.h"
-#include "mongoc/mongoc-read-prefs-private.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-read-concern-private.h"
-#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc-cmd-private.h"
+#include "mongoc-read-prefs-private.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-read-concern-private.h"
+#include "mongoc-write-concern-private.h"
 /* For strcasecmp on Windows */
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-util-private.h"
 
 
 void
@@ -39,6 +39,7 @@ mongoc_cmd_parts_init (mongoc_cmd_parts_t *parts,
    parts->is_write_command = false;
    parts->prohibit_lsid = false;
    parts->allow_txn_number = MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_UNKNOWN;
+   parts->is_retryable_read = false;
    parts->is_retryable_write = false;
    parts->has_temp_session = false;
    parts->client = client;
@@ -720,8 +721,42 @@ _is_retryable_write (const mongoc_cmd_parts_t *parts,
       return false;
    }
 
-   if (!mongoc_uri_get_option_as_bool (
-          parts->client->uri, MONGOC_URI_RETRYWRITES, false)) {
+   if (!mongoc_uri_get_option_as_bool (parts->client->uri,
+                                       MONGOC_URI_RETRYWRITES,
+                                       MONGOC_DEFAULT_RETRYWRITES)) {
+      return false;
+   }
+
+   return true;
+}
+
+
+/* Check if the read command should support retryable behavior. */
+bool
+_is_retryable_read (const mongoc_cmd_parts_t *parts,
+                    const mongoc_server_stream_t *server_stream)
+{
+   if (!parts->is_read_command) {
+      return false;
+   }
+
+   /* Commands that go through read_write_command helpers are also write
+    * commands. Prohibit from read retry. */
+   if (parts->is_write_command) {
+      return false;
+   }
+
+   if (server_stream->sd->max_wire_version < WIRE_VERSION_RETRY_READS) {
+      return false;
+   }
+
+   if (_mongoc_client_session_in_txn (parts->assembled.session)) {
+      return false;
+   }
+
+   if (!mongoc_uri_get_option_as_bool (parts->client->uri,
+                                       MONGOC_URI_RETRYREADS,
+                                       MONGOC_DEFAULT_RETRYREADS)) {
       return false;
    }
 
@@ -771,6 +806,19 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
    server_type = server_stream->sd->type;
    cs = parts->prohibit_lsid ? NULL : parts->assembled.session;
 
+   /* Assembling the command depends on the type of server. If the server has
+    * been invalidated, error. */
+   if (server_type == MONGOC_SERVER_UNKNOWN) {
+      if (error) {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Cannot assemble command for invalidated server: %s",
+                         server_stream->sd->error.message);
+      }
+      RETURN (false);
+   }
+
    /* must not be assembled already */
    BSON_ASSERT (!parts->assembled.command);
    BSON_ASSERT (bson_empty (&parts->assembled_body));
@@ -811,16 +859,18 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
          BSON_APPEND_UTF8 (&parts->extra, "$db", parts->assembled.db_name);
       }
 
-      if (_mongoc_client_session_in_txn (cs)) {
-         if (!IS_PREF_PRIMARY (cs->txn.opts.read_prefs) &&
-             !parts->is_write_command) {
+      if (cs && _mongoc_client_session_in_txn (cs)) {
+         if (!IS_PREF_PRIMARY (cs->txn.opts.read_prefs) && !parts->is_write_command) {
             bson_set_error (error,
                             MONGOC_ERROR_TRANSACTION,
                             MONGOC_ERROR_TRANSACTION_INVALID_STATE,
                             "Read preference in a transaction must be primary");
             GOTO (done);
          }
-      } else if (!IS_PREF_PRIMARY (prefs_ptr)) {
+      } else if (!IS_PREF_PRIMARY (prefs_ptr) &&
+                 server_type != MONGOC_SERVER_STANDALONE) {
+         /* "Type Standalone: clients MUST NOT send the read preference to the
+          * server" */
          _mongoc_cmd_parts_add_read_prefs (&parts->extra, prefs_ptr);
       }
 
@@ -882,6 +932,11 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
          _mongoc_cmd_parts_ensure_copied (parts);
          bson_append_int64 (&parts->assembled_body, "txnNumber", 9, 0);
          parts->is_retryable_write = true;
+      }
+
+      /* Conversely, check if the command is retryable if it is a read. */
+      if (_is_retryable_read (parts, server_stream) && !is_get_more) {
+         parts->is_retryable_read = true;
       }
 
       if (!bson_empty (&server_stream->cluster_time)) {
@@ -973,8 +1028,62 @@ mongoc_cmd_is_compressible (mongoc_cmd_t *cmd)
           !!strcasecmp (cmd->command_name, "saslstart") &&
           !!strcasecmp (cmd->command_name, "saslcontinue") &&
           !!strcasecmp (cmd->command_name, "createuser") &&
-          !!strcasecmp (cmd->command_name, "updateuser") &&
-          !!strcasecmp (cmd->command_name, "copydb") &&
-          !!strcasecmp (cmd->command_name, "copydbsaslstart") &&
-          !!strcasecmp (cmd->command_name, "copydbgetnonce");
+          !!strcasecmp (cmd->command_name, "updateuser");
+}
+
+/*--------------------------------------------------------------------------
+ *
+ * _mongoc_cmd_append_payload_as_array --
+ *    Append a write command payload as an array in a BSON document.
+ *    Used by APM and Client-Side Encryption
+ *
+ * Arguments:
+ *    cmd The mongoc_cmd_t, which may contain a payload to be appended.
+ *    out A bson_t, which will be appended to if @cmd->payload is set.
+ *
+ * Pre-conditions:
+ *    - @out is initialized.
+ *    - cmd has a payload (i.e. is a write command).
+ *
+ * Post-conditions:
+ *    - If @cmd->payload is set, then @out is appended to with the payload
+ *      field's name ("documents" if insert, "updates" if update,
+ *      "deletes" if delete) an the payload as a BSON array.
+ *
+ *--------------------------------------------------------------------------
+ */
+void
+_mongoc_cmd_append_payload_as_array (const mongoc_cmd_t *cmd, bson_t *out)
+{
+   int32_t doc_len;
+   bson_t doc;
+   const uint8_t *pos;
+   const char *field_name;
+   bson_t bson;
+   char str[16];
+   const char *key;
+   uint32_t i;
+
+   BSON_ASSERT (cmd->payload && cmd->payload_size);
+
+   /* make array from outgoing OP_MSG payload type 1 on an "insert",
+    * "update", or "delete" command. */
+   field_name = _mongoc_get_documents_field_name (cmd->command_name);
+   BSON_ASSERT (field_name);
+   BSON_ASSERT (BSON_APPEND_ARRAY_BEGIN (out, field_name, &bson));
+
+   pos = cmd->payload;
+   i = 0;
+   while (pos < cmd->payload + cmd->payload_size) {
+      memcpy (&doc_len, pos, sizeof (doc_len));
+      doc_len = BSON_UINT32_FROM_LE (doc_len);
+      BSON_ASSERT (bson_init_static (&doc, pos, (size_t) doc_len));
+      bson_uint32_to_string (i, &key, str, sizeof (str));
+      BSON_APPEND_DOCUMENT (&bson, key, &doc);
+
+      pos += doc_len;
+      i++;
+   }
+
+   bson_append_array_end (out, &bson);
 }

@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_CHANGE_STREAM_PRIVATE_H
 #define MONGOC_CHANGE_STREAM_PRIVATE_H
 
-#include "mongoc/mongoc-change-stream.h"
-#include "mongoc/mongoc-client-session.h"
-#include "mongoc/mongoc-collection.h"
-#include "mongoc/mongoc-cursor.h"
-#include "mongoc/mongoc-opts-private.h"
-#include "mongoc/mongoc-opts-helpers-private.h"
+#include "mongoc-change-stream.h"
+#include "mongoc-client-session.h"
+#include "mongoc-collection.h"
+#include "mongoc-cursor.h"
+#include "mongoc-opts-private.h"
+#include "mongoc-opts-helpers-private.h"
 
 typedef enum {
    MONGOC_CHANGE_STREAM_COLLECTION,
@@ -36,7 +36,7 @@ struct _mongoc_change_stream_t {
    mongoc_change_stream_opts_t opts;
    mongoc_timestamp_t operation_time;
    bson_t pipeline_to_append;
-   bson_t resume_token; /* empty, or has resumeAfter: doc */
+   bson_t resume_token;
    bson_t *full_document;
 
    bson_error_t err;
@@ -54,6 +54,12 @@ struct _mongoc_change_stream_t {
 
    int64_t max_await_time_ms;
    int32_t batch_size;
+
+   bool has_returned_results;
+
+   /* Track whether the change stream has resumed after an error, as this
+    * determines how we construct an initial or resuming aggregate command. */
+   bool resumed;
 
    mongoc_client_session_t *implicit_session;
 };

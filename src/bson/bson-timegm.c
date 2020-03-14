@@ -10,9 +10,9 @@
 ** and struct tm by A. Jesse Jiryu Davis for MongoDB, Inc.
 */
 
-#include "bson/bson-compat.h"
-#include "bson/bson-macros.h"
-#include "bson/bson-timegm-private.h"
+#include "bson-compat.h"
+#include "bson-macros.h"
+#include "bson-timegm-private.h"
 
 #include "errno.h"
 #include "string.h"
@@ -46,10 +46,10 @@
 #endif
 
 #ifdef __clang__
-/*IGNORE*/ #pragma clang diagnostic push
-/*IGNORE*/ #pragma clang diagnostic ignored "-Wunknown-pragmas"
-/*IGNORE*/ #pragma clang diagnostic push
-/*IGNORE*/ #pragma clang diagnostic ignored "-Wshift-negative-value"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshift-negative-value"
 #endif
 
 /* The minimum and maximum finite time values.  */
@@ -57,8 +57,8 @@ static int64_t const time_t_min = INT64_MIN;
 static int64_t const time_t_max = INT64_MAX;
 
 #ifdef __clang__
-/*IGNORE*/ #pragma clang diagnostic pop
-/*IGNORE*/ #pragma clang diagnostic pop
+#pragma clang diagnostic pop
+#pragma clang diagnostic pop
 #endif
 
 #ifndef TZ_MAX_TIMES

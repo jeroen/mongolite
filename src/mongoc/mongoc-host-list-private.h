@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_HOST_LIST_PRIVATE_H
 #define MONGOC_HOST_LIST_PRIVATE_H
 
-#include "mongoc/mongoc-host-list.h"
+#include "mongoc-host-list.h"
 
 
 BSON_BEGIN_DECLS
@@ -28,6 +28,14 @@ mongoc_host_list_t *
 _mongoc_host_list_push (const char *host,
                         uint16_t port,
                         int family,
+                        mongoc_host_list_t *next);
+
+void
+_mongoc_host_list_upsert (mongoc_host_list_t **list,
+                          mongoc_host_list_t *new_host);
+
+mongoc_host_list_t *
+_mongoc_host_list_copy (const mongoc_host_list_t *src,
                         mongoc_host_list_t *next);
 
 bool
@@ -45,9 +53,17 @@ _mongoc_host_list_from_hostport_with_err (mongoc_host_list_t *host_list,
                                           uint16_t port,
                                           bson_error_t *error);
 
+int
+_mongoc_host_list_length (mongoc_host_list_t *list);
+
 bool
 _mongoc_host_list_equal (const mongoc_host_list_t *host_a,
                          const mongoc_host_list_t *host_b);
+
+void
+_mongoc_host_list_remove_host (mongoc_host_list_t **phosts,
+                               const char *host,
+                               uint16_t port);
 
 void
 _mongoc_host_list_destroy_all (mongoc_host_list_t *host);

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_UTIL_PRIVATE_H
 #define MONGOC_UTIL_PRIVATE_H
 
 #include <bson/bson.h>
-#include "mongoc/mongoc.h"
+#include "mongoc.h"
 
 #ifdef BSON_HAVE_STRINGS_H
 #include <strings.h>
@@ -130,6 +130,9 @@ _mongoc_bson_array_copy_labels_to (const bson_t *reply, bson_t *dst);
 void
 _mongoc_bson_init_with_transient_txn_error (const mongoc_client_session_t *cs,
                                             bson_t *reply);
+
+bool
+_mongoc_document_is_pipeline (const bson_t *document);
 
 BSON_END_DECLS
 

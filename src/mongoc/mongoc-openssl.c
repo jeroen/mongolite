@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-config.h"
+#include "mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
 
@@ -28,13 +28,13 @@
 
 #include <string.h>
 
-#include "mongoc/mongoc-init.h"
-#include "mongoc/mongoc-socket.h"
-#include "mongoc/mongoc-ssl.h"
-#include "mongoc/mongoc-openssl-private.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-thread-private.h"
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-init.h"
+#include "mongoc-socket.h"
+#include "mongoc-ssl.h"
+#include "mongoc-openssl-private.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-thread-private.h"
+#include "mongoc-util-private.h"
 
 #ifdef _WIN32
 #include <wincrypt.h>
@@ -491,6 +491,11 @@ _mongoc_openssl_ctx_new (mongoc_ssl_opt_t *opt)
  */
 #if OPENSSL_VERSION_NUMBER >= 0x10000000L
    ssl_ctx_options |= SSL_OP_NO_COMPRESSION;
+#endif
+
+/* man SSL_get_options says: "SSL_OP_NO_RENEGOTIATION options were added in OpenSSL 1.1.1". */
+#ifdef SSL_OP_NO_RENEGOTIATION
+   ssl_ctx_options |= SSL_OP_NO_RENEGOTIATION;
 #endif
 
    SSL_CTX_set_options (ctx, ssl_ctx_options);

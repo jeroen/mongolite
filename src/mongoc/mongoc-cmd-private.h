@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 
 /*
@@ -29,12 +29,20 @@
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-server-stream-private.h"
-#include "mongoc/mongoc-read-prefs.h"
-#include "mongoc/mongoc.h"
-#include "mongoc/mongoc-opts-private.h"
+#include "mongoc-server-stream-private.h"
+#include "mongoc-read-prefs.h"
+#include "mongoc.h"
+#include "mongoc-opts-private.h"
 
 BSON_BEGIN_DECLS
+
+#define MONGOC_DEFAULT_RETRYREADS true
+/* retryWrites requires sessions, which require crypto */
+#ifdef MONGOC_ENABLE_CRYPTO
+#define MONGOC_DEFAULT_RETRYWRITES true
+#else
+#define MONGOC_DEFAULT_RETRYWRITES false
+#endif
 
 typedef enum {
    MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_UNKNOWN,
@@ -71,6 +79,7 @@ typedef struct _mongoc_cmd_parts_t {
    bool is_write_command;
    bool prohibit_lsid;
    mongoc_cmd_parts_allow_txn_number_t allow_txn_number;
+   bool is_retryable_read;
    bool is_retryable_write;
    bool has_temp_session;
    mongoc_client_t *client;
@@ -122,6 +131,13 @@ mongoc_cmd_is_compressible (mongoc_cmd_t *cmd);
 
 void
 mongoc_cmd_parts_cleanup (mongoc_cmd_parts_t *op);
+
+bool
+_is_retryable_read (const mongoc_cmd_parts_t *parts,
+                    const mongoc_server_stream_t *server_stream);
+
+void
+_mongoc_cmd_append_payload_as_array (const mongoc_cmd_t* cmd, bson_t *out);
 
 BSON_END_DECLS
 

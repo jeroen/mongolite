@@ -14,34 +14,36 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_CLIENT_PRIVATE_H
 #define MONGOC_CLIENT_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-apm-private.h"
-#include "mongoc/mongoc-buffer-private.h"
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-cluster-private.h"
-#include "mongoc/mongoc-config.h"
-#include "mongoc/mongoc-host-list.h"
-#include "mongoc/mongoc-read-prefs.h"
-#include "mongoc/mongoc-rpc-private.h"
-#include "mongoc/mongoc-opcode.h"
+#include "mongoc-apm-private.h"
+#include "mongoc-buffer-private.h"
+#include "mongoc-client.h"
+#include "mongoc-cluster-private.h"
+#include "mongoc-config.h"
+#include "mongoc-host-list.h"
+#include "mongoc-read-prefs.h"
+#include "mongoc-rpc-private.h"
+#include "mongoc-opcode.h"
 #ifdef MONGOC_ENABLE_SSL
-#include "mongoc/mongoc-ssl.h"
+#include "mongoc-ssl.h"
 #endif
-#include "mongoc/mongoc-stream.h"
-#include "mongoc/mongoc-topology-private.h"
-#include "mongoc/mongoc-write-concern.h"
+
+#include "mongoc-stream.h"
+#include "mongoc-topology-private.h"
+#include "mongoc-write-concern.h"
+#include "mongoc-crypt-private.h"
 
 BSON_BEGIN_DECLS
 
 /* protocol versions this driver can speak */
 #define WIRE_VERSION_MIN 3
-#define WIRE_VERSION_MAX 7
+#define WIRE_VERSION_MAX 8
 
 /* first version that supported "find" and "getMore" commands */
 #define WIRE_VERSION_FIND_CMD 4
@@ -61,9 +63,20 @@ BSON_BEGIN_DECLS
 #define WIRE_VERSION_OP_MSG 6
 /* first version to support array filters for "update" command */
 #define WIRE_VERSION_ARRAY_FILTERS 6
+/* first version to support retryable reads  */
+#define WIRE_VERSION_RETRY_READS 6
 /* first version to support retryable writes  */
 #define WIRE_VERSION_RETRY_WRITES 6
+/* version corresponding to server 4.0 release */
+#define WIRE_VERSION_4_0 7
+/* first version to support hint for "update" command */
+#define WIRE_VERSION_UPDATE_HINT 8
+/* version corresponding to server 4.2 release */
+#define WIRE_VERSION_4_2 8
+/* version corresponding to client side field level encryption support. */
+#define WIRE_VERSION_CSE 8
 
+struct _mongoc_collection_t;
 
 struct _mongoc_client_t {
    mongoc_uri_t *uri;
@@ -113,10 +126,24 @@ BSON_STATIC_ASSERT2 (mongoc_cmd_rw,
 
 typedef enum { MONGOC_RR_SRV, MONGOC_RR_TXT } mongoc_rr_type_t;
 
+typedef struct _mongoc_rr_data_t {
+   /* Number of records returned by DNS. */
+   uint32_t count;
+
+   /* Set to lowest TTL found when polling SRV records. */
+   uint32_t min_ttl;
+
+   /* Initialized with copy of uri->hosts prior to polling.
+    * Any remaining records after DNS query are no longer active.
+    */
+   mongoc_host_list_t *hosts;
+} mongoc_rr_data_t;
+
 bool
 _mongoc_client_get_rr (const char *service,
                        mongoc_rr_type_t rr_type,
                        mongoc_uri_t *uri,
+                       mongoc_rr_data_t *rr_data,
                        bson_error_t *error);
 
 mongoc_client_t *
@@ -186,6 +213,11 @@ _mongoc_client_push_server_session (mongoc_client_t *client,
                                     mongoc_server_session_t *server_session);
 void
 _mongoc_client_end_sessions (mongoc_client_t *client);
+
+mongoc_stream_t *
+mongoc_client_connect_tcp (int32_t connecttimeoutms,
+                           const mongoc_host_list_t *host,
+                           bson_error_t *error);
 BSON_END_DECLS
 
 #endif /* MONGOC_CLIENT_PRIVATE_H */

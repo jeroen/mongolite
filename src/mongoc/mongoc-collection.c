@@ -17,25 +17,26 @@
 
 #include <stdio.h>
 
-#include "mongoc/mongoc-bulk-operation.h"
-#include "mongoc/mongoc-bulk-operation-private.h"
-#include "mongoc/mongoc-change-stream-private.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-find-and-modify-private.h"
-#include "mongoc/mongoc-find-and-modify.h"
-#include "mongoc/mongoc-collection.h"
-#include "mongoc/mongoc-collection-private.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-index.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-read-concern-private.h"
-#include "mongoc/mongoc-write-concern-private.h"
-#include "mongoc/mongoc-read-prefs-private.h"
-#include "mongoc/mongoc-util-private.h"
-#include "mongoc/mongoc-write-command-private.h"
-#include "mongoc/mongoc-opts-private.h"
+#include "mongoc-aggregate-private.h"
+#include "mongoc-bulk-operation.h"
+#include "mongoc-bulk-operation-private.h"
+#include "mongoc-change-stream-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-find-and-modify-private.h"
+#include "mongoc-find-and-modify.h"
+#include "mongoc-collection.h"
+#include "mongoc-collection-private.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-error.h"
+#include "mongoc-index.h"
+#include "mongoc-log.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-read-concern-private.h"
+#include "mongoc-write-concern-private.h"
+#include "mongoc-read-prefs-private.h"
+#include "mongoc-util-private.h"
+#include "mongoc-write-command-private.h"
+#include "mongoc-opts-private.h"
 #include "mongoc-write-command-private.h"
 
 #undef MONGOC_LOG_DOMAIN
@@ -112,7 +113,8 @@ _mongoc_collection_write_command_execute_idl (
       EXIT;
    }
 
-   if (!crud->writeConcern) {
+   if (!crud->writeConcern &&
+       !_mongoc_client_session_in_txn (crud->client_session)) {
       crud->writeConcern = collection->write_concern;
       crud->write_concern_owned = false;
    }
@@ -278,101 +280,6 @@ mongoc_collection_copy (mongoc_collection_t *collection) /* IN */
 }
 
 
-static bool
-_make_agg_cmd (const char *coll,
-               const bson_t *pipeline,
-               const bson_t *opts,
-               bson_t *command,
-               bson_error_t *err)
-{
-   bson_iter_t iter;
-   int32_t batch_size = 0;
-   bson_t child;
-
-   bson_init (command);
-   BSON_APPEND_UTF8 (command, "aggregate", coll);
-   /*
-    * The following will allow @pipeline to be either an array of
-    * items for the pipeline, or {"pipeline": [...]}.
-    */
-   if (bson_iter_init_find (&iter, pipeline, "pipeline") &&
-       BSON_ITER_HOLDS_ARRAY (&iter)) {
-      if (!bson_append_iter (command, "pipeline", 8, &iter)) {
-         bson_set_error (err,
-                         MONGOC_ERROR_COMMAND,
-                         MONGOC_ERROR_COMMAND_INVALID_ARG,
-                         "Failed to append \"pipeline\" to create command.");
-         return false;
-      }
-   } else {
-      BSON_APPEND_ARRAY (command, "pipeline", pipeline);
-   }
-
-   bson_append_document_begin (command, "cursor", 6, &child);
-   if (opts && bson_iter_init_find (&iter, opts, "batchSize") &&
-       BSON_ITER_HOLDS_NUMBER (&iter)) {
-      batch_size = (int32_t) bson_iter_as_int64 (&iter);
-      BSON_APPEND_INT32 (&child, "batchSize", batch_size);
-   }
-   bson_append_document_end (command, &child);
-   return true;
-}
-
-
-static bool
-_has_out_key (bson_iter_t *iter)
-{
-   bson_iter_t stage;
-
-   while (bson_iter_next (iter)) {
-      if (BSON_ITER_HOLDS_DOCUMENT (iter) && bson_iter_recurse (iter, &stage)) {
-         if (bson_iter_find (&stage, "$out")) {
-            return true;
-         }
-      }
-   }
-
-   return false;
-}
-
-/*
- *--------------------------------------------------------------------------
- *
- * mongoc_collection_aggregate --
- *
- *       Send an "aggregate" command to the MongoDB server.
- *
- *       This function will always return a new mongoc_cursor_t that should
- *       be freed with mongoc_cursor_destroy().
- *
- *       The cursor may fail once iterated upon, so check
- *       mongoc_cursor_error() if mongoc_cursor_next() returns false.
- *
- *       See http://docs.mongodb.org/manual/aggregation/ for more
- *       information on how to build aggregation pipelines.
- *
- * Parameters:
- *       @flags: bitwise or of mongoc_query_flags_t or 0.
- *       @pipeline: A bson_t containing the pipeline request. @pipeline
- *                  will be sent as an array type in the request.
- *       @options:  A bson_t containing aggregation options, such as
- *                  bypassDocumentValidation (used with $out pipeline),
- *                  maxTimeMS (declaring maximum server execution time) and
- *                  explain (return information on the processing of the
- *                  pipeline).
- *       @read_prefs: Optional read preferences for the command.
- *
- * Returns:
- *       A newly allocated mongoc_cursor_t that should be freed with
- *       mongoc_cursor_destroy().
- *
- * Side effects:
- *       None.
- *
- *--------------------------------------------------------------------------
- */
-
-
 mongoc_cursor_t *
 mongoc_collection_aggregate (mongoc_collection_t *collection,       /* IN */
                              mongoc_query_flags_t flags,            /* IN */
@@ -380,117 +287,15 @@ mongoc_collection_aggregate (mongoc_collection_t *collection,       /* IN */
                              const bson_t *opts,                    /* IN */
                              const mongoc_read_prefs_t *read_prefs) /* IN */
 {
-   mongoc_server_stream_t *server_stream = NULL;
-   bool has_out_key;
-   bool has_write_concern;
-   bson_iter_t ar;
-   mongoc_cursor_t *cursor;
-   uint32_t server_id;
-   bson_iter_t iter;
-   bson_t command;
-   bson_t cursor_opts;
-   bool slave_ok;
-   bool created_command;
-   bson_error_t create_cmd_err = {0};
-
-   ENTRY;
-
-   BSON_ASSERT (collection);
-   BSON_ASSERT (pipeline);
-
-   bson_init (&cursor_opts);
-   _mongoc_cursor_flags_to_opts (flags, &cursor_opts, &slave_ok);
-   if (opts) {
-      bson_concat (&cursor_opts /* destination */, opts /* source */);
-   }
-
-   created_command = _make_agg_cmd (
-      collection->collection, pipeline, opts, &command, &create_cmd_err);
-   cursor = _mongoc_cursor_cmd_new (collection->client,
-                                    collection->ns,
-                                    created_command ? &command : NULL,
-                                    &cursor_opts,
-                                    read_prefs,
-                                    collection->read_prefs,
-                                    collection->read_concern);
-
-   bson_destroy (&command);
-   bson_destroy (&cursor_opts);
-
-   if (!created_command) {
-      /* copy error back to cursor. */
-      memcpy (&cursor->error, &create_cmd_err, sizeof (bson_error_t));
-      GOTO (done);
-   }
-
-   /* Get serverId from opts; if invalid set cursor err. _mongoc_cursor_cmd_new
-    * has already done this, but we want a COMMAND error, not CURSOR, since that
-    * has been the contract since serverId was first implemented. */
-   if (!_mongoc_get_server_id_from_opts (opts,
-                                         MONGOC_ERROR_COMMAND,
-                                         MONGOC_ERROR_COMMAND_INVALID_ARG,
-                                         &server_id,
-                                         &cursor->error)) {
-      GOTO (done);
-   }
-
-   if (mongoc_cursor_error (cursor, NULL)) {
-      /* something else is wrong with opts */
-      GOTO (done);
-   }
-
-   /* server id isn't enough. ensure we're connected & know wire version */
-   server_stream = _mongoc_cursor_fetch_stream (cursor);
-   if (!server_stream) {
-      GOTO (done);
-   }
-
-   if (!_mongoc_read_prefs_validate (cursor->read_prefs, &cursor->error)) {
-      GOTO (done);
-   }
-
-   /* pipeline could be like {pipeline: [{$out: 'test'}]} or [{$out: 'test'}] */
-   if (bson_iter_init_find (&iter, pipeline, "pipeline") &&
-       BSON_ITER_HOLDS_ARRAY (&iter) && bson_iter_recurse (&iter, &ar)) {
-      has_out_key = _has_out_key (&ar);
-   } else {
-      if (!bson_iter_init (&iter, pipeline)) {
-         bson_set_error (&cursor->error,
-                         MONGOC_ERROR_BSON,
-                         MONGOC_ERROR_BSON_INVALID,
-                         "Pipeline is invalid BSON");
-         GOTO (done);
-      }
-      has_out_key = _has_out_key (&iter);
-   }
-
-   has_write_concern = bson_has_field (&cursor->opts, "writeConcern");
-   if (has_write_concern &&
-       server_stream->sd->max_wire_version < WIRE_VERSION_CMD_WRITE_CONCERN) {
-      bson_set_error (&cursor->error,
-                      MONGOC_ERROR_COMMAND,
-                      MONGOC_ERROR_PROTOCOL_BAD_WIRE_VERSION,
-                      "\"aggregate\" with \"$out\" does not support "
-                      "writeConcern with wire version %d, wire version %d is "
-                      "required",
-                      server_stream->sd->max_wire_version,
-                      WIRE_VERSION_CMD_WRITE_CONCERN);
-      GOTO (done);
-   }
-
-   /* Only inherit WriteConcern when for aggregate with $out */
-   if (!bson_has_field (&cursor->opts, "writeConcern") && has_out_key) {
-      mongoc_write_concern_destroy (cursor->write_concern);
-      cursor->write_concern = mongoc_write_concern_copy (
-         mongoc_collection_get_write_concern (collection));
-   }
-
-done:
-   mongoc_server_stream_cleanup (server_stream); /* null ok */
-
-   /* we always return the cursor, even if it fails; users can detect the
-    * failure on performing a cursor operation. see CDRIVER-880. */
-   RETURN (cursor);
+   return _mongoc_aggregate (collection->client,
+                             collection->ns,
+                             flags,
+                             pipeline,
+                             opts,
+                             read_prefs,
+                             collection->read_prefs,
+                             collection->read_concern,
+                             collection->write_concern);
 }
 
 
@@ -847,7 +652,7 @@ mongoc_collection_command_simple (mongoc_collection_t *collection,
    return _mongoc_client_command_with_opts (collection->client,
                                             collection->db,
                                             command,
-                                            MONGOC_CMD_READ,
+                                            MONGOC_CMD_RAW,
                                             NULL /* opts */,
                                             MONGOC_QUERY_NONE,
                                             read_prefs,
@@ -1038,7 +843,7 @@ mongoc_collection_estimated_document_count (
  *       Construct an aggregate pipeline with the following form:
  *       { pipeline: [
  *           { $match: {...} },
- *           { $group: { _id: null, n: { sum: 1 } } },
+ *           { $group: { _id: 1, n: { sum: 1 } } },
  *           { $skip: ... },
  *           { $limit: ... }
  *         ]
@@ -1068,11 +873,10 @@ _make_aggregate_for_count (const mongoc_collection_t *coll,
    bson_append_document_begin (out, "cursor", 6, &empty);
    bson_append_document_end (out, &empty);
    bson_append_array_begin (out, "pipeline", 8, &pipeline);
-   if (!bson_empty (filter)) {
-      bson_append_document_begin (&pipeline, keys[key++], 1, &match_stage);
-      bson_append_document (&match_stage, "$match", 6, filter);
-      bson_append_document_end (&pipeline, &match_stage);
-   }
+
+   bson_append_document_begin (&pipeline, keys[key++], 1, &match_stage);
+   bson_append_document (&match_stage, "$match", 6, filter);
+   bson_append_document_end (&pipeline, &match_stage);
    /* if @opts includes "skip", or "count", append $skip and $count stages to
     * the aggregate pipeline. */
    if (opts && bson_iter_init_find (&iter, opts, "skip")) {
@@ -1089,7 +893,7 @@ _make_aggregate_for_count (const mongoc_collection_t *coll,
    }
    bson_append_document_begin (&pipeline, keys[key], 1, &group_stage);
    bson_append_document_begin (&group_stage, "$group", 6, &group_stage_doc);
-   bson_append_null (&group_stage_doc, "_id", 3);
+   bson_append_int32 (&group_stage_doc, "_id", 3, 1);
    bson_append_document_begin (&group_stage_doc, "n", 1, &sum);
    bson_append_int32 (&sum, "$sum", 4, 1);
    bson_append_document_end (&group_stage_doc, &sum);
@@ -1293,6 +1097,7 @@ mongoc_collection_keys_to_index_string (const bson_t *keys)
 {
    bson_string_t *s;
    bson_iter_t iter;
+   bson_type_t type;
    int i = 0;
 
    BSON_ASSERT (keys);
@@ -1306,19 +1111,27 @@ mongoc_collection_keys_to_index_string (const bson_t *keys)
    while (bson_iter_next (&iter)) {
       /* Index type can be specified as a string ("2d") or as an integer
        * representing direction */
-      if (bson_iter_type (&iter) == BSON_TYPE_UTF8) {
+      type = bson_iter_type (&iter);
+      if (type == BSON_TYPE_UTF8) {
          bson_string_append_printf (s,
                                     (i++ ? "_%s_%s" : "%s_%s"),
                                     bson_iter_key (&iter),
                                     bson_iter_utf8 (&iter, NULL));
-      } else {
+      } else if (type == BSON_TYPE_INT32) {
          bson_string_append_printf (s,
                                     (i++ ? "_%s_%d" : "%s_%d"),
                                     bson_iter_key (&iter),
                                     bson_iter_int32 (&iter));
+      } else if (type == BSON_TYPE_INT64) {
+         bson_string_append_printf (s,
+                                    (i++ ? "_%s_%" PRId64 : "%s_%" PRId64),
+                                    bson_iter_key (&iter),
+                                    bson_iter_int64 (&iter));
+      } else {
+         bson_string_free (s, true);
+         return NULL;
       }
    }
-
    return bson_string_free (s, false);
 }
 
@@ -1704,8 +1517,7 @@ mongoc_collection_insert_bulk (mongoc_collection_t *collection,
       NULL,
       NULL,
       write_flags,
-      ++collection->client->cluster.operation_id,
-      true);
+      ++collection->client->cluster.operation_id);
 
    for (i = 0; i < n_documents; i++) {
       _mongoc_write_command_insert_append (&command, documents[i]);
@@ -1821,8 +1633,7 @@ mongoc_collection_insert_one (mongoc_collection_t *collection,
       &command,
       document,
       &insert_one_opts.extra,
-      ++collection->client->cluster.operation_id,
-      false);
+      ++collection->client->cluster.operation_id);
 
    command.flags.bypass_document_validation = insert_one_opts.bypass;
    _mongoc_collection_write_command_execute_idl (
@@ -1904,8 +1715,7 @@ mongoc_collection_insert_many (mongoc_collection_t *collection,
       &command,
       NULL,
       &insert_many_opts.extra,
-      ++collection->client->cluster.operation_id,
-      false);
+      ++collection->client->cluster.operation_id);
 
    command.flags.ordered = insert_many_opts.ordered;
    command.flags.bypass_document_validation = insert_many_opts.bypass;
@@ -1939,7 +1749,6 @@ done:
 
    RETURN (ret);
 }
-
 
 /*
  *--------------------------------------------------------------------------
@@ -2024,6 +1833,8 @@ mongoc_collection_update (mongoc_collection_t *collection,
       ++collection->client->cluster.operation_id);
    bson_destroy (&opts);
 
+   command.flags.has_multi_write = !!(flags & MONGOC_UPDATE_MULTI_UPDATE);
+
    _mongoc_collection_write_command_execute (
       &command, collection, write_concern, NULL, &result);
 
@@ -2074,6 +1885,10 @@ _mongoc_collection_update_or_replace (mongoc_collection_t *collection,
       bson_append_document (extra, "collation", 9, &update_opts->collation);
    }
 
+   if (update_opts->hint.value_type) {
+      bson_append_value (extra, "hint", 4, &update_opts->hint);
+   }
+
    if (!bson_empty0 (array_filters)) {
       bson_append_array (extra, "arrayFilters", 12, array_filters);
    }
@@ -2094,6 +1909,9 @@ _mongoc_collection_update_or_replace (mongoc_collection_t *collection,
    command.flags.bypass_document_validation = bypass;
    if (!bson_empty (&update_opts->collation)) {
       command.flags.has_collation = true;
+   }
+   if (update_opts->hint.value_type) {
+      command.flags.has_update_hint = true;
    }
 
    server_stream =
@@ -2136,7 +1954,8 @@ _mongoc_collection_update_or_replace (mongoc_collection_t *collection,
       GOTO (done);
    }
 
-   if (!update_opts->crud.writeConcern) {
+   if (!update_opts->crud.writeConcern &&
+       !_mongoc_client_session_in_txn (update_opts->crud.client_session)) {
       update_opts->crud.writeConcern = collection->write_concern;
       update_opts->crud.write_concern_owned = false;
    }
@@ -2454,6 +2273,8 @@ mongoc_collection_remove (mongoc_collection_t *collection,
                                       write_flags,
                                       collection->client->cluster.operation_id);
    bson_destroy (&opts);
+
+   command.flags.has_multi_write = !(flags & MONGOC_REMOVE_SINGLE_REMOVE);
 
    _mongoc_collection_write_command_execute (
       &command, collection, write_concern, NULL, &result);
@@ -3128,14 +2949,16 @@ mongoc_collection_create_bulk_operation_with_opts (
 {
    mongoc_bulk_opts_t bulk_opts;
    mongoc_bulk_write_flags_t write_flags = MONGOC_BULK_WRITE_FLAGS_INIT;
-   mongoc_write_concern_t *wc;
+   mongoc_write_concern_t *wc = NULL;
    mongoc_bulk_operation_t *bulk;
    bson_error_t err = {0};
 
    BSON_ASSERT (collection);
 
    (void) _mongoc_bulk_opts_parse (collection->client, opts, &bulk_opts, &err);
-   wc = COALESCE (bulk_opts.writeConcern, collection->write_concern);
+   if (!_mongoc_client_session_in_txn (bulk_opts.client_session)) {
+      wc = COALESCE (bulk_opts.writeConcern, collection->write_concern);
+   }
    write_flags.ordered = bulk_opts.ordered;
    bulk = _mongoc_bulk_operation_new (collection->client,
                                       collection->db,
@@ -3246,7 +3069,11 @@ mongoc_collection_find_and_modify_with_opts (
    }
 
    if (opts->update) {
-      BSON_APPEND_DOCUMENT (&command, "update", opts->update);
+      if (_mongoc_document_is_pipeline (opts->update)) {
+         BSON_APPEND_ARRAY (&command, "update", opts->update);
+      } else {
+         BSON_APPEND_DOCUMENT (&command, "update", opts->update);
+      }
    }
 
    if (opts->fields) {
@@ -3336,6 +3163,11 @@ retry:
    bson_destroy (reply_ptr);
    ret = mongoc_cluster_run_command_monitored (
       cluster, &parts.assembled, reply_ptr, error);
+
+   if (is_retryable) {
+      _mongoc_write_error_update_if_unsupported_storage_engine (
+         ret, error, reply_ptr);
+   }
 
    /* If a retryable error is encountered and the write is retryable, select
     * a new writable stream and retry. If server selection fails or the selected

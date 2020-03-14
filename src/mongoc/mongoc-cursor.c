@@ -15,19 +15,20 @@
  */
 
 
-#include "mongoc/mongoc-cursor.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-client-session-private.h"
-#include "mongoc/mongoc-counters-private.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-read-concern-private.h"
-#include "mongoc/mongoc-util-private.h"
-#include "mongoc/mongoc-write-concern-private.h"
-#include "mongoc/mongoc-read-prefs-private.h"
-
+#include "mongoc-cursor.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-client-session-private.h"
+#include "mongoc-counters-private.h"
+#include "mongoc-error.h"
+#include "mongoc-error-private.h"
+#include "mongoc-log.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-read-concern-private.h"
+#include "mongoc-util-private.h"
+#include "mongoc-write-concern-private.h"
+#include "mongoc-read-prefs-private.h"
+#include "mongoc-aggregate-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "cursor"
@@ -597,16 +598,19 @@ mongoc_cursor_destroy (mongoc_cursor_t *cursor)
       cursor->impl.destroy (&cursor->impl);
    }
 
-   if (cursor->client_generation == cursor->client->generation) {
-      if (cursor->in_exhaust) {
-         cursor->client->in_exhaust = false;
-         if (cursor->state != DONE) {
-            /* The only way to stop an exhaust cursor is to kill the connection
-             */
-            mongoc_cluster_disconnect_node (
-               &cursor->client->cluster, cursor->server_id, false, NULL);
-         }
-      } else if (cursor->cursor_id) {
+   /* Always close the socket for an exhaust cursor, even if the client was
+    * reset with mongoc_client_reset. That prevents further use of that socket.
+    */
+   if (cursor->in_exhaust) {
+      cursor->client->in_exhaust = false;
+      if (cursor->state != DONE) {
+         /* The only way to stop an exhaust cursor is to kill the connection
+            */
+         mongoc_cluster_disconnect_node (
+            &cursor->client->cluster, cursor->server_id, false, NULL);
+      }
+   } else if (cursor->client_generation == cursor->client->generation) {
+      if (cursor->cursor_id) {
          bson_strncpy (db, cursor->ns, cursor->dblen + 1);
 
          _mongoc_client_kill_cursor (cursor->client,
@@ -905,9 +909,9 @@ bool
 _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
                             const bson_t *command,
                             const bson_t *opts,
-                            bson_t *reply)
+                            bson_t *reply,
+                            bool retry_prohibited)
 {
-   mongoc_cluster_t *cluster;
    mongoc_server_stream_t *server_stream;
    bson_iter_t iter;
    mongoc_cmd_parts_t parts;
@@ -917,10 +921,10 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
    char db[MONGOC_NAMESPACE_MAX];
    mongoc_session_opt_t *session_opts;
    bool ret = false;
+   bool is_retryable = true;
 
    ENTRY;
 
-   cluster = &cursor->client->cluster;
    mongoc_cmd_parts_init (
       &parts, cursor->client, db, MONGOC_QUERY_NONE, command);
    parts.is_read_command = true;
@@ -1009,6 +1013,24 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
       parts.read_prefs = cursor->read_prefs;
    }
 
+   is_retryable = _is_retryable_read (&parts, server_stream);
+   if (!strcmp (cmd_name, "getMore")) {
+      is_retryable = false;
+   }
+   if (!strcmp (cmd_name, "aggregate")) {
+      bson_iter_t pipeline_iter;
+      if (bson_iter_init_find (&pipeline_iter, command, "pipeline") &&
+          BSON_ITER_HOLDS_ARRAY (&pipeline_iter) &&
+          bson_iter_recurse (&pipeline_iter, &pipeline_iter)) {
+         if (_has_write_key (&pipeline_iter)) {
+            is_retryable = false;
+         }
+      }
+   }
+   if (is_retryable && retry_prohibited) {
+      is_retryable = false;
+   }
+
    if (cursor->write_concern &&
        !mongoc_write_concern_is_default (cursor->write_concern) &&
        server_stream->sd->max_wire_version >= WIRE_VERSION_CMD_WRITE_CONCERN) {
@@ -1022,8 +1044,35 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
       GOTO (done);
    }
 
+retry:
    ret = mongoc_cluster_run_command_monitored (
-      cluster, &parts.assembled, reply, &cursor->error);
+      &cursor->client->cluster, &parts.assembled, reply, &cursor->error);
+
+   if (ret) {
+      memset (&cursor->error, 0, sizeof (bson_error_t));
+   }
+
+   if (is_retryable &&
+       _mongoc_read_error_get_type (ret, &cursor->error, reply) ==
+          MONGOC_READ_ERR_RETRY) {
+      is_retryable = false;
+
+      mongoc_server_stream_cleanup (server_stream);
+
+      server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
+                                                       cursor->read_prefs,
+                                                       cursor->client_session,
+                                                       reply,
+                                                       &cursor->error);
+
+      if (server_stream &&
+          server_stream->sd->max_wire_version >= WIRE_VERSION_RETRY_READS) {
+         cursor->server_id = server_stream->sd->id;
+         parts.assembled.server_stream = server_stream;
+         bson_destroy (reply);
+         GOTO (retry);
+      }
+   }
 
    if (cursor->error.domain) {
       bson_destroy (&cursor->error_doc);
@@ -1616,7 +1665,8 @@ _mongoc_cursor_response_refresh (mongoc_cursor_t *cursor,
 
    /* server replies to find / aggregate with {cursor: {id: N, firstBatch: []}},
     * to getMore command with {cursor: {id: N, nextBatch: []}}. */
-   if (_mongoc_cursor_run_command (cursor, command, opts, &response->reply) &&
+   if (_mongoc_cursor_run_command (
+          cursor, command, opts, &response->reply, false) &&
        _mongoc_cursor_start_reading_response (cursor, response)) {
       return;
    }
@@ -1628,7 +1678,6 @@ _mongoc_cursor_response_refresh (mongoc_cursor_t *cursor,
                       _mongoc_get_command_name (command));
    }
 }
-
 
 void
 _mongoc_cursor_prepare_getmore_command (mongoc_cursor_t *cursor,

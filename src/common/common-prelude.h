@@ -18,4 +18,3 @@
    !defined(BSON_COMPILATION) && !defined(BSON_INSIDE)
 #error "Only <mongoc/mongoc.h> or <bson/bson.h> can be included directly."
 #endif
-

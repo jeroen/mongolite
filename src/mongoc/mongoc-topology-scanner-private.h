@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_TOPOLOGY_SCANNER_PRIVATE_H
 #define MONGOC_TOPOLOGY_SCANNER_PRIVATE_H
@@ -22,14 +22,14 @@
 /* TODO: rename to TOPOLOGY scanner */
 
 #include <bson/bson.h>
-#include "mongoc/mongoc-async-private.h"
-#include "mongoc/mongoc-async-cmd-private.h"
-#include "mongoc/mongoc-handshake-private.h"
-#include "mongoc/mongoc-host-list.h"
-#include "mongoc/mongoc-apm-private.h"
+#include "mongoc-async-private.h"
+#include "mongoc-async-cmd-private.h"
+#include "mongoc-handshake-private.h"
+#include "mongoc-host-list.h"
+#include "mongoc-apm-private.h"
 
 #ifdef MONGOC_ENABLE_SSL
-#include "mongoc/mongoc-ssl.h"
+#include "mongoc-ssl.h"
 #endif
 
 BSON_BEGIN_DECLS
@@ -107,6 +107,7 @@ typedef struct mongoc_topology_scanner {
    int64_t dns_cache_timeout_ms;
    /* only used by single-threaded clients to negotiate auth mechanisms. */
    bool negotiate_sasl_supported_mechs;
+   bool bypass_cooldown;
 } mongoc_topology_scanner_t;
 
 mongoc_topology_scanner_t *
