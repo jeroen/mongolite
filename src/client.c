@@ -45,7 +45,7 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
   if(Rf_length(weak_cert_validation))
     opt.weak_cert_validation = Rf_asLogical(weak_cert_validation);
 
-  if (mongoc_uri_get_ssl (mongoc_client_get_uri(client))) {
+  if (mongoc_uri_get_tls (mongoc_client_get_uri(client))) {
     mongoc_client_set_ssl_opts(client, &opt);
   }
 
