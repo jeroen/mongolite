@@ -9,6 +9,7 @@ matrix:
     - dist: xenial
       services: mongodb
       r_check_args: '--run-donttest'
+      warnings_are_errors: true
     - os: osx
       brew_packages: openssl
       before_install:
@@ -16,27 +17,29 @@ matrix:
         - brew install mongodb-community
         - brew services start mongodb-community
       r_check_args: '--run-donttest'
-      warnings_are_errors: false #-Wno-deprecated-declarations
     - os: osx
       brew_packages: openssl@1.1
-      env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
-      warnings_are_errors: false  #-Wno-deprecated-declarations
+      env:
+        - PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
+        - MONGOLITE_USE_OPENSSL=1
     - os: osx
       brew_packages: libressl
       before_install: brew uninstall --ignore-dependencies openssl@1.1
-      env: PKG_CONFIG_PATH="/usr/local/opt/libressl/lib/pkgconfig"
-      warnings_are_errors: false  #-Wno-deprecated-declarations
+      env:
+        - PKG_CONFIG_PATH="/usr/local/opt/libressl/lib/pkgconfig"
+        - MONGOLITE_USE_OPENSSL=1
     - os: osx
       osx_image: xcode7.3
       disable_homebrew: true
-      warnings_are_errors: false  #-Wno-deprecated-declarations
-      before_install: sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
-    - os: osx
-      osx_image: xcode7.3
-      disable_homebrew: true
-      warnings_are_errors: false  #-Wno-deprecated-declarations
       before_install: sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
       env: MONGOLITE_USE_OPENSSL=1
+    - os: osx
+      osx_image: xcode7.3
+      disable_homebrew: true
+      before_install: sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
+
+# Ignore warning about -Wno-deprecated-declarations
+warnings_are_errors: false
 
 addons:
   apt:
