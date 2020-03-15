@@ -19,12 +19,11 @@ matrix:
       warnings_are_errors: false #-Wno-deprecated-declarations
     - os: osx
       brew_packages: openssl@1.1
-      before_install: brew uninstall --ignore-dependencies openssl
       env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
       warnings_are_errors: false  #-Wno-deprecated-declarations
     - os: osx
       brew_packages: libressl
-      before_install: brew uninstall --ignore-dependencies openssl openssl@1.1
+      before_install: brew uninstall --ignore-dependencies openssl@1.1
       env: PKG_CONFIG_PATH="/usr/local/opt/libressl/lib/pkgconfig"
       warnings_are_errors: false  #-Wno-deprecated-declarations
     - os: osx
