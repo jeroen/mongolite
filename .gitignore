@@ -12,3 +12,4 @@ src/Makevars
 src/Makevars.bak
 inst/doc
 windows
+configure.log
