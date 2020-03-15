@@ -12,9 +12,9 @@ matrix:
     - os: osx
       brew_packages: openssl
       before_install:
-        - brew unlink python #Python still broken in 2to3
-        - brew install mongodb
-        - brew services start mongodb
+        - brew tap mongodb/brew
+        - brew install mongodb-community
+        - brew services start mongodb-community
       r_check_args: '--run-donttest'
       warnings_are_errors: false #-Wno-deprecated-declarations
     - os: osx
