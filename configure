@@ -13,11 +13,11 @@ if [[ "$OSTYPE" == "darwin"* ]] && [[ -z "$MONGOLITE_USE_OPENSSL" ]]; then
 fi
 
 # Library settings
-PKG_CONFIG_NAME="openssl@1.1"
+PKG_CONFIG_NAME="openssl"
 PKG_DEB_NAME="libssl-dev, libsasl2-dev"
 PKG_RPM_NAME="openssl-devel, cyrus-sasl-devel"
 PKG_CSW_NAME="libssl_dev, sasl_dev"
-PKG_BREW_NAME="openssl"
+PKG_BREW_NAME="openssl@1.1"
 PKG_TEST_FILE="src/tests/dependencies.c"
 SASL_LIBS="-lsasl2"
 
