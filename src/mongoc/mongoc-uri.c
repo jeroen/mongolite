@@ -22,20 +22,20 @@
 #include <math.h>
 
 /* strcasecmp on windows */
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-util-private.h"
 
-#include "mongoc/mongoc-config.h"
-#include "mongoc/mongoc-host-list.h"
-#include "mongoc/mongoc-host-list-private.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-handshake-private.h"
-#include "mongoc/mongoc-socket.h"
-#include "mongoc/mongoc-topology-private.h"
-#include "mongoc/mongoc-uri-private.h"
-#include "mongoc/mongoc-read-concern-private.h"
-#include "mongoc/mongoc-write-concern-private.h"
-#include "mongoc/mongoc-compression-private.h"
-#include "mongoc/utlist.h"
+#include "mongoc-config.h"
+#include "mongoc-host-list.h"
+#include "mongoc-host-list-private.h"
+#include "mongoc-log.h"
+#include "mongoc-handshake-private.h"
+#include "mongoc-socket.h"
+#include "mongoc-topology-private.h"
+#include "mongoc-uri-private.h"
+#include "mongoc-read-concern-private.h"
+#include "mongoc-write-concern-private.h"
+#include "mongoc-compression-private.h"
+#include "utlist.h"
 
 struct _mongoc_uri_t {
    char *str;
@@ -45,7 +45,8 @@ struct _mongoc_uri_t {
    char *username;
    char *password;
    char *database;
-   bson_t options;
+   bson_t raw;     /* Unparsed options, see mongoc_uri_parse_options */
+   bson_t options; /* Type-coerced and canonicalized options */
    bson_t credentials;
    bson_t compressors;
    mongoc_read_prefs_t *read_prefs;
@@ -73,6 +74,12 @@ static bool
 _mongoc_uri_set_option_as_int32_with_error (mongoc_uri_t *uri,
                                             const char *option,
                                             int32_t value,
+                                            bson_error_t *error);
+
+static bool
+_mongoc_uri_set_option_as_int64_with_error (mongoc_uri_t *uri,
+                                            const char *option,
+                                            int64_t value,
                                             bson_error_t *error);
 
 static bool
@@ -117,13 +124,13 @@ count_dots (const char *s)
 }
 
 
-/* at least one character, and does not start or end with dot */
+/* at least one character, and does not start with dot */
 static bool
 valid_hostname (const char *s)
 {
    size_t len = strlen (s);
 
-   return len > 1 && s[0] != '.' && s[len - 1] != '.';
+   return len > 1 && s[0] != '.';
 }
 
 
@@ -157,49 +164,57 @@ validate_srv_result (mongoc_uri_t *uri, const char *host, bson_error_t *error)
    return true;
 }
 
-bool
-mongoc_uri_append_host_and_port (mongoc_uri_t *uri,
-                                 const char *host_and_port,
-                                 bson_error_t *error)
+/* upsert @host into @uri's host list. Side effect: modifies host->next when
+ * inserting. */
+static bool
+_upsert_into_host_list (mongoc_uri_t *uri,
+                        mongoc_host_list_t *host,
+                        bson_error_t *error)
 {
-   bool r;
-   mongoc_host_list_t *link_ = bson_malloc0 (sizeof (mongoc_host_list_t));
-   r = _mongoc_host_list_from_string_with_err (link_, host_and_port, error);
-   if (!r) {
-      bson_free (link_);
+   if (uri->is_srv && !validate_srv_result (uri, host->host, error)) {
       return false;
    }
 
-   if (uri->is_srv && !validate_srv_result (uri, link_->host, error)) {
-      bson_free (link_);
-      return false;
-   }
+   _mongoc_host_list_upsert (&uri->hosts, host);
 
-   LL_APPEND (uri->hosts, link_);
    return true;
 }
 
 bool
-mongoc_uri_append_host (mongoc_uri_t *uri,
+mongoc_uri_upsert_host_and_port (mongoc_uri_t *uri,
+                                 const char *host_and_port,
+                                 bson_error_t *error)
+{
+   mongoc_host_list_t temp;
+
+   memset (&temp, 0, sizeof (mongoc_host_list_t));
+   if (!_mongoc_host_list_from_string_with_err (&temp, host_and_port, error)) {
+      return false;
+   }
+
+   return _upsert_into_host_list (uri, &temp, error);
+}
+
+bool
+mongoc_uri_upsert_host (mongoc_uri_t *uri,
                         const char *host,
                         uint16_t port,
                         bson_error_t *error)
 {
-   bool r;
-   mongoc_host_list_t *link_ = bson_malloc0 (sizeof (mongoc_host_list_t));
-   r = _mongoc_host_list_from_hostport_with_err (link_, host, port, error);
-   if (!r) {
-      bson_free (link_);
+   mongoc_host_list_t temp;
+
+   memset (&temp, 0, sizeof (mongoc_host_list_t));
+   if (!_mongoc_host_list_from_hostport_with_err (&temp, host, port, error)) {
       return false;
    }
 
-   if (uri->is_srv && !validate_srv_result (uri, link_->host, error)) {
-      bson_free (link_);
-      return false;
-   }
+   return _upsert_into_host_list (uri, &temp, error);
+}
 
-   LL_APPEND (uri->hosts, link_);
-   return true;
+void
+mongoc_uri_remove_host (mongoc_uri_t *uri, const char *host, uint16_t port)
+{
+   _mongoc_host_list_remove_host (&(uri->hosts), host, port);
 }
 
 /*
@@ -340,6 +355,7 @@ mongoc_uri_parse_userpass (mongoc_uri_t *uri,
    const char *end_user;
 
    BSON_ASSERT (str);
+   BSON_ASSERT (uri);
 
    if ((uri->username = scan_to_unichar (str, ':', "", &end_user))) {
       uri->password = bson_strdup (end_user + 1);
@@ -404,7 +420,7 @@ mongoc_uri_parse_host (mongoc_uri_t *uri, const char *host_and_port_in)
       return false;
    }
 
-   r = mongoc_uri_append_host_and_port (uri, host_and_port, &err);
+   r = mongoc_uri_upsert_host_and_port (uri, host_and_port, &err);
 
    if (!r) {
       MONGOC_ERROR ("%s", err.message);
@@ -689,7 +705,8 @@ mongoc_uri_bson_append_or_replace_key (bson_t *options,
 bool
 mongoc_uri_option_is_int32 (const char *key)
 {
-   return !strcasecmp (key, MONGOC_URI_CONNECTTIMEOUTMS) ||
+   return mongoc_uri_option_is_int64 (key) ||
+          !strcasecmp (key, MONGOC_URI_CONNECTTIMEOUTMS) ||
           !strcasecmp (key, MONGOC_URI_HEARTBEATFREQUENCYMS) ||
           !strcasecmp (key, MONGOC_URI_SERVERSELECTIONTIMEOUTMS) ||
           !strcasecmp (key, MONGOC_URI_SOCKETCHECKINTERVALMS) ||
@@ -701,8 +718,13 @@ mongoc_uri_option_is_int32 (const char *key)
           !strcasecmp (key, MONGOC_URI_MAXIDLETIMEMS) ||
           !strcasecmp (key, MONGOC_URI_WAITQUEUEMULTIPLE) ||
           !strcasecmp (key, MONGOC_URI_WAITQUEUETIMEOUTMS) ||
-          !strcasecmp (key, MONGOC_URI_WTIMEOUTMS) ||
           !strcasecmp (key, MONGOC_URI_ZLIBCOMPRESSIONLEVEL);
+}
+
+bool
+mongoc_uri_option_is_int64 (const char *key)
+{
+   return !strcasecmp (key, MONGOC_URI_WTIMEOUTMS);
 }
 
 bool
@@ -710,10 +732,16 @@ mongoc_uri_option_is_bool (const char *key)
 {
    return !strcasecmp (key, MONGOC_URI_CANONICALIZEHOSTNAME) ||
           !strcasecmp (key, MONGOC_URI_JOURNAL) ||
+          !strcasecmp (key, MONGOC_URI_RETRYREADS) ||
           !strcasecmp (key, MONGOC_URI_RETRYWRITES) ||
           !strcasecmp (key, MONGOC_URI_SAFE) ||
           !strcasecmp (key, MONGOC_URI_SERVERSELECTIONTRYONCE) ||
           !strcasecmp (key, MONGOC_URI_SLAVEOK) ||
+          !strcasecmp (key, MONGOC_URI_TLS) ||
+          !strcasecmp (key, MONGOC_URI_TLSINSECURE) ||
+          !strcasecmp (key, MONGOC_URI_TLSALLOWINVALIDCERTIFICATES) ||
+          !strcasecmp (key, MONGOC_URI_TLSALLOWINVALIDHOSTNAMES) ||
+          /* deprecated options */
           !strcasecmp (key, MONGOC_URI_SSL) ||
           !strcasecmp (key, MONGOC_URI_SSLALLOWINVALIDCERTIFICATES) ||
           !strcasecmp (key, MONGOC_URI_SSLALLOWINVALIDHOSTNAMES);
@@ -725,13 +753,37 @@ mongoc_uri_option_is_utf8 (const char *key)
    return !strcasecmp (key, MONGOC_URI_APPNAME) ||
           !strcasecmp (key, MONGOC_URI_REPLICASET) ||
           !strcasecmp (key, MONGOC_URI_READPREFERENCE) ||
+          !strcasecmp (key, MONGOC_URI_TLSCERTIFICATEKEYFILE) ||
+          !strcasecmp (key, MONGOC_URI_TLSCERTIFICATEKEYFILEPASSWORD) ||
+          !strcasecmp (key, MONGOC_URI_TLSCAFILE) ||
+          /* deprecated options */
           !strcasecmp (key, MONGOC_URI_SSLCLIENTCERTIFICATEKEYFILE) ||
           !strcasecmp (key, MONGOC_URI_SSLCLIENTCERTIFICATEKEYPASSWORD) ||
           !strcasecmp (key, MONGOC_URI_SSLCERTIFICATEAUTHORITYFILE);
 }
 
+const char *
+mongoc_uri_canonicalize_option (const char *key)
+{
+   if (!strcasecmp (key, MONGOC_URI_SSL)) {
+      return MONGOC_URI_TLS;
+   } else if (!strcasecmp (key, MONGOC_URI_SSLCLIENTCERTIFICATEKEYFILE)) {
+      return MONGOC_URI_TLSCERTIFICATEKEYFILE;
+   } else if (!strcasecmp (key, MONGOC_URI_SSLCLIENTCERTIFICATEKEYPASSWORD)) {
+      return MONGOC_URI_TLSCERTIFICATEKEYFILEPASSWORD;
+   } else if (!strcasecmp (key, MONGOC_URI_SSLCERTIFICATEAUTHORITYFILE)) {
+      return MONGOC_URI_TLSCAFILE;
+   } else if (!strcasecmp (key, MONGOC_URI_SSLALLOWINVALIDCERTIFICATES)) {
+      return MONGOC_URI_TLSALLOWINVALIDCERTIFICATES;
+   } else if (!strcasecmp (key, MONGOC_URI_SSLALLOWINVALIDHOSTNAMES)) {
+      return MONGOC_URI_TLSALLOWINVALIDHOSTNAMES;
+   } else {
+      return key;
+   }
+}
+
 static bool
-mongoc_uri_parse_int32 (const char *key, const char *value, int32_t *result)
+_mongoc_uri_parse_int64 (const char *key, const char *value, int64_t *result)
 {
    char *endptr;
    int64_t i;
@@ -740,6 +792,23 @@ mongoc_uri_parse_int32 (const char *key, const char *value, int32_t *result)
    i = bson_ascii_strtoll (value, &endptr, 10);
    if (errno || endptr < value + strlen (value)) {
       MONGOC_WARNING ("Invalid %s: cannot parse integer\n", key);
+      return false;
+   }
+
+   *result = i;
+   return true;
+}
+
+
+static bool
+mongoc_uri_parse_int32 (const char *key, const char *value, int32_t *result)
+{
+   int64_t i;
+
+   if (!_mongoc_uri_parse_int64 (key, value, &i)) {
+      /* _mongoc_uri_parse_int64 emits a warning if it could not parse the
+       * given value, so we don't have to add one here.
+       */
       return false;
    }
 
@@ -765,33 +834,24 @@ dns_option_allowed (const char *lkey)
 }
 
 
-/* Initial DNS Seedlist Discovery Spec: "A Client MUST use options specified in
- * the Connection String to override options provided through TXT records."
- * Log an error but return true. Parsing continues and the topology is valid.
+/* Decompose a key=val pair and place them into a document.
+ * Includes case-folding for key portion.
  */
-#define HANDLE_DUPE()                                                \
-   if (from_dns) {                                                   \
-      MONGOC_WARNING (                                               \
-         "Cannot override URI option \"%s\" from TXT record \"%s\"", \
-         key,                                                        \
-         str);                                                       \
-      ret = true;                                                    \
-      goto CLEANUP;                                                  \
-   }                                                                 \
-   MONGOC_WARNING ("Overwriting previously provided value for '%s'", key)
-
-
 static bool
-mongoc_uri_parse_option (mongoc_uri_t *uri,
+mongoc_uri_split_option (mongoc_uri_t *uri,
+                         bson_t *options,
                          const char *str,
                          bool from_dns,
                          bson_error_t *error)
 {
-   int32_t v_int;
+   bson_iter_t iter;
    const char *end_key;
-   char *lkey = NULL;
    char *key = NULL;
+   char *lkey = NULL;
    char *value = NULL;
+   const char *opt;
+   char *opt_end;
+   size_t opt_len;
    bool ret = false;
 
    if (!(key = scan_to_unichar (str, '=', "", &end_key))) {
@@ -816,140 +876,58 @@ mongoc_uri_parse_option (mongoc_uri_t *uri,
     * error if any other option is encountered."*/
    if (from_dns && !dns_option_allowed (lkey)) {
       MONGOC_URI_ERROR (
-         error, "URI option \"%s\" prohibited in TXT record", lkey);
+         error, "URI option \"%s\" prohibited in TXT record", key);
       goto CLEANUP;
    }
 
-   if (bson_has_field (&uri->options, lkey)) {
+   /* Special case: READPREFERENCETAGS is a composing option.
+    * Multiple instances should append, not overwrite.
+    * Encode them directly to the options field,
+    * bypassing canonicalization and duplicate checks.
+    */
+   if (!strcmp (lkey, MONGOC_URI_READPREFERENCETAGS)) {
+      if (!mongoc_uri_parse_tags (uri, value)) {
+         MONGOC_URI_ERROR (
+            error, "Unsupported value for \"%s\": \"%s\"", key, value);
+         goto CLEANUP;
+      }
+   } else if (bson_iter_init_find (&iter, &uri->raw, lkey) ||
+              bson_iter_init_find (&iter, options, lkey)) {
+      /* Special case, MONGOC_URI_W == "any non-int" is not overridden
+       * by later values.
+       */
+      if (!strcmp (lkey, MONGOC_URI_W) &&
+          (opt = bson_iter_utf8_unsafe (&iter, &opt_len))) {
+         strtol (opt, &opt_end, 10);
+         if (*opt_end != '\0') {
+            ret = true;
+            goto CLEANUP;
+         }
+      }
+
       /* Initial DNS Seedlist Discovery Spec: "Client MUST use options
        * specified in the Connection String to override options provided
        * through TXT records." So, do NOT override existing options with TXT
        * options. */
-      HANDLE_DUPE ();
-   }
-
-   if (mongoc_uri_option_is_int32 (lkey)) {
-      if (!mongoc_uri_parse_int32 (lkey, value, &v_int)) {
-         goto UNSUPPORTED_VALUE;
-      }
-
-      if (!_mongoc_uri_set_option_as_int32_with_error (
-             uri, lkey, v_int, error)) {
+      if (from_dns) {
+         MONGOC_WARNING (
+            "Cannot override URI option \"%s\" from TXT record \"%s\"",
+            key,
+            str);
+         ret = true;
          goto CLEANUP;
       }
-   } else if (!strcmp (lkey, MONGOC_URI_W)) {
-      if (*value == '-' || isdigit (*value)) {
-         v_int = (int) strtol (value, NULL, 10);
-         _mongoc_uri_set_option_as_int32 (uri, MONGOC_URI_W, v_int);
-      } else if (0 == strcasecmp (value, "majority")) {
-         mongoc_uri_bson_append_or_replace_key (
-            &uri->options, MONGOC_URI_W, "majority");
-      } else if (*value) {
-         mongoc_uri_bson_append_or_replace_key (
-            &uri->options, MONGOC_URI_W, value);
-      }
-   } else if (mongoc_uri_option_is_bool (lkey)) {
-      if (0 == strcasecmp (value, "true")) {
-         mongoc_uri_set_option_as_bool (uri, lkey, true);
-      } else if (0 == strcasecmp (value, "false")) {
-         mongoc_uri_set_option_as_bool (uri, lkey, false);
-      } else if ((0 == strcmp (value, "1")) ||
-                 (0 == strcasecmp (value, "yes")) ||
-                 (0 == strcasecmp (value, "y")) ||
-                 (0 == strcasecmp (value, "t"))) {
-         MONGOC_WARNING ("Deprecated boolean value for \"%s\": \"%s\", "
-                         "please update to \"%s=true\"",
-                         key,
-                         value,
-                         key);
-         mongoc_uri_set_option_as_bool (uri, lkey, true);
-      } else if ((0 == strcasecmp (value, "0")) ||
-                 (0 == strcasecmp (value, "-1")) ||
-                 (0 == strcmp (value, "no")) || (0 == strcmp (value, "n")) ||
-                 (0 == strcmp (value, "f"))) {
-         MONGOC_WARNING ("Deprecated boolean value for \"%s\": \"%s\", "
-                         "please update to \"%s=false\"",
-                         key,
-                         value,
-                         key);
-         mongoc_uri_set_option_as_bool (uri, lkey, false);
-      } else {
-         goto UNSUPPORTED_VALUE;
-      }
-
-#ifndef MONGOC_ENABLE_CRYPTO
-      if (!strcmp (lkey, MONGOC_URI_RETRYWRITES)) {
-         /* retryWrites requires sessions, which require crypto - just warn */
-         MONGOC_WARNING (
-            "retryWrites not supported without an SSL crypto library");
-      }
-#endif
-   } else if (!strcmp (lkey, MONGOC_URI_READPREFERENCETAGS)) {
-      /* Allows providing this key multiple times */
-      if (!mongoc_uri_parse_tags (uri, value)) {
-         goto UNSUPPORTED_VALUE;
-      }
-   } else if (!strcmp (lkey, MONGOC_URI_AUTHMECHANISM) ||
-              !strcmp (lkey, MONGOC_URI_AUTHSOURCE)) {
-      if (bson_has_field (&uri->credentials, lkey)) {
-         HANDLE_DUPE ();
-      }
-      mongoc_uri_bson_append_or_replace_key (&uri->credentials, lkey, value);
-   } else if (!strcmp (lkey, MONGOC_URI_READCONCERNLEVEL)) {
-      if (!mongoc_read_concern_is_default (uri->read_concern)) {
-         HANDLE_DUPE ();
-      }
-      mongoc_read_concern_set_level (uri->read_concern, value);
-   } else if (!strcmp (lkey, MONGOC_URI_GSSAPISERVICENAME)) {
-      char *tmp = bson_strdup_printf ("SERVICE_NAME:%s", value);
-      if (bson_has_field (&uri->credentials,
-                          MONGOC_URI_AUTHMECHANISMPROPERTIES)) {
-         MONGOC_WARNING (
-            "authMechanismProperties SERVICE_NAME already set, ignoring '%s'",
-            lkey);
-      } else if (!mongoc_uri_parse_auth_mechanism_properties (uri, tmp)) {
-         bson_free (tmp);
-         goto UNSUPPORTED_VALUE;
-      }
-      bson_free (tmp);
-   } else if (!strcmp (lkey, MONGOC_URI_AUTHMECHANISMPROPERTIES)) {
-      if (bson_has_field (&uri->credentials, lkey)) {
-         HANDLE_DUPE ();
-      }
-      if (!mongoc_uri_parse_auth_mechanism_properties (uri, value)) {
-         goto UNSUPPORTED_VALUE;
-      }
-   } else if (!strcmp (lkey, MONGOC_URI_APPNAME)) {
-      /* Part of uri->options */
-      if (!mongoc_uri_set_appname (uri, value)) {
-         goto UNSUPPORTED_VALUE;
-      }
-   } else if (!strcmp (lkey, MONGOC_URI_COMPRESSORS)) {
-      if (!bson_empty (mongoc_uri_get_compressors (uri))) {
-         HANDLE_DUPE ();
-      }
-      if (!mongoc_uri_set_compressors (uri, value)) {
-         goto UNSUPPORTED_VALUE;
-      }
-   } else if (mongoc_uri_option_is_utf8 (lkey)) {
-      mongoc_uri_bson_append_or_replace_key (&uri->options, lkey, value);
-   } else {
-      /*
-       * Keys that aren't supported by a driver MUST be ignored.
-       *
-       * A WARN level logging message MUST be issued
-       * https://github.com/mongodb/specifications/blob/master/source/connection-string/connection-string-spec.rst#keys
-       */
-      MONGOC_WARNING ("Unsupported URI option \"%s\"", key);
+      MONGOC_WARNING ("Overwriting previously provided value for '%s'", key);
    }
 
-   ret = true;
-
-UNSUPPORTED_VALUE:
-   if (!ret) {
+   if (!(strcmp (lkey, MONGOC_URI_REPLICASET)) && *value == '\0') {
       MONGOC_URI_ERROR (
-         error, "Unsupported value for \"%s\": \"%s\"", key, value);
+         error, "Value for URI option \"%s\" cannot be empty string", lkey);
+      goto CLEANUP;
    }
+
+   mongoc_uri_bson_append_or_replace_key (options, lkey, value);
+   ret = true;
 
 CLEANUP:
    bson_free (key);
@@ -960,28 +938,313 @@ CLEANUP:
 }
 
 
+/* Check for canonical/deprecated conflicts
+ * between the option list a, and b.
+ * If both names exist either way with differing values, error.
+ */
+static bool
+mongoc_uri_options_validate_names (const bson_t *a,
+                                   const bson_t *b,
+                                   bson_error_t *error)
+{
+   bson_iter_t key_iter, canon_iter;
+   const char *key = NULL;
+   const char *canon = NULL;
+   const char *value = NULL;
+   const char *cval = NULL;
+   size_t value_len = 0;
+   size_t cval_len = 0;
+
+   /* Scan `a` looking for deprecated names
+    * where the canonical name was also used in `a`,
+    * or was used in `b`. */
+   bson_iter_init (&key_iter, a);
+   while (bson_iter_next (&key_iter)) {
+      key = bson_iter_key (&key_iter);
+      value = bson_iter_utf8_unsafe (&key_iter, &value_len);
+      canon = mongoc_uri_canonicalize_option (key);
+
+      if (key == canon) {
+         /* Canonical form, no point checking `b`. */
+         continue;
+      }
+
+      /* Check for a conflict in `a`. */
+      if (bson_iter_init_find (&canon_iter, a, canon)) {
+         cval = bson_iter_utf8_unsafe (&canon_iter, &cval_len);
+         if ((value_len != cval_len) || strcmp (value, cval)) {
+            goto HANDLE_CONFLICT;
+         }
+      }
+
+      /* Check for a conflict in `b`. */
+      if (bson_iter_init_find (&canon_iter, b, canon)) {
+         cval = bson_iter_utf8_unsafe (&canon_iter, &cval_len);
+         if ((value_len != cval_len) || strcmp (value, cval)) {
+            goto HANDLE_CONFLICT;
+         }
+      }
+   }
+
+   return true;
+
+HANDLE_CONFLICT:
+   MONGOC_URI_ERROR (error,
+                     "Deprecated option '%s=%s' conflicts with "
+                     "canonical name '%s=%s'",
+                     key,
+                     value,
+                     canon,
+                     cval);
+
+   return false;
+}
+
+
+#define HANDLE_DUPE()                                                         \
+   if (from_dns) {                                                            \
+      MONGOC_WARNING ("Cannot override URI option \"%s\" from TXT record",    \
+                      key);                                                   \
+      continue;                                                               \
+   } else {                                                                   \
+      MONGOC_WARNING ("Overwriting previously provided value for '%s'", key); \
+   }
+
+static bool
+mongoc_uri_apply_options (mongoc_uri_t *uri,
+                          const bson_t *options,
+                          bool from_dns,
+                          bson_error_t *error)
+{
+   bson_iter_t iter;
+   int32_t v_int;
+   int64_t v_int64;
+   const char *key = NULL;
+   const char *canon = NULL;
+   const char *value = NULL;
+   size_t value_len;
+   bool bval;
+
+   bson_iter_init (&iter, options);
+   while (bson_iter_next (&iter)) {
+      key = bson_iter_key (&iter);
+      canon = mongoc_uri_canonicalize_option (key);
+      value = bson_iter_utf8_unsafe (&iter, &value_len);
+
+      /* Keep a record of how the option was originally presented. */
+      mongoc_uri_bson_append_or_replace_key (&uri->raw, key, value);
+
+      /* This check precedes mongoc_uri_option_is_int32 as all 64-bit values are
+       * also recognised as 32-bit ints.
+       */
+      if (mongoc_uri_option_is_int64 (key)) {
+         if (!_mongoc_uri_parse_int64 (key, value, &v_int64)) {
+            goto UNSUPPORTED_VALUE;
+         }
+
+         if (!_mongoc_uri_set_option_as_int64_with_error (
+                uri, canon, v_int64, error)) {
+            return false;
+         }
+      } else if (mongoc_uri_option_is_int32 (key)) {
+         if (!mongoc_uri_parse_int32 (key, value, &v_int)) {
+            goto UNSUPPORTED_VALUE;
+         }
+
+         if (!_mongoc_uri_set_option_as_int32_with_error (
+                uri, canon, v_int, error)) {
+            return false;
+         }
+      } else if (!strcmp (key, MONGOC_URI_W)) {
+         if (*value == '-' || isdigit (*value)) {
+            v_int = (int) strtol (value, NULL, 10);
+            _mongoc_uri_set_option_as_int32 (uri, MONGOC_URI_W, v_int);
+         } else if (0 == strcasecmp (value, "majority")) {
+            mongoc_uri_bson_append_or_replace_key (
+               &uri->options, MONGOC_URI_W, "majority");
+         } else if (*value) {
+            mongoc_uri_bson_append_or_replace_key (
+               &uri->options, MONGOC_URI_W, value);
+         }
+
+      } else if (mongoc_uri_option_is_bool (key)) {
+         if (0 == strcasecmp (value, "true")) {
+            bval = true;
+         } else if (0 == strcasecmp (value, "false")) {
+            bval = false;
+         } else if ((0 == strcmp (value, "1")) ||
+                    (0 == strcasecmp (value, "yes")) ||
+                    (0 == strcasecmp (value, "y")) ||
+                    (0 == strcasecmp (value, "t"))) {
+            MONGOC_WARNING ("Deprecated boolean value for \"%s\": \"%s\", "
+                            "please update to \"%s=true\"",
+                            key,
+                            value,
+                            key);
+            bval = true;
+         } else if ((0 == strcasecmp (value, "0")) ||
+                    (0 == strcasecmp (value, "-1")) ||
+                    (0 == strcmp (value, "no")) || (0 == strcmp (value, "n")) ||
+                    (0 == strcmp (value, "f"))) {
+            MONGOC_WARNING ("Deprecated boolean value for \"%s\": \"%s\", "
+                            "please update to \"%s=false\"",
+                            key,
+                            value,
+                            key);
+            bval = false;
+         } else {
+            goto UNSUPPORTED_VALUE;
+         }
+
+         if (!mongoc_uri_set_option_as_bool (uri, canon, bval)) {
+            return false;
+         }
+
+      } else if (!strcmp (key, MONGOC_URI_READPREFERENCETAGS)) {
+         /* Skip this option here.
+          * It was marshalled during mongoc_uri_split_option()
+          * as a special case composing option.
+          */
+
+      } else if (!strcmp (key, MONGOC_URI_AUTHMECHANISM) ||
+                 !strcmp (key, MONGOC_URI_AUTHSOURCE)) {
+         if (bson_has_field (&uri->credentials, key)) {
+            HANDLE_DUPE ();
+         }
+         mongoc_uri_bson_append_or_replace_key (
+            &uri->credentials, canon, value);
+
+      } else if (!strcmp (key, MONGOC_URI_READCONCERNLEVEL)) {
+         if (!mongoc_read_concern_is_default (uri->read_concern)) {
+            HANDLE_DUPE ();
+         }
+         mongoc_read_concern_set_level (uri->read_concern, value);
+
+      } else if (!strcmp (key, MONGOC_URI_GSSAPISERVICENAME)) {
+         char *tmp = bson_strdup_printf ("SERVICE_NAME:%s", value);
+         if (bson_has_field (&uri->credentials,
+                             MONGOC_URI_AUTHMECHANISMPROPERTIES)) {
+            MONGOC_WARNING ("authMechanismProperties SERVICE_NAME already set, "
+                            "ignoring '%s'",
+                            key);
+         } else if (!mongoc_uri_parse_auth_mechanism_properties (uri, tmp)) {
+            bson_free (tmp);
+            goto UNSUPPORTED_VALUE;
+         }
+         bson_free (tmp);
+
+      } else if (!strcmp (key, MONGOC_URI_AUTHMECHANISMPROPERTIES)) {
+         if (bson_has_field (&uri->credentials, key)) {
+            HANDLE_DUPE ();
+         }
+         if (!mongoc_uri_parse_auth_mechanism_properties (uri, value)) {
+            goto UNSUPPORTED_VALUE;
+         }
+
+      } else if (!strcmp (key, MONGOC_URI_APPNAME)) {
+         /* Part of uri->options */
+         if (!mongoc_uri_set_appname (uri, value)) {
+            goto UNSUPPORTED_VALUE;
+         }
+
+      } else if (!strcmp (key, MONGOC_URI_COMPRESSORS)) {
+         if (!bson_empty (mongoc_uri_get_compressors (uri))) {
+            HANDLE_DUPE ();
+         }
+         if (!mongoc_uri_set_compressors (uri, value)) {
+            goto UNSUPPORTED_VALUE;
+         }
+
+      } else if (mongoc_uri_option_is_utf8 (key)) {
+         mongoc_uri_bson_append_or_replace_key (&uri->options, canon, value);
+
+      } else {
+         /*
+          * Keys that aren't supported by a driver MUST be ignored.
+          *
+          * A WARN level logging message MUST be issued
+          * https://github.com/mongodb/specifications/blob/master/source/connection-string/connection-string-spec.rst#keys
+          */
+         MONGOC_WARNING ("Unsupported URI option \"%s\"", key);
+      }
+   }
+
+   return true;
+
+UNSUPPORTED_VALUE:
+   MONGOC_URI_ERROR (error, "Unsupported value for \"%s\": \"%s\"", key, value);
+
+   return false;
+}
+
+
+/* Processes a query string formatted set of driver options
+ * (i.e. tls=true&connectTimeoutMS=250 ) into a BSON dict of values.
+ * uri->raw is initially populated with the raw split of key/value pairs,
+ * then the keys are canonicalized and the values coerced
+ * to their appropriate type and stored in uri->options.
+ */
 bool
 mongoc_uri_parse_options (mongoc_uri_t *uri,
                           const char *str,
                           bool from_dns,
                           bson_error_t *error)
 {
+   bson_t options;
    const char *end_option;
    char *option;
 
-again:
-   if ((option = scan_to_unichar (str, '&', "", &end_option))) {
-      if (!mongoc_uri_parse_option (uri, option, from_dns, error)) {
+   bson_init (&options);
+   while ((option = scan_to_unichar (str, '&', "", &end_option))) {
+      if (!mongoc_uri_split_option (uri, &options, option, from_dns, error)) {
          bson_free (option);
+         bson_destroy (&options);
          return false;
       }
       bson_free (option);
       str = end_option + 1;
-      goto again;
-   } else if (*str) {
-      if (!mongoc_uri_parse_option (uri, str, from_dns, error)) {
-         return false;
-      }
+   }
+
+   if (*str && !mongoc_uri_split_option (uri, &options, str, from_dns, error)) {
+      bson_destroy (&options);
+      return false;
+   }
+
+   /* Walk both sides of this map to handle each ordering:
+    * deprecated first canonical later, and vice-versa.
+    * Then finalize parse by writing final values to uri->options.
+    */
+   if (!mongoc_uri_options_validate_names (&uri->options, &options, error) ||
+       !mongoc_uri_options_validate_names (&options, &uri->options, error) ||
+       !mongoc_uri_apply_options (uri, &options, from_dns, error)) {
+      bson_destroy (&options);
+      return false;
+   }
+
+   bson_destroy (&options);
+   return true;
+}
+
+
+static bool
+mongoc_uri_finalize_tls (mongoc_uri_t *uri, bson_error_t *error)
+{
+   /* Initial DNS Seedlist Discovery Spec: "If mongodb+srv is used, a driver
+    * MUST implicitly also enable TLS." */
+   if (uri->is_srv && !bson_has_field (&uri->options, MONGOC_URI_TLS)) {
+      mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLS, true);
+   }
+
+   if (bson_has_field (&uri->options, MONGOC_URI_TLSINSECURE) &&
+       (bson_has_field (&uri->options,
+                        MONGOC_URI_TLSALLOWINVALIDCERTIFICATES) ||
+        bson_has_field (&uri->options, MONGOC_URI_TLSALLOWINVALIDHOSTNAMES))) {
+      MONGOC_URI_ERROR (error,
+                        "%s may not be specified with %s or %s",
+                        MONGOC_URI_TLSINSECURE,
+                        MONGOC_URI_TLSALLOWINVALIDCERTIFICATES,
+                        MONGOC_URI_TLSALLOWINVALIDHOSTNAMES);
+      return false;
    }
 
    return true;
@@ -989,7 +1252,9 @@ again:
 
 
 static bool
-mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
+mongoc_uri_finalize_auth (mongoc_uri_t *uri,
+                          bson_error_t *error,
+                          bool require_auth)
 {
    bson_iter_t iter;
    const char *source = NULL;
@@ -997,10 +1262,11 @@ mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
    if (bson_iter_init_find_case (
           &iter, &uri->credentials, MONGOC_URI_AUTHSOURCE)) {
       source = bson_iter_utf8 (&iter, NULL);
+      require_auth = true;
    }
 
-   /* authSource with GSSAPI or X509 should always be external */
    if (mongoc_uri_get_auth_mechanism (uri)) {
+      /* authSource with GSSAPI or X509 should always be external */
       if (!strcasecmp (mongoc_uri_get_auth_mechanism (uri), "GSSAPI") ||
           !strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509")) {
          if (source) {
@@ -1017,8 +1283,10 @@ mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
          }
       }
       /* MONGODB-X509 is the only mechanism that doesn't require username */
-      if (strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509")) {
-         if (!mongoc_uri_get_username (uri)) {
+      if (strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509") !=
+          0) {
+         if (!mongoc_uri_get_username (uri) ||
+             strcmp (mongoc_uri_get_username (uri), "") == 0) {
             MONGOC_URI_ERROR (error,
                               "'%s' authentication mechanism requires username",
                               mongoc_uri_get_auth_mechanism (uri));
@@ -1026,7 +1294,8 @@ mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
          }
       }
       /* MONGODB-X509 errors if a password is supplied. */
-      if (!strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509")) {
+      if (strcasecmp (mongoc_uri_get_auth_mechanism (uri), "MONGODB-X509") ==
+          0) {
          if (mongoc_uri_get_password (uri)) {
             MONGOC_URI_ERROR (
                error,
@@ -1034,6 +1303,33 @@ mongoc_uri_finalize_auth (mongoc_uri_t *uri, bson_error_t *error)
                mongoc_uri_get_auth_mechanism (uri));
             return false;
          }
+      }
+      /* GSSAPI uses 'mongodb' as the default service name */
+      if (strcasecmp (mongoc_uri_get_auth_mechanism (uri), "GSSAPI") == 0 &&
+          !(bson_iter_init_find (
+               &iter, &uri->credentials, MONGOC_URI_AUTHMECHANISMPROPERTIES) &&
+            BSON_ITER_HOLDS_DOCUMENT (&iter) &&
+            bson_iter_recurse (&iter, &iter) &&
+            bson_iter_find_case (&iter, "SERVICE_NAME"))) {
+         bson_t tmp;
+         bson_t *props = NULL;
+
+         props = mongoc_uri_get_mechanism_properties (uri, &tmp)
+                    ? bson_copy (&tmp)
+                    : bson_new ();
+
+         BSON_APPEND_UTF8 (props, "SERVICE_NAME", "mongodb");
+         mongoc_uri_set_mechanism_properties (uri, props);
+
+         bson_destroy (props);
+      }
+
+   } else if (require_auth) /* Default auth mechanism is used */ {
+      if (!mongoc_uri_get_username (uri) ||
+          strcmp (mongoc_uri_get_username (uri), "") == 0) {
+         MONGOC_URI_ERROR (
+            error, "%s", "Default authentication mechanism requires username");
+         return false;
       }
    }
    return true;
@@ -1090,6 +1386,7 @@ mongoc_uri_parse (mongoc_uri_t *uri, const char *str, bson_error_t *error)
 {
    char *before_slash = NULL;
    const char *tmp;
+   bool require_auth = false;
 
    if (!bson_utf8_validate (str, strlen (str), false /* allow_null */)) {
       MONGOC_URI_ERROR (error, "%s", "Invalid UTF-8 in URI");
@@ -1141,13 +1438,12 @@ mongoc_uri_parse (mongoc_uri_t *uri, const char *str, bson_error_t *error)
       }
    }
 
-   /* Initial DNS Seedlist Discovery Spec: "If mongodb+srv is used, a driver
-    * MUST implicitly also enable TLS." */
-   if (uri->is_srv && !bson_has_field (&uri->options, "ssl")) {
-      mongoc_uri_set_option_as_bool (uri, "ssl", true);
+   if (!mongoc_uri_finalize_tls (uri, error)) {
+      goto error;
    }
 
-   if (!mongoc_uri_finalize_auth (uri, error)) {
+   require_auth = uri->username != NULL;
+   if (!mongoc_uri_finalize_auth (uri, error, require_auth)) {
       goto error;
    }
 
@@ -1339,7 +1635,7 @@ _mongoc_uri_build_write_concern (mongoc_uri_t *uri, bson_error_t *error)
    mongoc_write_concern_t *write_concern;
    const char *str;
    bson_iter_t iter;
-   int32_t wtimeoutms;
+   int64_t wtimeoutms;
    int value;
 
    BSON_ASSERT (uri);
@@ -1354,13 +1650,13 @@ _mongoc_uri_build_write_concern (mongoc_uri_t *uri, bson_error_t *error)
          bson_iter_bool (&iter) ? 1 : MONGOC_WRITE_CONCERN_W_UNACKNOWLEDGED);
    }
 
-   wtimeoutms = mongoc_uri_get_option_as_int32 (uri, MONGOC_URI_WTIMEOUTMS, 0);
+   wtimeoutms = mongoc_uri_get_option_as_int64 (uri, MONGOC_URI_WTIMEOUTMS, 0);
    if (wtimeoutms < 0) {
       MONGOC_URI_ERROR (
-         error, "Unsupported wtimeoutMS value [w=%d]", wtimeoutms);
+         error, "Unsupported wtimeoutMS value [w=%" PRId64 "]", wtimeoutms);
       return false;
    } else if (wtimeoutms > 0) {
-      mongoc_write_concern_set_wtimeout (write_concern, wtimeoutms);
+      mongoc_write_concern_set_wtimeout_int64 (write_concern, wtimeoutms);
    }
 
    if (bson_iter_init_find_case (&iter, &uri->options, MONGOC_URI_JOURNAL) &&
@@ -1394,7 +1690,8 @@ _mongoc_uri_build_write_concern (mongoc_uri_t *uri, bson_error_t *error)
          str = bson_iter_utf8 (&iter, NULL);
 
          if (0 == strcasecmp ("majority", str)) {
-            mongoc_write_concern_set_wmajority (write_concern, wtimeoutms);
+            mongoc_write_concern_set_w (write_concern,
+                                        MONGOC_WRITE_CONCERN_W_MAJORITY);
          } else {
             mongoc_write_concern_set_wtag (write_concern, str);
          }
@@ -1445,6 +1742,7 @@ mongoc_uri_new_with_error (const char *uri_string, bson_error_t *error)
    int32_t max_staleness_seconds;
 
    uri = (mongoc_uri_t *) bson_malloc0 (sizeof *uri);
+   bson_init (&uri->raw);
    bson_init (&uri->options);
    bson_init (&uri->credentials);
    bson_init (&uri->compressors);
@@ -1790,6 +2088,7 @@ mongoc_uri_destroy (mongoc_uri_t *uri)
       bson_free (uri->str);
       bson_free (uri->database);
       bson_free (uri->username);
+      bson_destroy (&uri->raw);
       bson_destroy (&uri->options);
       bson_destroy (&uri->credentials);
       bson_destroy (&uri->compressors);
@@ -1828,14 +2127,16 @@ mongoc_uri_copy (const mongoc_uri_t *uri)
    copy->read_concern = mongoc_read_concern_copy (uri->read_concern);
    copy->write_concern = mongoc_write_concern_copy (uri->write_concern);
 
-   for (iter = uri->hosts; iter; iter = iter->next) {
-      if (!mongoc_uri_append_host (copy, iter->host, iter->port, &error)) {
+   LL_FOREACH (uri->hosts, iter)
+   {
+      if (!mongoc_uri_upsert_host (copy, iter->host, iter->port, &error)) {
          MONGOC_ERROR ("%s", error.message);
          mongoc_uri_destroy (copy);
          return NULL;
       }
    }
 
+   bson_copy_to (&uri->raw, &copy->raw);
    bson_copy_to (&uri->options, &copy->options);
    bson_copy_to (&uri->credentials, &copy->credentials);
    bson_copy_to (&uri->compressors, &copy->compressors);
@@ -1859,28 +2160,6 @@ mongoc_uri_get_read_prefs (const mongoc_uri_t *uri)
    return mongoc_read_prefs_get_tags (uri->read_prefs);
 }
 
-
-/*
- *--------------------------------------------------------------------------
- *
- * mongoc_uri_unescape --
- *
- *       Escapes an UTF-8 encoded string containing URI escaped segments
- *       such as %20.
- *
- *       It is a programming error to call this function with a string
- *       that is not UTF-8 encoded!
- *
- * Returns:
- *       A newly allocated string that should be freed with bson_free()
- *       or NULL on failure, such as invalid % encoding.
- *
- * Side effects:
- *       None.
- *
- *--------------------------------------------------------------------------
- */
-
 char *
 mongoc_uri_unescape (const char *escaped_string)
 {
@@ -1890,6 +2169,7 @@ mongoc_uri_unescape (const char *escaped_string)
    const char *ptr;
    const char *end;
    size_t len;
+   bool unescape_occurred = false;
 
    BSON_ASSERT (escaped_string);
 
@@ -1913,22 +2193,30 @@ mongoc_uri_unescape (const char *escaped_string)
       case '%':
          if (((end - ptr) < 2) || !isxdigit (ptr[1]) || !isxdigit (ptr[2]) ||
 #ifdef _MSC_VER
-             (1 != sscanf_s (&ptr[1], "%02x", &hex)) ||
+             (1 != sscanf_s (&ptr[1], "%02x", &hex))
 #else
-             (1 != sscanf (&ptr[1], "%02x", &hex)) ||
+             (1 != sscanf (&ptr[1], "%02x", &hex))
 #endif
-             !isprint (hex)) {
+          || 0 == hex) {
             bson_string_free (str, true);
             MONGOC_WARNING ("Invalid %% escape sequence");
             return NULL;
          }
          bson_string_append_c (str, hex);
          ptr += 2;
+         unescape_occurred = true;
          break;
       default:
          bson_string_append_unichar (str, c);
          break;
       }
+   }
+
+   /* Check that after unescaping, it is still valid UTF-8 */
+   if (unescape_occurred && !bson_utf8_validate (str->str, str->len, false)) {
+      MONGOC_WARNING ("Invalid %% escape sequence: unescaped string contains invalid UTF-8");
+      bson_string_free (str, true);
+      return NULL;
    }
 
    return bson_string_free (str, false);
@@ -1998,24 +2286,38 @@ mongoc_uri_set_write_concern (mongoc_uri_t *uri,
 
 
 bool
-mongoc_uri_get_ssl (const mongoc_uri_t *uri) /* IN */
+mongoc_uri_get_tls (const mongoc_uri_t *uri) /* IN */
 {
    bson_iter_t iter;
 
    BSON_ASSERT (uri);
 
-   if (bson_iter_init_find_case (&iter, &uri->options, MONGOC_URI_SSL) &&
+   if (bson_iter_init_find_case (&iter, &uri->options, MONGOC_URI_TLS) &&
        BSON_ITER_HOLDS_BOOL (&iter)) {
       return bson_iter_bool (&iter);
    }
-   if (bson_has_field (&uri->options, MONGOC_URI_SSLCLIENTCERTIFICATEKEYFILE) ||
-       bson_has_field (&uri->options, MONGOC_URI_SSLCERTIFICATEAUTHORITYFILE) ||
-       bson_has_field (&uri->options, MONGOC_URI_SSLALLOWINVALIDCERTIFICATES) ||
-       bson_has_field (&uri->options, MONGOC_URI_SSLALLOWINVALIDHOSTNAMES)) {
+
+   if (bson_iter_init_find_case (
+          &iter, &uri->options, MONGOC_URI_TLSCERTIFICATEKEYFILE) ||
+       bson_iter_init_find_case (&iter, &uri->options, MONGOC_URI_TLSCAFILE) ||
+       bson_iter_init_find_case (
+          &iter, &uri->options, MONGOC_URI_TLSALLOWINVALIDCERTIFICATES) ||
+       bson_iter_init_find_case (
+          &iter, &uri->options, MONGOC_URI_TLSALLOWINVALIDHOSTNAMES) ||
+       bson_iter_init_find_case (
+          &iter, &uri->options, MONGOC_URI_TLSINSECURE) ||
+       bson_iter_init_find_case (
+          &iter, &uri->options, MONGOC_URI_TLSCERTIFICATEKEYFILEPASSWORD)) {
       return true;
    }
 
    return false;
+}
+
+bool
+mongoc_uri_get_ssl (const mongoc_uri_t *uri) /* IN */
+{
+   return mongoc_uri_get_tls (uri);
 }
 
 /*
@@ -2026,9 +2328,8 @@ mongoc_uri_get_ssl (const mongoc_uri_t *uri) /* IN */
  *       Checks if the URI 'option' is set and of correct type (int32).
  *       The special value '0' is considered as "unset".
  *       This is so users can provide
- *       sprintf(mongodb://localhost/?option=%d, myvalue) style connection
- *strings,
- *       and still apply default values.
+ *       sprintf("mongodb://localhost/?option=%d", myvalue) style connection
+ *       strings, and still apply default values.
  *
  *       If not set, or set to invalid type, 'fallback' is returned.
  *
@@ -2036,29 +2337,45 @@ mongoc_uri_get_ssl (const mongoc_uri_t *uri) /* IN */
  *
  * Returns:
  *       The value of 'option' if available as int32 (and not 0), or
- *'fallback'.
+ *       'fallback'.
  *
  *--------------------------------------------------------------------------
  */
 
 int32_t
 mongoc_uri_get_option_as_int32 (const mongoc_uri_t *uri,
-                                const char *option,
+                                const char *option_orig,
                                 int32_t fallback)
 {
+   const char *option;
    const bson_t *options;
    bson_iter_t iter;
-   int32_t retval = fallback;
+   int64_t retval = 0;
 
-   if ((options = mongoc_uri_get_options (uri)) &&
-       bson_iter_init_find_case (&iter, options, option) &&
-       BSON_ITER_HOLDS_INT32 (&iter)) {
-      if (!(retval = bson_iter_int32 (&iter))) {
-         retval = fallback;
+   option = mongoc_uri_canonicalize_option (option_orig);
+
+   /* BC layer to allow retrieving 32-bit values stored in 64-bit options */
+   if (mongoc_uri_option_is_int64 (option_orig)) {
+      retval = mongoc_uri_get_option_as_int64 (uri, option_orig, 0);
+
+      if (retval > INT32_MAX || retval < INT32_MIN) {
+         MONGOC_WARNING ("Cannot read 64-bit value for \"%s\": %" PRId64,
+                         option_orig,
+                         retval);
+
+         retval = 0;
       }
+   } else if ((options = mongoc_uri_get_options (uri)) &&
+              bson_iter_init_find_case (&iter, options, option) &&
+              BSON_ITER_HOLDS_INT32 (&iter)) {
+      retval = bson_iter_int32 (&iter);
    }
 
-   return retval;
+   if (!retval) {
+      retval = fallback;
+   }
+
+   return (int32_t) retval;
 }
 
 /*
@@ -2088,16 +2405,23 @@ mongoc_uri_get_option_as_int32 (const mongoc_uri_t *uri,
 
 bool
 mongoc_uri_set_option_as_int32 (mongoc_uri_t *uri,
-                                const char *option,
+                                const char *option_orig,
                                 int32_t value)
 {
+   const char *option;
    bson_error_t error;
    bool r;
+
+   if (mongoc_uri_option_is_int64 (option_orig)) {
+      return mongoc_uri_set_option_as_int64 (uri, option_orig, value);
+   }
+
+   option = mongoc_uri_canonicalize_option (option_orig);
 
    if (!mongoc_uri_option_is_int32 (option)) {
       MONGOC_WARNING (
          "Unsupported value for \"%s\": %d, \"%s\" is not an int32 option",
-         option,
+         option_orig,
          value,
          option);
       return false;
@@ -2129,20 +2453,22 @@ mongoc_uri_set_option_as_int32 (mongoc_uri_t *uri,
 
 static bool
 _mongoc_uri_set_option_as_int32_with_error (mongoc_uri_t *uri,
-                                            const char *option,
+                                            const char *option_orig,
                                             int32_t value,
                                             bson_error_t *error)
 {
+   const char *option;
    const bson_t *options;
    bson_iter_t iter;
 
+   option = mongoc_uri_canonicalize_option (option_orig);
    /* Server Discovery and Monitoring Spec: "the driver MUST NOT permit users
     * to configure it less than minHeartbeatFrequencyMS (500ms)." */
    if (!bson_strcasecmp (option, MONGOC_URI_HEARTBEATFREQUENCYMS) &&
        value < MONGOC_TOPOLOGY_MIN_HEARTBEAT_FREQUENCY_MS) {
       MONGOC_URI_ERROR (error,
                         "Invalid \"%s\" of %d: must be at least %d",
-                        option,
+                        option_orig,
                         value,
                         MONGOC_TOPOLOGY_MIN_HEARTBEAT_FREQUENCY_MS);
       return false;
@@ -2153,7 +2479,7 @@ _mongoc_uri_set_option_as_int32_with_error (mongoc_uri_t *uri,
        (value < -1 || value > 9)) {
       MONGOC_URI_ERROR (error,
                         "Invalid \"%s\" of %d: must be between -1 and 9",
-                        option,
+                        option_orig,
                         value);
       return false;
    }
@@ -2166,7 +2492,7 @@ _mongoc_uri_set_option_as_int32_with_error (mongoc_uri_t *uri,
       } else {
          MONGOC_URI_ERROR (error,
                            "Cannot set URI option \"%s\" to %d, it already has "
-                           "a non-integer value",
+                           "a non-32-bit integer value",
                            option,
                            value);
          return false;
@@ -2175,7 +2501,7 @@ _mongoc_uri_set_option_as_int32_with_error (mongoc_uri_t *uri,
 
    if (!bson_append_int32 (&uri->options, option, -1, value)) {
       MONGOC_URI_ERROR (
-         error, "Failed to set URI option \"%s\" to %d", option, value);
+         error, "Failed to set URI option \"%s\" to %d", option_orig, value);
 
       return false;
    }
@@ -2200,12 +2526,14 @@ _mongoc_uri_set_option_as_int32_with_error (mongoc_uri_t *uri,
 
 static bool
 _mongoc_uri_set_option_as_int32 (mongoc_uri_t *uri,
-                                 const char *option,
+                                 const char *option_orig,
                                  int32_t value)
 {
+   const char *option;
    const bson_t *options;
    bson_iter_t iter;
 
+   option = mongoc_uri_canonicalize_option (option_orig);
    if ((options = mongoc_uri_get_options (uri)) &&
        bson_iter_init_find_case (&iter, options, option)) {
       if (BSON_ITER_HOLDS_INT32 (&iter)) {
@@ -2220,6 +2548,170 @@ _mongoc_uri_set_option_as_int32 (mongoc_uri_t *uri,
    return true;
 }
 
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_uri_get_option_as_int64 --
+ *
+ *       Checks if the URI 'option' is set and of correct type (int32 or
+ *       int64).
+ *       The special value '0' is considered as "unset".
+ *       This is so users can provide
+ *       sprintf("mongodb://localhost/?option=%" PRId64, myvalue) style
+ *       connection strings, and still apply default values.
+ *
+ *       If not set, or set to invalid type, 'fallback' is returned.
+ *
+ *       NOTE: 'option' is case*in*sensitive.
+ *
+ * Returns:
+ *       The value of 'option' if available as int64 or int32 (and not 0), or
+ *       'fallback'.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+int64_t
+mongoc_uri_get_option_as_int64 (const mongoc_uri_t *uri,
+                                const char *option_orig,
+                                int64_t fallback)
+{
+   const char *option;
+   const bson_t *options;
+   bson_iter_t iter;
+   int64_t retval = fallback;
+
+   option = mongoc_uri_canonicalize_option (option_orig);
+   if ((options = mongoc_uri_get_options (uri)) &&
+       bson_iter_init_find_case (&iter, options, option)) {
+      if (BSON_ITER_HOLDS_INT (&iter)) {
+         if (!(retval = bson_iter_as_int64 (&iter))) {
+            retval = fallback;
+         }
+      }
+   }
+
+   return retval;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_uri_set_option_as_int64 --
+ *
+ *       Sets a URI option 'after the fact'. Allows users to set individual
+ *       URI options without passing them as a connection string.
+ *
+ *       Only allows a set of known options to be set.
+ *       @see mongoc_uri_option_is_int64 ().
+ *
+ *       Does in-place-update of the option BSON if 'option' is already set.
+ *       Appends the option to the end otherwise.
+ *
+ *       NOTE: If 'option' is already set, and is of invalid type, this
+ *       function will return false.
+ *
+ *       NOTE: 'option' is case*in*sensitive.
+ *
+ * Returns:
+ *       true on successfully setting the option, false on failure.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+bool
+mongoc_uri_set_option_as_int64 (mongoc_uri_t *uri,
+                                const char *option_orig,
+                                int64_t value)
+{
+   const char *option;
+   bson_error_t error;
+   bool r;
+
+   option = mongoc_uri_canonicalize_option (option_orig);
+   if (!mongoc_uri_option_is_int64 (option)) {
+      if (mongoc_uri_option_is_int32 (option_orig)) {
+         if (value >= INT32_MIN && value <= INT32_MAX) {
+            MONGOC_WARNING (
+               "Setting value for 32-bit option \"%s\" through 64-bit method",
+               option_orig);
+
+            return mongoc_uri_set_option_as_int32 (
+               uri, option_orig, (int32_t) value);
+         }
+
+         MONGOC_WARNING ("Unsupported value for \"%s\": %" PRId64
+                         ", \"%s\" is not an int64 option",
+                         option_orig,
+                         value,
+                         option);
+         return false;
+      }
+   }
+
+   r = _mongoc_uri_set_option_as_int64_with_error (uri, option, value, &error);
+   if (!r) {
+      MONGOC_WARNING ("%s", error.message);
+   }
+
+   return r;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_uri_set_option_as_int64_with_error --
+ *
+ *       Same as mongoc_uri_set_option_as_int64, with error reporting.
+ *
+ * Precondition:
+ *       mongoc_uri_option_is_int64(option) must be true.
+ *
+ * Returns:
+ *       true on successfully setting the option, false on failure.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+static bool
+_mongoc_uri_set_option_as_int64_with_error (mongoc_uri_t *uri,
+                                            const char *option_orig,
+                                            int64_t value,
+                                            bson_error_t *error)
+{
+   const char *option;
+   const bson_t *options;
+   bson_iter_t iter;
+
+   option = mongoc_uri_canonicalize_option (option_orig);
+
+   if ((options = mongoc_uri_get_options (uri)) &&
+       bson_iter_init_find_case (&iter, options, option)) {
+      if (BSON_ITER_HOLDS_INT64 (&iter)) {
+         bson_iter_overwrite_int64 (&iter, value);
+         return true;
+      } else {
+         MONGOC_URI_ERROR (error,
+                           "Cannot set URI option \"%s\" to %" PRId64
+                           ", it already has "
+                           "a non-64-bit integer value",
+                           option,
+                           value);
+         return false;
+      }
+   }
+
+   if (!bson_append_int64 (&uri->options, option, -1, value)) {
+      MONGOC_URI_ERROR (error,
+                        "Failed to set URI option \"%s\" to %" PRId64,
+                        option_orig,
+                        value);
+
+      return false;
+   }
+
+   return true;
+}
 
 /*
  *--------------------------------------------------------------------------
@@ -2240,12 +2732,14 @@ _mongoc_uri_set_option_as_int32 (mongoc_uri_t *uri,
 
 bool
 mongoc_uri_get_option_as_bool (const mongoc_uri_t *uri,
-                               const char *option,
+                               const char *option_orig,
                                bool fallback)
 {
+   const char *option;
    const bson_t *options;
    bson_iter_t iter;
 
+   option = mongoc_uri_canonicalize_option (option_orig);
    if ((options = mongoc_uri_get_options (uri)) &&
        bson_iter_init_find_case (&iter, options, option) &&
        BSON_ITER_HOLDS_BOOL (&iter)) {
@@ -2282,12 +2776,14 @@ mongoc_uri_get_option_as_bool (const mongoc_uri_t *uri,
 
 bool
 mongoc_uri_set_option_as_bool (mongoc_uri_t *uri,
-                               const char *option,
+                               const char *option_orig,
                                bool value)
 {
+   const char *option;
    const bson_t *options;
    bson_iter_t iter;
 
+   option = mongoc_uri_canonicalize_option (option_orig);
    BSON_ASSERT (option);
 
    if (!mongoc_uri_option_is_bool (option)) {
@@ -2303,6 +2799,7 @@ mongoc_uri_set_option_as_bool (mongoc_uri_t *uri,
          return false;
       }
    }
+
    bson_append_bool (&uri->options, option, -1, value);
    return true;
 }
@@ -2326,12 +2823,14 @@ mongoc_uri_set_option_as_bool (mongoc_uri_t *uri,
 
 const char *
 mongoc_uri_get_option_as_utf8 (const mongoc_uri_t *uri,
-                               const char *option,
+                               const char *option_orig,
                                const char *fallback)
 {
+   const char *option;
    const bson_t *options;
    bson_iter_t iter;
 
+   option = mongoc_uri_canonicalize_option (option_orig);
    if ((options = mongoc_uri_get_options (uri)) &&
        bson_iter_init_find_case (&iter, options, option) &&
        BSON_ITER_HOLDS_UTF8 (&iter)) {
@@ -2372,11 +2871,13 @@ mongoc_uri_get_option_as_utf8 (const mongoc_uri_t *uri,
 
 bool
 mongoc_uri_set_option_as_utf8 (mongoc_uri_t *uri,
-                               const char *option,
+                               const char *option_orig,
                                const char *value)
 {
+   const char *option;
    size_t len;
 
+   option = mongoc_uri_canonicalize_option (option_orig);
    BSON_ASSERT (option);
 
    len = strlen (value);
@@ -2416,4 +2917,18 @@ bool
 _mongoc_uri_requires_auth_negotiation (const mongoc_uri_t *uri)
 {
    return mongoc_uri_get_username (uri) && !mongoc_uri_get_auth_mechanism (uri);
+}
+
+
+/* A bit of a hack. Needed for multi mongos tests to create a URI with the same
+ * auth, SSL, and compressors settings but with only one specific host. */
+mongoc_uri_t *
+_mongoc_uri_copy_and_replace_host_list (const mongoc_uri_t *original,
+                                        const char *host)
+{
+   mongoc_uri_t *uri = mongoc_uri_copy (original);
+   _mongoc_host_list_destroy_all (uri->hosts);
+   uri->hosts = bson_malloc0 (sizeof (mongoc_host_list_t));
+   _mongoc_host_list_from_string (uri->hosts, host);
+   return uri;
 }

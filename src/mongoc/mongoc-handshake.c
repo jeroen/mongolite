@@ -24,17 +24,17 @@
 #include <windows.h>
 #endif
 
-#include "mongoc/mongoc-linux-distro-scanner-private.h"
-#include "mongoc/mongoc-handshake.h"
-#include "mongoc/mongoc-handshake-compiler-private.h"
-#include "mongoc/mongoc-handshake-os-private.h"
-#include "mongoc/mongoc-handshake-private.h"
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-version.h"
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-linux-distro-scanner-private.h"
+#include "mongoc-handshake.h"
+#include "mongoc-handshake-compiler-private.h"
+#include "mongoc-handshake-os-private.h"
+#include "mongoc-handshake-private.h"
+#include "mongoc-client.h"
+#include "mongoc-client-private.h"
+#include "mongoc-error.h"
+#include "mongoc-log.h"
+#include "mongoc-version.h"
+#include "mongoc-util-private.h"
 
 /*
  * Global handshake data instance. Initialized at startup from mongoc_init
@@ -188,6 +188,10 @@ _mongoc_handshake_get_config_hex_string (void)
 
 #ifdef MONGOC_ENABLE_ICU
    _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_ICU);
+#endif
+
+#ifdef MONGOC_ENABLE_CLIENT_SIDE_ENCRYPTION
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_CLIENT_SIDE_ENCRYPTION);
 #endif
 
    str = bson_string_new ("0x");
@@ -364,6 +368,16 @@ static void
 _set_platform_string (mongoc_handshake_t *handshake)
 {
    bson_string_t *str;
+
+   str = bson_string_new ("");
+
+   handshake->platform = bson_string_free (str, false);
+}
+
+static void
+_set_compiler_info (mongoc_handshake_t *handshake)
+{
+   bson_string_t *str;
    char *config_str;
 
    str = bson_string_new ("");
@@ -385,6 +399,15 @@ _set_platform_string (mongoc_handshake_t *handshake)
 #ifdef MONGOC_COMPILER_VERSION
    bson_string_append_printf (str, " %s", MONGOC_COMPILER_VERSION);
 #endif
+   handshake->compiler_info = bson_string_free (str, false);
+}
+
+static void
+_set_flags (mongoc_handshake_t *handshake)
+{
+   bson_string_t *str;
+
+   str = bson_string_new ("");
 
    if (strlen (MONGOC_EVALUATE_STR (MONGOC_USER_SET_CFLAGS)) > 0) {
       bson_string_append_printf (
@@ -396,13 +419,15 @@ _set_platform_string (mongoc_handshake_t *handshake)
          str, " LDFLAGS=%s", MONGOC_EVALUATE_STR (MONGOC_USER_SET_LDFLAGS));
    }
 
-   handshake->platform = bson_string_free (str, false);
+   handshake->flags = bson_string_free (str, false);
 }
 
 static void
 _free_platform_string (mongoc_handshake_t *handshake)
 {
    bson_free (handshake->platform);
+   bson_free (handshake->compiler_info);
+   bson_free (handshake->flags);
 }
 
 void
@@ -411,6 +436,8 @@ _mongoc_handshake_init (void)
    _get_system_info (_mongoc_handshake_get ());
    _get_driver_info (_mongoc_handshake_get ());
    _set_platform_string (_mongoc_handshake_get ());
+   _set_compiler_info (_mongoc_handshake_get ());
+   _set_flags (_mongoc_handshake_get ());
 
    _mongoc_handshake_get ()->frozen = false;
    bson_mutex_init (&gHandshakeLock);
@@ -431,6 +458,10 @@ _append_platform_field (bson_t *doc, const char *platform)
 {
    int max_platform_str_size;
 
+   char *compiler_info = _mongoc_handshake_get ()->compiler_info;
+   char *flags = _mongoc_handshake_get ()->flags;
+   bson_string_t *combined_platform = bson_string_new (platform);
+
    /* Compute space left for platform field */
    max_platform_str_size =
       HANDSHAKE_MAX_SIZE - ((int) doc->len +
@@ -448,11 +479,28 @@ _append_platform_field (bson_t *doc, const char *platform)
       return;
    }
 
-   max_platform_str_size =
-      BSON_MIN (max_platform_str_size, (int) strlen (platform) + 1);
-   bson_append_utf8 (
-      doc, HANDSHAKE_PLATFORM_FIELD, -1, platform, max_platform_str_size - 1);
+   /* We opt to drop compiler info and flags if they can't fit, while the
+    * platform information is truncated
+    * Try to drop flags first, and if there is still not enough space also drop
+    * compiler info */
+   if (max_platform_str_size >
+       combined_platform->len + strlen (compiler_info) + 1) {
+      bson_string_append (combined_platform, compiler_info);
+   }
+   if (max_platform_str_size > combined_platform->len + strlen (flags) + 1) {
+      bson_string_append (combined_platform, flags);
+   }
 
+   /* We use the flags_index field to check if the CLAGS/LDFLAGS need to be
+    * truncated, and if so we drop them altogether */
+   bson_append_utf8 (
+      doc,
+      HANDSHAKE_PLATFORM_FIELD,
+      -1,
+      combined_platform->str,
+      BSON_MIN (max_platform_str_size - 1, combined_platform->len));
+
+   bson_string_free (combined_platform, true);
    BSON_ASSERT (doc->len <= HANDSHAKE_MAX_SIZE);
 }
 
@@ -566,11 +614,29 @@ mongoc_handshake_data_append (const char *driver_name,
                               const char *driver_version,
                               const char *platform)
 {
+   int platform_space;
+
    bson_mutex_lock (&gHandshakeLock);
 
    if (_mongoc_handshake_get ()->frozen) {
       bson_mutex_unlock (&gHandshakeLock);
       return false;
+   }
+
+   /* allow practically any size for "platform", we'll trim it down in
+    * _mongoc_handshake_build_doc_with_application */
+   platform_space =
+      HANDSHAKE_MAX_SIZE - (int) strlen (_mongoc_handshake_get ()->platform);
+
+   /* we check for an empty string as a special case to avoid an unnecessary
+    * delimiter being added in front of the string by _append_and_truncate */
+   if (strcmp (_mongoc_handshake_get ()->platform, "") == 0) {
+      bson_free (_mongoc_handshake_get ()->platform);
+      _mongoc_handshake_get ()->platform =
+         bson_strdup_printf ("%.*s", platform_space, platform);
+   } else {
+      _append_and_truncate (
+         &_mongoc_handshake_get ()->platform, platform, HANDSHAKE_MAX_SIZE);
    }
 
    _append_and_truncate (&_mongoc_handshake_get ()->driver_name,
@@ -581,13 +647,9 @@ mongoc_handshake_data_append (const char *driver_name,
                          driver_version,
                          HANDSHAKE_DRIVER_VERSION_MAX);
 
-   /* allow practically any size for "platform", we'll trim it down in
-    * _mongoc_handshake_build_doc_with_application */
-   _append_and_truncate (
-      &_mongoc_handshake_get ()->platform, platform, HANDSHAKE_MAX_SIZE);
-
    _mongoc_handshake_freeze ();
    bson_mutex_unlock (&gHandshakeLock);
+
    return true;
 }
 

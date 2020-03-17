@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Anticonf (tm) script by Jeroen Ooms (2019)
+# Anticonf (tm) script by Jeroen Ooms (2020)
 # This script will query 'pkg-config' for the required cflags and ldflags.
 # If pkg-config is unavailable or does not find the library, try setting
 # INCLUDE_DIR and LIB_DIR manually via e.g:
@@ -17,9 +17,8 @@ PKG_CONFIG_NAME="openssl"
 PKG_DEB_NAME="libssl-dev, libsasl2-dev"
 PKG_RPM_NAME="openssl-devel, cyrus-sasl-devel"
 PKG_CSW_NAME="libssl_dev, sasl_dev"
-PKG_BREW_NAME="openssl"
-PKG_TEST_1="<openssl/evp.h>"
-PKG_TEST_2="<sasl/sasl.h>"
+PKG_BREW_NAME="openssl@1.1"
+PKG_TEST_FILE="src/tests/dependencies.c"
 SASL_LIBS="-lsasl2"
 
 # Hack for solaris
@@ -77,13 +76,10 @@ CFLAGS=$(${R_HOME}/bin/R CMD config CFLAGS)
 CPPFLAGS=$(${R_HOME}/bin/R CMD config CPPFLAGS)
 
 # Test configuration
-echo "#include $PKG_TEST_1" | ${CC} ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} -E -xc - >/dev/null 2>&1 || R_CONFIG_ERROR=1;
-echo "#include $PKG_TEST_2" | ${CC} ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} -E -xc - >/dev/null 2>&1 || R_CONFIG_ERROR=1;
-
-# Customize the error
-if [ $R_CONFIG_ERROR ]; then
-  echo "------------------------- ANTICONF ERROR ---------------------------"
-  echo "Configuration failed because $PKG_CONFIG_NAME/sasl was not found. Try installing:"
+${CC} ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} -E ${PKG_TEST_FILE} >/dev/null 2>configure.log
+if [ $? -ne 0 ]; then
+  echo "-----------------------------[ ANTICONF ]-------------------------------"
+  echo "Configuration failed to find SASL or OpenSSL. Try installing:"
   echo " * deb: $PKG_DEB_NAME (Debian, Ubuntu, etc)"
   echo " * rpm: $PKG_RPM_NAME (Fedora, CentOS, RHEL)"
   echo " * csw: $PKG_CSW_NAME (Solaris)"
@@ -92,8 +88,10 @@ if [ $R_CONFIG_ERROR ]; then
   echo "PATH and PKG_CONFIG_PATH contains a $PKG_CONFIG_NAME.pc file. If pkg-config"
   echo "is unavailable you can set INCLUDE_DIR and LIB_DIR manually via:"
   echo "R CMD INSTALL --configure-vars='INCLUDE_DIR=... LIB_DIR=...'"
-  echo "--------------------------------------------------------------------"
-  exit 1;
+  echo "---------------------------[ ERROR MESSAGE ]----------------------------"
+  cat configure.log
+  echo "------------------------------------------------------------------------"
+  exit 1
 fi
 
 # Feature test for 'sasl_client_done'

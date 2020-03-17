@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "mongoc/mongoc.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-client-private.h"
+#include "mongoc.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-client-private.h"
 
 /* This cursor is returned by the deprecated functions mongoc_client_command,
  * mongoc_database_command, and mongoc_collection_command. It runs the command
@@ -32,7 +32,7 @@ _prime (mongoc_cursor_t *cursor)
    data_cmd_deprecated_t *data = (data_cmd_deprecated_t *) cursor->impl.data;
    bson_destroy (&data->reply);
    if (_mongoc_cursor_run_command (
-          cursor, &data->cmd, &cursor->opts, &data->reply)) {
+          cursor, &data->cmd, &cursor->opts, &data->reply, true)) {
       return IN_BATCH;
    } else {
       return DONE;

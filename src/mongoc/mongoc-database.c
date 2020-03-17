@@ -15,19 +15,20 @@
  */
 
 
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-collection.h"
-#include "mongoc/mongoc-collection-private.h"
-#include "mongoc/mongoc-cursor.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-database.h"
-#include "mongoc/mongoc-database-private.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-util-private.h"
-#include "mongoc/mongoc-write-concern-private.h"
-#include "mongoc/mongoc-change-stream-private.h"
+#include "mongoc-aggregate-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-collection.h"
+#include "mongoc-collection-private.h"
+#include "mongoc-cursor.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-database.h"
+#include "mongoc-database-private.h"
+#include "mongoc-error.h"
+#include "mongoc-log.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-util-private.h"
+#include "mongoc-write-concern-private.h"
+#include "mongoc-change-stream-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "database"
@@ -127,6 +128,25 @@ mongoc_database_destroy (mongoc_database_t *database)
    EXIT;
 }
 
+
+mongoc_cursor_t *
+mongoc_database_aggregate (mongoc_database_t *db,                 /* IN */
+                           const bson_t *pipeline,                /* IN */
+                           const bson_t *opts,                    /* IN */
+                           const mongoc_read_prefs_t *read_prefs) /* IN */
+{
+   return _mongoc_aggregate (db->client,
+                             db->name,
+                             MONGOC_QUERY_NONE,
+                             pipeline,
+                             opts,
+                             read_prefs,
+                             db->read_prefs,
+                             db->read_concern,
+                             db->write_concern);
+}
+
+
 /*
  *--------------------------------------------------------------------------
  *
@@ -208,7 +228,7 @@ mongoc_database_command_simple (mongoc_database_t *database,
    return _mongoc_client_command_with_opts (database->client,
                                             database->name,
                                             command,
-                                            MONGOC_CMD_READ,
+                                            MONGOC_CMD_RAW,
                                             NULL /* opts */,
                                             MONGOC_QUERY_NONE,
                                             read_prefs,

@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "mongoc/mongoc.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-client-private.h"
+#include "mongoc.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-client-private.h"
 
 typedef enum { NONE, CMD_RESPONSE, OP_GETMORE_RESPONSE } reading_from_t;
 typedef enum { UNKNOWN, GETMORE_CMD, OP_GETMORE } getmore_type_t;
@@ -64,7 +64,7 @@ _prime (mongoc_cursor_t *cursor)
    cursor->operation_id = ++cursor->client->cluster.operation_id;
    /* commands like agg have a cursor field, so copy opts without "batchSize" */
    bson_copy_to_excluding_noinit (
-      &cursor->opts, &copied_opts, "batchSize", NULL);
+      &cursor->opts, &copied_opts, "batchSize", "tailable", NULL);
 
    /* server replies to aggregate/listIndexes/listCollections with:
     * {cursor: {id: N, firstBatch: []}} */

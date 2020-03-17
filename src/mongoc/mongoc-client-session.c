@@ -15,22 +15,24 @@
  */
 
 
-#include "mongoc/mongoc-client-session-private.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-rand-private.h"
-#include "mongoc/mongoc-util-private.h"
-#include "mongoc/mongoc-read-concern-private.h"
-#include "mongoc/mongoc-read-prefs-private.h"
+#include "mongoc-client-session-private.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-rand-private.h"
+#include "mongoc-util-private.h"
+#include "mongoc-read-concern-private.h"
+#include "mongoc-read-prefs-private.h"
 
 #define SESSION_NEVER_USED (-1)
 
+#define WITH_TXN_TIMEOUT_MS (120 * 1000)
 
 static void
 txn_opts_set (mongoc_transaction_opt_t *opts,
               const mongoc_read_concern_t *read_concern,
               const mongoc_write_concern_t *write_concern,
-              const mongoc_read_prefs_t *read_prefs)
+              const mongoc_read_prefs_t *read_prefs,
+              int64_t max_commit_time_ms)
 {
    if (read_concern) {
       mongoc_transaction_opts_set_read_concern (opts, read_concern);
@@ -42,6 +44,10 @@ txn_opts_set (mongoc_transaction_opt_t *opts,
 
    if (read_prefs) {
       mongoc_transaction_opts_set_read_prefs (opts, read_prefs);
+   }
+
+   if (max_commit_time_ms != DEFAULT_MAX_COMMIT_TIME_MS) {
+      mongoc_transaction_opts_set_max_commit_time_ms (opts, max_commit_time_ms);
    }
 }
 
@@ -57,6 +63,7 @@ txn_opts_cleanup (mongoc_transaction_opt_t *opts)
    opts->read_concern = NULL;
    opts->write_concern = NULL;
    opts->read_prefs = NULL;
+   opts->max_commit_time_ms = DEFAULT_MAX_COMMIT_TIME_MS;
 }
 
 
@@ -69,6 +76,7 @@ txn_opts_copy (const mongoc_transaction_opt_t *src,
    dst->read_concern = mongoc_read_concern_copy (src->read_concern);
    dst->write_concern = mongoc_write_concern_copy (src->write_concern);
    dst->read_prefs = mongoc_read_prefs_copy (src->read_prefs);
+   dst->max_commit_time_ms = src->max_commit_time_ms;
 }
 
 
@@ -132,6 +140,9 @@ txn_abort (mongoc_client_session_t *session, bson_t *reply, bson_error_t *error)
    }
 
    BSON_APPEND_INT32 (&cmd, "abortTransaction", 1);
+   if (session->recovery_token) {
+      BSON_APPEND_DOCUMENT (&cmd, "recoveryToken", session->recovery_token);
+   }
 
    /* will be reinitialized by mongoc_client_write_command_with_opts */
    bson_destroy (&reply_local);
@@ -142,6 +153,7 @@ txn_abort (mongoc_client_session_t *session, bson_t *reply, bson_error_t *error)
     * after it fails with a retryable error", same for abort */
    error_type = _mongoc_write_error_get_type (r, err_ptr, &reply_local);
    if (error_type == MONGOC_WRITE_ERR_RETRY) {
+      _mongoc_client_session_unpin (session);
       bson_destroy (&reply_local);
       r = mongoc_client_write_command_with_opts (
          session->client, "admin", &cmd, &opts, &reply_local, err_ptr);
@@ -150,6 +162,7 @@ txn_abort (mongoc_client_session_t *session, bson_t *reply, bson_error_t *error)
    if (!r) {
       /* we won't return an error from abortTransaction, so warn */
       MONGOC_WARNING ("Error in abortTransaction: %s", err_ptr->message);
+      _mongoc_client_session_unpin (session);
    }
 
 done:
@@ -165,25 +178,23 @@ static mongoc_write_concern_t *
 create_commit_retry_wc (const mongoc_write_concern_t *existing_wc)
 {
    mongoc_write_concern_t *wc;
-   int32_t wtimeout;
 
    wc = existing_wc ? mongoc_write_concern_copy (existing_wc)
                     : mongoc_write_concern_new ();
-
-   wtimeout = mongoc_write_concern_get_wtimeout (wc);
 
    /* Transactions spec: "If the modified write concern does not include a
     * wtimeout value, drivers MUST also apply wtimeout: 10000 to the write
     * concern in order to avoid waiting forever if the majority write concern
     * cannot be satisfied." */
-   if (wtimeout <= 0) {
-      wtimeout = MONGOC_DEFAULT_WTIMEOUT_FOR_COMMIT_RETRY;
+   if (mongoc_write_concern_get_wtimeout_int64 (wc) <= 0) {
+      mongoc_write_concern_set_wtimeout_int64 (
+         wc, MONGOC_DEFAULT_WTIMEOUT_FOR_COMMIT_RETRY);
    }
 
    /* Transactions spec: "If the transaction is using a write concern that is
     * not the server default, any other write concern options MUST be left as-is
     * when applying w:majority. */
-   mongoc_write_concern_set_wmajority (wc, wtimeout);
+   mongoc_write_concern_set_w (wc, MONGOC_WRITE_CONCERN_W_MAJORITY);
 
    return wc;
 }
@@ -197,7 +208,7 @@ txn_commit (mongoc_client_session_t *session,
 {
    bson_t cmd = BSON_INITIALIZER;
    bson_t opts = BSON_INITIALIZER;
-   bson_error_t err_local;
+   bson_error_t err_local = {0};
    bson_error_t *err_ptr = error ? error : &err_local;
    bson_t reply_local = BSON_INITIALIZER;
    mongoc_write_err_type_t error_type;
@@ -208,10 +219,24 @@ txn_commit (mongoc_client_session_t *session,
    _mongoc_bson_init_if_set (reply);
 
    BSON_APPEND_INT32 (&cmd, "commitTransaction", 1);
+   if (session->recovery_token) {
+      BSON_APPEND_DOCUMENT (&cmd, "recoveryToken", session->recovery_token);
+   }
 
 retry:
    if (!mongoc_client_session_append (session, &opts, err_ptr)) {
       GOTO (done);
+   }
+
+   if (session->txn.opts.max_commit_time_ms != DEFAULT_MAX_COMMIT_TIME_MS) {
+      if (!bson_append_int64 (
+             &opts, "maxTimeMS", -1, session->txn.opts.max_commit_time_ms)) {
+         bson_set_error (err_ptr,
+                         MONGOC_ERROR_BSON,
+                         MONGOC_ERROR_BSON_INVALID,
+                         "error appending maxCommitTimeMS");
+         GOTO (done);
+      }
    }
 
    /* Transactions Spec: "When commitTransaction is retried, either by the
@@ -245,26 +270,33 @@ retry:
    error_type = _mongoc_write_error_get_type (r, err_ptr, &reply_local);
    if (!retrying_after_error && error_type == MONGOC_WRITE_ERR_RETRY) {
       retrying_after_error = true; /* retry after error only once */
+      _mongoc_client_session_unpin (session);
       bson_reinit (&opts);
       GOTO (retry);
    }
 
    /* Transactions Spec: "add the UnknownTransactionCommitResult error label
     * when commitTransaction fails with a network error, server selection
-    * error, or write concern failed / timeout." */
-   if (reply) {
-      if ((!r && err_ptr->domain == MONGOC_ERROR_SERVER_SELECTION) ||
-          error_type == MONGOC_WRITE_ERR_RETRY ||
-          error_type == MONGOC_WRITE_ERR_WRITE_CONCERN) {
+    * error, MaxTimeMSExpired error, or write concern failed / timeout." */
+   if (!r && (err_ptr->domain == MONGOC_ERROR_SERVER_SELECTION ||
+              error_type == MONGOC_WRITE_ERR_RETRY ||
+              error_type == MONGOC_WRITE_ERR_WRITE_CONCERN ||
+              err_ptr->code == MONGOC_ERROR_MAX_TIME_MS_EXPIRED)) {
+      /* Drivers MUST unpin a ClientSession when any individual
+       * commitTransaction command attempt fails with an
+       * UnknownTransactionCommitResult error label. Do this even if we won't
+       * actually apply the error label due to reply being NULL */
+      _mongoc_client_session_unpin (session);
+      if (reply) {
          bson_copy_to_excluding_noinit (
             &reply_local, reply, "errorLabels", NULL);
          copy_labels_plus_unknown_commit_result (&reply_local, reply);
-      } else {
-         /* maintain invariants: reply & reply_local are valid until the end */
-         bson_destroy (reply);
-         bson_steal (reply, &reply_local);
-         bson_init (&reply_local);
       }
+   } else if (reply) {
+      /* maintain invariants: reply & reply_local are valid until the end */
+      bson_destroy (reply);
+      bson_steal (reply, &reply_local);
+      bson_init (&reply_local);
    }
 
 done:
@@ -283,8 +315,12 @@ done:
 mongoc_transaction_opt_t *
 mongoc_transaction_opts_new (void)
 {
-   return (mongoc_transaction_opt_t *) bson_malloc0 (
+   mongoc_transaction_opt_t *opts;
+   opts = (mongoc_transaction_opt_t *) bson_malloc0 (
       sizeof (mongoc_transaction_opt_t));
+   opts->max_commit_time_ms = DEFAULT_MAX_COMMIT_TIME_MS;
+
+   return opts;
 }
 
 
@@ -317,6 +353,23 @@ mongoc_transaction_opts_destroy (mongoc_transaction_opt_t *opts)
    bson_free (opts);
 
    EXIT;
+}
+
+
+void
+mongoc_transaction_opts_set_max_commit_time_ms (mongoc_transaction_opt_t *opts,
+                                                int64_t max_commit_time_ms)
+{
+   BSON_ASSERT (opts);
+   opts->max_commit_time_ms = max_commit_time_ms;
+}
+
+
+int64_t
+mongoc_transaction_opts_get_max_commit_time_ms (mongoc_transaction_opt_t *opts)
+{
+   BSON_ASSERT (opts);
+   return opts->max_commit_time_ms;
 }
 
 
@@ -426,7 +479,8 @@ mongoc_session_opts_set_default_transaction_opts (
    txn_opts_set (&opts->default_txn_opts,
                  txn_opts->read_concern,
                  txn_opts->write_concern,
-                 txn_opts->read_prefs);
+                 txn_opts->read_prefs,
+                 txn_opts->max_commit_time_ms);
 
    EXIT;
 }
@@ -443,6 +497,21 @@ mongoc_session_opts_get_default_transaction_opts (
    RETURN (&opts->default_txn_opts);
 }
 
+
+mongoc_transaction_opt_t *
+mongoc_session_opts_get_transaction_opts (
+   const mongoc_client_session_t *session)
+{
+   ENTRY;
+
+   BSON_ASSERT (session);
+
+   if (mongoc_client_session_in_transaction (session)) {
+      RETURN (mongoc_transaction_opts_clone (&session->txn.opts));
+   }
+
+   RETURN (NULL);
+}
 
 static void
 _mongoc_session_opts_copy (const mongoc_session_opt_t *src,
@@ -583,6 +652,15 @@ _mongoc_client_session_handle_reply (mongoc_client_session_t *session,
       return;
    }
 
+   if (mongoc_error_has_label (reply, "TransientTransactionError")) {
+      /* Transaction Spec: "Drivers MUST unpin a ClientSession when a command
+       * within a transaction, including commitTransaction and abortTransaction,
+       * fails with a TransientTransactionError". If the server reply included
+       * a TransientTransactionError, we unpin here. If a network error caused
+       * us to add a label client-side, we unpin in network_error_reply. */
+      session->server_id = 0;
+   }
+
    while (bson_iter_next (&iter)) {
       if (!strcmp (bson_iter_key (&iter), "$clusterTime") &&
           BSON_ITER_HOLDS_DOCUMENT (&iter)) {
@@ -688,18 +766,24 @@ _mongoc_client_session_new (mongoc_client_t *client,
    txn_opts_set (&session->opts.default_txn_opts,
                  client->read_concern,
                  client->write_concern,
-                 client->read_prefs);
+                 client->read_prefs,
+                 DEFAULT_MAX_COMMIT_TIME_MS);
 
    if (opts) {
       session->opts.flags = opts->flags;
       txn_opts_set (&session->opts.default_txn_opts,
                     opts->default_txn_opts.read_concern,
                     opts->default_txn_opts.write_concern,
-                    opts->default_txn_opts.read_prefs);
+                    opts->default_txn_opts.read_prefs,
+                    opts->default_txn_opts.max_commit_time_ms);
    } else {
       /* sessions are causally consistent by default */
       session->opts.flags = MONGOC_SESSION_CAUSAL_CONSISTENCY;
    }
+
+   /* these values are used for testing only. */
+   session->with_txn_timeout_ms = 0;
+   session->fail_commit_label = NULL;
 
    RETURN (session);
 }
@@ -741,6 +825,14 @@ mongoc_client_session_get_cluster_time (const mongoc_client_session_t *session)
    }
 
    return &session->cluster_time;
+}
+
+uint32_t
+mongoc_client_session_get_server_id (const mongoc_client_session_t *session)
+{
+   BSON_ASSERT (session);
+
+   return session->server_id;
 }
 
 void
@@ -799,32 +891,229 @@ mongoc_client_session_advance_operation_time (mongoc_client_session_t *session,
    EXIT;
 }
 
+static bool
+timeout_exceeded (int64_t expire_at)
+{
+   int64_t current_time = bson_get_monotonic_time ();
+   return current_time >= expire_at;
+}
+
+static bool
+_max_time_ms_failure (bson_t *reply)
+{
+   bson_iter_t iter;
+   bson_iter_t descendant;
+
+   if (!reply) {
+      return false;
+   }
+
+   /* We can fail with a maxTimeMS error with the error code at the top
+      level, or nested within a writeConcernError. */
+   if (bson_iter_init_find (&iter, reply, "codeName") &&
+       BSON_ITER_HOLDS_UTF8 (&iter) &&
+       0 == strcmp (bson_iter_utf8 (&iter, NULL), MAX_TIME_MS_EXPIRED)) {
+      return true;
+   }
+
+   bson_iter_init (&iter, reply);
+   if (bson_iter_find_descendant (
+          &iter, "writeConcernError.codeName", &descendant) &&
+       BSON_ITER_HOLDS_UTF8 (&descendant) &&
+       0 == strcmp (bson_iter_utf8 (&descendant, NULL), MAX_TIME_MS_EXPIRED)) {
+      return true;
+   }
+
+   return false;
+}
+
+bool
+mongoc_client_session_with_transaction (
+   mongoc_client_session_t *session,
+   mongoc_client_session_with_transaction_cb_t cb,
+   const mongoc_transaction_opt_t *opts,
+   void *ctx,
+   bson_t *reply,
+   bson_error_t *error)
+{
+   mongoc_internal_transaction_state_t state;
+   int64_t timeout;
+   int64_t expire_at;
+   bson_t local_reply;
+   bson_t *active_reply = NULL;
+   bool res;
+
+   ENTRY;
+
+   timeout = session->with_txn_timeout_ms > 0 ? session->with_txn_timeout_ms
+                                              : WITH_TXN_TIMEOUT_MS;
+
+   expire_at = bson_get_monotonic_time () + ((int64_t) timeout * 1000);
+
+   /* Attempt to wrap a user callback in start- and end- transaction semantics.
+      If this fails for transient reasons, restart, either from the very
+      beginning, or just retry committing the transaction. Will retry until
+      the timeout WITH_TXN_TIMEOUT_MS is exhausted.
+
+      At the top of this loop, active_reply should always be NULL, and
+      local_reply should always be uninitialized. */
+   while (true) {
+      res = mongoc_client_session_start_transaction (session, opts, error);
+
+      if (!res) {
+         GOTO (done);
+      }
+
+      res = cb (session, ctx, &active_reply, error);
+      state = session->txn.state;
+
+      /* If the user cb set a reply, use it. Otherwise, sub in local_reply
+         since we must have an active reply object one way or another. */
+      if (!active_reply) {
+         bson_init (&local_reply);
+         active_reply = &local_reply;
+      }
+
+      if (!res) {
+         if (state == MONGOC_INTERNAL_TRANSACTION_STARTING ||
+             state == MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS) {
+            BSON_ASSERT (
+               mongoc_client_session_abort_transaction (session, NULL));
+         }
+
+         if (mongoc_error_has_label (active_reply, TRANSIENT_TXN_ERR) &&
+             !timeout_exceeded (expire_at)) {
+            bson_destroy (active_reply);
+            active_reply = NULL;
+            continue;
+         }
+
+         /* Unknown error running callback, fail. */
+         GOTO (done);
+      }
+
+      if (state == MONGOC_INTERNAL_TRANSACTION_ABORTED ||
+          state == MONGOC_INTERNAL_TRANSACTION_NONE ||
+          state == MONGOC_INTERNAL_TRANSACTION_COMMITTED ||
+          state == MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY) {
+         GOTO (done);
+      }
+
+      /* Whether or not we used local_reply above, use it now, but access it
+       * through active_reply so cleanup in DONE is simpler. */
+      bson_destroy (active_reply);
+      active_reply = &local_reply;
+
+      /* Commit the transaction, retrying either from here or from the outer
+    loop on error.
+
+    At the top of this loop, active_reply should always be pointing to
+    an uninitialized stack-allocated bson_t, so we can pass it into
+         commit_transaction, which requires this like our other public
+         functions that take a bson_t reply. */
+      while (true) {
+         res = mongoc_client_session_commit_transaction (
+            session, active_reply, error);
+
+         if (!res) {
+            /* If we have a MaxTimeMsExpired error, fail and propogate
+               the error to the caller. */
+            if (_max_time_ms_failure (active_reply)) {
+               GOTO (done);
+            }
+
+            if (mongoc_error_has_label (active_reply, UNKNOWN_COMMIT_RESULT) &&
+                !timeout_exceeded (expire_at)) {
+               /* Commit_transaction applies majority write concern on retry
+                * attempts.
+                *
+                * Here, we don't want to set active_reply = NULL when we
+                * destroy, because we want it to point to an uninitialized
+                * bson_t at the top of this loop every time.*/
+               bson_destroy (active_reply);
+               continue;
+            }
+
+            if (mongoc_error_has_label (active_reply, TRANSIENT_TXN_ERR) &&
+                !timeout_exceeded (expire_at)) {
+               /* In the case of a transient txn error, go back to outside loop.
+                  We must set the reply to NULL so it may be used by the cb. */
+               bson_destroy (active_reply);
+               active_reply = NULL;
+               break;
+            }
+
+            /* Unknown error committing transaction, fail. */
+            GOTO (done);
+         }
+
+         /* Transaction successfully committed! */
+         GOTO (done);
+      }
+   }
+
+done:
+   /* At this point, active_reply is either pointing to the user's reply
+      object, or our local one on the stack, or is NULL. */
+   if (reply && active_reply) {
+      bson_copy_to (active_reply, reply);
+   } else if (reply) {
+      bson_init (reply);
+   }
+
+   bson_destroy (active_reply);
+
+   RETURN (res);
+}
 
 bool
 mongoc_client_session_start_transaction (mongoc_client_session_t *session,
                                          const mongoc_transaction_opt_t *opts,
                                          bson_error_t *error)
 {
-   ENTRY;
+   mongoc_server_description_t *sd;
+   bool ret;
 
+   ENTRY;
    BSON_ASSERT (session);
+
+   ret = true;
+   sd = mongoc_client_select_server (
+      session->client, true /* primary */, NULL, error);
+   if (!sd) {
+      ret = false;
+      GOTO (done);
+   }
+
+   if (sd->max_wire_version < 7 ||
+       (sd->max_wire_version < 8 && sd->type == MONGOC_SERVER_MONGOS)) {
+      bson_set_error (error,
+                      MONGOC_ERROR_TRANSACTION,
+                      MONGOC_ERROR_TRANSACTION_INVALID_STATE,
+                      "Multi-document transactions are not supported by this "
+                      "server version");
+      ret = false;
+      GOTO (done);
+   }
 
    /* use "switch" so that static checkers ensure we handle all states */
    switch (session->txn.state) {
-   case MONGOC_TRANSACTION_STARTING:
-   case MONGOC_TRANSACTION_IN_PROGRESS:
+   case MONGOC_INTERNAL_TRANSACTION_STARTING:
+   case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS:
       bson_set_error (error,
                       MONGOC_ERROR_TRANSACTION,
                       MONGOC_ERROR_TRANSACTION_INVALID_STATE,
                       "Transaction already in progress");
-      RETURN (false);
-   case MONGOC_TRANSACTION_ENDING:
-      MONGOC_ERROR ("starting txn in invalid state MONGOC_TRANSACTION_ENDING");
+      ret = false;
+      GOTO (done);
+   case MONGOC_INTERNAL_TRANSACTION_ENDING:
+      MONGOC_ERROR (
+         "starting txn in invalid state MONGOC_INTERNAL_TRANSACTION_ENDING");
       abort ();
-   case MONGOC_TRANSACTION_COMMITTED:
-   case MONGOC_TRANSACTION_COMMITTED_EMPTY:
-   case MONGOC_TRANSACTION_ABORTED:
-   case MONGOC_TRANSACTION_NONE:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
+   case MONGOC_INTERNAL_TRANSACTION_ABORTED:
+   case MONGOC_INTERNAL_TRANSACTION_NONE:
    default:
       break;
    }
@@ -834,13 +1123,15 @@ mongoc_client_session_start_transaction (mongoc_client_session_t *session,
    txn_opts_set (&session->txn.opts,
                  session->opts.default_txn_opts.read_concern,
                  session->opts.default_txn_opts.write_concern,
-                 session->opts.default_txn_opts.read_prefs);
+                 session->opts.default_txn_opts.read_prefs,
+                 session->opts.default_txn_opts.max_commit_time_ms);
 
    if (opts) {
       txn_opts_set (&session->txn.opts,
                     opts->read_concern,
                     opts->write_concern,
-                    opts->read_prefs);
+                    opts->read_prefs,
+                    opts->max_commit_time_ms);
    }
 
    if (!mongoc_write_concern_is_acknowledged (
@@ -850,12 +1141,23 @@ mongoc_client_session_start_transaction (mongoc_client_session_t *session,
          MONGOC_ERROR_TRANSACTION,
          MONGOC_ERROR_TRANSACTION_INVALID_STATE,
          "Transactions do not support unacknowledged write concern");
-      RETURN (false);
+      ret = false;
+      GOTO (done);
    }
 
-   session->txn.state = MONGOC_TRANSACTION_STARTING;
+   /* Transactions Spec: Starting a new transaction on a pinned ClientSession
+    * MUST unpin the session. */
+   _mongoc_client_session_unpin (session);
+   session->txn.state = MONGOC_INTERNAL_TRANSACTION_STARTING;
+   /* Transactions spec: "Drivers MUST clear a session's cached
+    * 'recoveryToken' when transitioning to the 'no transaction' or
+    * 'starting transaction' state." */
+   bson_destroy (session->recovery_token);
+   session->recovery_token = NULL;
 
-   RETURN (true);
+done:
+   mongoc_server_description_destroy (sd);
+   return ret;
 }
 
 
@@ -871,6 +1173,38 @@ mongoc_client_session_in_transaction (const mongoc_client_session_t *session)
 }
 
 
+mongoc_transaction_state_t
+mongoc_client_session_get_transaction_state (
+   const mongoc_client_session_t *session)
+{
+   ENTRY;
+
+   BSON_ASSERT (session);
+
+   switch (session->txn.state) {
+   case MONGOC_INTERNAL_TRANSACTION_NONE:
+      RETURN (MONGOC_TRANSACTION_NONE);
+   case MONGOC_INTERNAL_TRANSACTION_STARTING:
+      RETURN (MONGOC_TRANSACTION_STARTING);
+   case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS:
+      RETURN (MONGOC_TRANSACTION_IN_PROGRESS);
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
+      RETURN (MONGOC_TRANSACTION_COMMITTED);
+   case MONGOC_INTERNAL_TRANSACTION_ABORTED:
+      RETURN (MONGOC_TRANSACTION_ABORTED);
+   case MONGOC_INTERNAL_TRANSACTION_ENDING:
+      MONGOC_ERROR ("invalid state MONGOC_INTERNAL_TRANSACTION_ENDING when "
+                    "getting transaction state");
+      abort ();
+   default:
+      MONGOC_ERROR ("invalid state %d when getting transaction state",
+                    (int) session->txn.state);
+      abort ();
+      break;
+   }
+}
+
 bool
 mongoc_client_session_commit_transaction (mongoc_client_session_t *session,
                                           bson_t *reply,
@@ -882,40 +1216,60 @@ mongoc_client_session_commit_transaction (mongoc_client_session_t *session,
 
    BSON_ASSERT (session);
 
+   /* For testing only, mock out certain kinds of errors. */
+   if (session->fail_commit_label) {
+      bson_t labels;
+
+      BSON_ASSERT (reply);
+
+      bson_init (reply);
+      BSON_APPEND_ARRAY_BEGIN (reply, "errorLabels", &labels);
+      BSON_APPEND_UTF8 (&labels, "0", session->fail_commit_label);
+
+      /* Waste the test timeout, if there is one set. */
+      if (session->with_txn_timeout_ms) {
+         _mongoc_usleep (session->with_txn_timeout_ms * 1000);
+      }
+
+      RETURN (r);
+   }
+
    /* See Transactions Spec for state diagram. In COMMITTED state, user can call
     * commit again to retry after network error */
 
    switch (session->txn.state) {
-   case MONGOC_TRANSACTION_NONE:
+   case MONGOC_INTERNAL_TRANSACTION_NONE:
       bson_set_error (error,
                       MONGOC_ERROR_TRANSACTION,
                       MONGOC_ERROR_TRANSACTION_INVALID_STATE,
                       "No transaction started");
       _mongoc_bson_init_if_set (reply);
       break;
-   case MONGOC_TRANSACTION_STARTING:
-   case MONGOC_TRANSACTION_COMMITTED_EMPTY:
+   case MONGOC_INTERNAL_TRANSACTION_STARTING:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
       /* we sent no commands, not actually started on server */
-      session->txn.state = MONGOC_TRANSACTION_COMMITTED_EMPTY;
+      session->txn.state = MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY;
       _mongoc_bson_init_if_set (reply);
       r = true;
       break;
-   case MONGOC_TRANSACTION_COMMITTED:
-   case MONGOC_TRANSACTION_IN_PROGRESS: {
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
+   case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS: {
       bool explicitly_retrying =
-         (session->txn.state == MONGOC_TRANSACTION_COMMITTED);
-      /* in MONGOC_TRANSACTION_ENDING we add txnNumber and autocommit: false
-       * to the commitTransaction command, but if it fails with network error
-       * we add UnknownTransactionCommitResult not TransientTransactionError */
-      session->txn.state = MONGOC_TRANSACTION_ENDING;
+         (session->txn.state == MONGOC_INTERNAL_TRANSACTION_COMMITTED);
+      /* in MONGOC_INTERNAL_TRANSACTION_ENDING we add txnNumber and autocommit:
+       * false to the commitTransaction command, but if it fails with network
+       * error we add UnknownTransactionCommitResult not
+       * TransientTransactionError */
+      session->txn.state = MONGOC_INTERNAL_TRANSACTION_ENDING;
       r = txn_commit (session, explicitly_retrying, reply, error);
-      session->txn.state = MONGOC_TRANSACTION_COMMITTED;
+      session->txn.state = MONGOC_INTERNAL_TRANSACTION_COMMITTED;
       break;
    }
-   case MONGOC_TRANSACTION_ENDING:
-      MONGOC_ERROR ("commit called in invalid state MONGOC_TRANSACTION_ENDING");
+   case MONGOC_INTERNAL_TRANSACTION_ENDING:
+      MONGOC_ERROR (
+         "commit called in invalid state MONGOC_INTERNAL_TRANSACTION_ENDING");
       abort ();
-   case MONGOC_TRANSACTION_ABORTED:
+   case MONGOC_INTERNAL_TRANSACTION_ABORTED:
    default:
       bson_set_error (
          error,
@@ -939,34 +1293,36 @@ mongoc_client_session_abort_transaction (mongoc_client_session_t *session,
    BSON_ASSERT (session);
 
    switch (session->txn.state) {
-   case MONGOC_TRANSACTION_STARTING:
+   case MONGOC_INTERNAL_TRANSACTION_STARTING:
       /* we sent no commands, not actually started on server */
-      session->txn.state = MONGOC_TRANSACTION_ABORTED;
+      session->txn.state = MONGOC_INTERNAL_TRANSACTION_ABORTED;
+      txn_opts_cleanup (&session->txn.opts);
       RETURN (true);
-   case MONGOC_TRANSACTION_IN_PROGRESS:
-      session->txn.state = MONGOC_TRANSACTION_ENDING;
+   case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS:
+      session->txn.state = MONGOC_INTERNAL_TRANSACTION_ENDING;
       /* Transactions Spec: ignore errors from abortTransaction command */
       txn_abort (session, NULL, NULL);
-      session->txn.state = MONGOC_TRANSACTION_ABORTED;
+      session->txn.state = MONGOC_INTERNAL_TRANSACTION_ABORTED;
       RETURN (true);
-   case MONGOC_TRANSACTION_COMMITTED:
-   case MONGOC_TRANSACTION_COMMITTED_EMPTY:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
       bson_set_error (
          error,
          MONGOC_ERROR_TRANSACTION,
          MONGOC_ERROR_TRANSACTION_INVALID_STATE,
          "Cannot call abortTransaction after calling commitTransaction");
       RETURN (false);
-   case MONGOC_TRANSACTION_ABORTED:
+   case MONGOC_INTERNAL_TRANSACTION_ABORTED:
       bson_set_error (error,
                       MONGOC_ERROR_TRANSACTION,
                       MONGOC_ERROR_TRANSACTION_INVALID_STATE,
                       "Cannot call abortTransaction twice");
       RETURN (false);
-   case MONGOC_TRANSACTION_ENDING:
-      MONGOC_ERROR ("abort called in invalid state MONGOC_TRANSACTION_ENDING");
+   case MONGOC_INTERNAL_TRANSACTION_ENDING:
+      MONGOC_ERROR (
+         "abort called in invalid state MONGOC_INTERNAL_TRANSACTION_ENDING");
       abort ();
-   case MONGOC_TRANSACTION_NONE:
+   case MONGOC_INTERNAL_TRANSACTION_NONE:
    default:
       bson_set_error (error,
                       MONGOC_ERROR_TRANSACTION,
@@ -998,7 +1354,8 @@ _mongoc_client_session_from_iter (mongoc_client_t *client,
       client, (uint32_t) bson_iter_int64 (iter), cs, error));
 }
 
-
+/* Returns true if in the middle of a transaction. Note: this returns false if
+ * the commit/abort is running. */
 bool
 _mongoc_client_session_in_txn (const mongoc_client_session_t *session)
 {
@@ -1008,14 +1365,38 @@ _mongoc_client_session_in_txn (const mongoc_client_session_t *session)
 
    /* use "switch" so that static checkers ensure we handle all states */
    switch (session->txn.state) {
-   case MONGOC_TRANSACTION_STARTING:
-   case MONGOC_TRANSACTION_IN_PROGRESS:
+   case MONGOC_INTERNAL_TRANSACTION_STARTING:
+   case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS:
       return true;
-   case MONGOC_TRANSACTION_NONE:
-   case MONGOC_TRANSACTION_ENDING:
-   case MONGOC_TRANSACTION_COMMITTED:
-   case MONGOC_TRANSACTION_COMMITTED_EMPTY:
-   case MONGOC_TRANSACTION_ABORTED:
+   case MONGOC_INTERNAL_TRANSACTION_NONE:
+   case MONGOC_INTERNAL_TRANSACTION_ENDING:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
+   case MONGOC_INTERNAL_TRANSACTION_ABORTED:
+   default:
+      return false;
+   }
+}
+
+/* Like _mongoc_client_session_in_txn, but also returns true if running the
+ * commit/abort for this transaction. */
+bool
+_mongoc_client_session_in_txn_or_ending (const mongoc_client_session_t *session)
+{
+   if (!session) {
+      return false;
+   }
+
+   /* use "switch" so that static checkers ensure we handle all states */
+   switch (session->txn.state) {
+   case MONGOC_INTERNAL_TRANSACTION_STARTING:
+   case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS:
+   case MONGOC_INTERNAL_TRANSACTION_ENDING:
+      return true;
+   case MONGOC_INTERNAL_TRANSACTION_NONE:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
+   case MONGOC_INTERNAL_TRANSACTION_ABORTED:
    default:
       return false;
    }
@@ -1029,7 +1410,7 @@ _mongoc_client_session_txn_in_progress (const mongoc_client_session_t *session)
       return false;
    }
 
-   return session->txn.state == MONGOC_TRANSACTION_IN_PROGRESS;
+   return session->txn.state == MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS;
 }
 
 
@@ -1076,17 +1457,17 @@ _mongoc_client_session_append_txn (mongoc_client_session_t *session,
    /* See Transactions Spec for state transitions. In COMMITTED / ABORTED, the
     * next operation resets the session and moves to TRANSACTION_NONE */
    switch (session->txn.state) {
-   case MONGOC_TRANSACTION_STARTING:
-      txn->state = MONGOC_TRANSACTION_IN_PROGRESS;
+   case MONGOC_INTERNAL_TRANSACTION_STARTING:
+      txn->state = MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS;
       bson_append_bool (cmd, "startTransaction", 16, true);
    /* FALL THROUGH */
-   case MONGOC_TRANSACTION_IN_PROGRESS:
-   case MONGOC_TRANSACTION_ENDING:
+   case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS:
+   case MONGOC_INTERNAL_TRANSACTION_ENDING:
       bson_append_int64 (
          cmd, "txnNumber", 9, session->server_session->txn_number);
       bson_append_bool (cmd, "autocommit", 10, false);
       RETURN (true);
-   case MONGOC_TRANSACTION_COMMITTED:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
       if (!strcmp (_mongoc_get_command_name (cmd), "commitTransaction")) {
          /* send commitTransaction again */
          bson_append_int64 (
@@ -1095,12 +1476,18 @@ _mongoc_client_session_append_txn (mongoc_client_session_t *session,
          RETURN (true);
       }
    /* FALL THROUGH */
-   case MONGOC_TRANSACTION_COMMITTED_EMPTY:
-   case MONGOC_TRANSACTION_ABORTED:
+   case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
+   case MONGOC_INTERNAL_TRANSACTION_ABORTED:
       txn_opts_cleanup (&session->txn.opts);
-      txn->state = MONGOC_TRANSACTION_NONE;
+      txn->state = MONGOC_INTERNAL_TRANSACTION_NONE;
+
+      /* Transactions spec: "Drivers MUST clear a session's cached
+       * 'recoveryToken' when transitioning to the 'no transaction' or
+       * 'starting transaction' state." */
+      bson_destroy (session->recovery_token);
+      session->recovery_token = NULL;
       RETURN (true);
-   case MONGOC_TRANSACTION_NONE:
+   case MONGOC_INTERNAL_TRANSACTION_NONE:
    default:
       RETURN (true);
    }
@@ -1131,7 +1518,7 @@ _mongoc_client_session_append_read_concern (const mongoc_client_session_t *cs,
                                             bson_t *cmd)
 {
    const mongoc_read_concern_t *txn_rc;
-   mongoc_transaction_state_t txn_state;
+   mongoc_internal_transaction_state_t txn_state;
    bool user_rc_has_level;
    bool txn_has_level;
    bool has_timestamp;
@@ -1145,16 +1532,16 @@ _mongoc_client_session_append_read_concern (const mongoc_client_session_t *cs,
    txn_state = cs->txn.state;
    txn_rc = cs->txn.opts.read_concern;
 
-   if (txn_state == MONGOC_TRANSACTION_IN_PROGRESS) {
+   if (txn_state == MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS) {
       return;
    }
 
    has_timestamp =
-      (txn_state == MONGOC_TRANSACTION_STARTING || is_read_command) &&
+      (txn_state == MONGOC_INTERNAL_TRANSACTION_STARTING || is_read_command) &&
       mongoc_session_opts_get_causal_consistency (&cs->opts) &&
       cs->operation_timestamp;
    user_rc_has_level = rc && bson_has_field (rc, "level");
-   txn_has_level = txn_state == MONGOC_TRANSACTION_STARTING &&
+   txn_has_level = txn_state == MONGOC_INTERNAL_TRANSACTION_STARTING &&
                    !mongoc_read_concern_is_default (txn_rc);
    has_level = user_rc_has_level || txn_has_level;
 
@@ -1167,7 +1554,7 @@ _mongoc_client_session_append_read_concern (const mongoc_client_session_t *cs,
       bson_concat (&child, rc);
    }
 
-   if (txn_state == MONGOC_TRANSACTION_STARTING) {
+   if (txn_state == MONGOC_INTERNAL_TRANSACTION_STARTING) {
       /* add transaction's read concern level unless user overrides */
       if (txn_has_level && !user_rc_has_level) {
          bson_append_utf8 (&child, "level", 5, txn_rc->level, -1);
@@ -1235,7 +1622,25 @@ mongoc_client_session_destroy (mongoc_client_session_t *session)
    txn_opts_cleanup (&session->txn.opts);
 
    bson_destroy (&session->cluster_time);
+   bson_destroy (session->recovery_token);
    bson_free (session);
 
    EXIT;
+}
+
+void
+_mongoc_client_session_unpin (mongoc_client_session_t *session)
+{
+   BSON_ASSERT (session);
+
+   session->server_id = 0;
+}
+
+void
+_mongoc_client_session_pin (mongoc_client_session_t *session,
+                            uint32_t server_id)
+{
+   BSON_ASSERT (session);
+
+   session->server_id = server_id;
 }

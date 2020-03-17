@@ -18,12 +18,12 @@
 #include <errno.h>
 #include <string.h>
 
-#include "mongoc/mongoc-counters-private.h"
-#include "mongoc/mongoc-errno-private.h"
-#include "mongoc/mongoc-socket-private.h"
-#include "mongoc/mongoc-host-list.h"
-#include "mongoc/mongoc-socket-private.h"
-#include "mongoc/mongoc-trace-private.h"
+#include "mongoc-counters-private.h"
+#include "mongoc-errno-private.h"
+#include "mongoc-socket-private.h"
+#include "mongoc-host-list.h"
+#include "mongoc-socket-private.h"
+#include "mongoc-trace-private.h"
 #ifdef _WIN32
 #include <Mstcpip.h>
 #include <process.h>
@@ -72,9 +72,11 @@ _mongoc_socket_capture_errno (mongoc_socket_t *sock) /* IN */
 /*
  *--------------------------------------------------------------------------
  *
- * _mongoc_socket_setnonblock --
+ * _mongoc_socket_setflags --
  *
- *       A helper to set a socket in nonblocking mode.
+ *       A helper to set socket flags. Sets to nonblocking mode. On
+ *       POSIX sets closeonexec.
+ *
  *
  * Returns:
  *       true if successful; otherwise false.
@@ -87,9 +89,9 @@ _mongoc_socket_capture_errno (mongoc_socket_t *sock) /* IN */
 
 static bool
 #ifdef _WIN32
-_mongoc_socket_setnonblock (SOCKET sd)
+_mongoc_socket_setflags (SOCKET sd)
 #else
-_mongoc_socket_setnonblock (int sd)
+_mongoc_socket_setflags (int sd)
 #endif
 {
 #ifdef _WIN32
@@ -99,7 +101,18 @@ _mongoc_socket_setnonblock (int sd)
    int flags;
 
    flags = fcntl (sd, F_GETFL, sd);
-   return (-1 != fcntl (sd, F_SETFL, (flags | O_NONBLOCK)));
+
+   if (-1 == fcntl (sd, F_SETFL, (flags | O_NONBLOCK))) {
+      return false;
+   }
+
+#ifdef FD_CLOEXEC
+   flags = fcntl (sd, F_GETFD, sd);
+   if (-1 == fcntl (sd, F_SETFD, (flags | FD_CLOEXEC))) {
+      return false;
+   }
+#endif
+   return true;
 #endif
 }
 
@@ -217,9 +230,7 @@ _mongoc_socket_wait (mongoc_socket_t *sock, /* IN */
 
          TRACE ("errno is: %d", errno);
          if (MONGOC_ERRNO_IS_AGAIN (errno)) {
-            now = bson_get_monotonic_time ();
-
-            if (expire_at < now) {
+            if (OPERATION_EXPIRED (expire_at)) {
                _mongoc_socket_capture_errno (sock);
                RETURN (false);
             } else {
@@ -704,7 +715,7 @@ again:
       RETURN (NULL);
    } else if (failed) {
       RETURN (NULL);
-   } else if (!_mongoc_socket_setnonblock (sd)) {
+   } else if (!_mongoc_socket_setflags (sd)) {
 #ifdef _WIN32
       closesocket (sd);
 #else
@@ -995,7 +1006,7 @@ mongoc_socket_new (int domain,   /* IN */
       RETURN (NULL);
    }
 
-   if (!_mongoc_socket_setnonblock (sd)) {
+   if (!_mongoc_socket_setflags (sd)) {
       GOTO (fail);
    }
 

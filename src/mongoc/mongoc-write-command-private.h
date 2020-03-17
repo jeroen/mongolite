@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_WRITE_COMMAND_PRIVATE_H
 #define MONGOC_WRITE_COMMAND_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-write-concern.h"
-#include "mongoc/mongoc-server-stream-private.h"
-#include "mongoc/mongoc-buffer-private.h"
+#include "mongoc-client.h"
+#include "mongoc-error.h"
+#include "mongoc-write-concern.h"
+#include "mongoc-server-stream-private.h"
+#include "mongoc-buffer-private.h"
 
 
 BSON_BEGIN_DECLS
@@ -37,12 +37,18 @@ struct _mongoc_crud_opts_t;
 #define MONGOC_WRITE_COMMAND_INSERT 1
 #define MONGOC_WRITE_COMMAND_UPDATE 2
 
+/* MongoDB has a extra allowance to allow updating 16mb document, as the update
+ * operators would otherwise overflow the 16mb object limit. See SERVER-10643
+ * for context. */
+#define BSON_OBJECT_ALLOWANCE (16 * 1024)
+
 struct _mongoc_bulk_write_flags_t {
    bool ordered;
    bool bypass_document_validation;
    bool has_collation;
    bool has_multi_write;
    bool has_array_filters;
+   bool has_update_hint;
 };
 
 
@@ -53,11 +59,6 @@ typedef struct {
    mongoc_bulk_write_flags_t flags;
    int64_t operation_id;
    bson_t cmd_opts;
-   union {
-      struct {
-         bool allow_bulk_op_insert;
-      } insert;
-   } u;
 } mongoc_write_command_t;
 
 
@@ -80,6 +81,10 @@ typedef struct {
    bool must_stop; /* The stream may have been disconnected */
    bson_error_t error;
    uint32_t upsert_append_count;
+   /* If the command initially failed with a retryable write, and selected a new
+    * primary, this contains the server id of the newly selected primary. Only
+    * applies to OP_MSG. Is left at 0 if no retry occurs. */
+   uint32_t retry_server_id;
 } mongoc_write_result_t;
 
 
@@ -107,14 +112,12 @@ _mongoc_write_command_init_insert (mongoc_write_command_t *command,
                                    const bson_t *document,
                                    const bson_t *cmd_opts,
                                    mongoc_bulk_write_flags_t flags,
-                                   int64_t operation_id,
-                                   bool allow_bulk_op_insert);
+                                   int64_t operation_id);
 void
 _mongoc_write_command_init_insert_idl (mongoc_write_command_t *command,
                                        const bson_t *document,
                                        const bson_t *cmd_opts,
-                                       int64_t operation_id,
-                                       bool allow_bulk_op_insert);
+                                       int64_t operation_id);
 void
 _mongoc_write_command_init_delete (mongoc_write_command_t *command,
                                    const bson_t *selectors,
@@ -215,6 +218,11 @@ mongoc_write_err_type_t
 _mongoc_write_error_get_type (bool cmd_ret,
                               const bson_error_t *cmd_err,
                               const bson_t *reply);
+
+bool
+_mongoc_write_error_update_if_unsupported_storage_engine (bool cmd_ret,
+                                                          bson_error_t *cmd_err,
+                                                          bson_t *reply);
 
 BSON_END_DECLS
 
