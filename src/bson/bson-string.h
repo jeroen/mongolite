@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "bson/bson-prelude.h"
+#include "bson-prelude.h"
 
 
 #ifndef BSON_STRING_H
@@ -23,8 +23,8 @@
 
 #include <stdarg.h>
 
-#include "bson/bson-macros.h"
-#include "bson/bson-types.h"
+#include "bson-macros.h"
+#include "bson-types.h"
 
 
 BSON_BEGIN_DECLS
@@ -76,6 +76,8 @@ BSON_EXPORT (int64_t)
 bson_ascii_strtoll (const char *str, char **endptr, int base);
 BSON_EXPORT (int)
 bson_strcasecmp (const char *s1, const char *s2);
+BSON_EXPORT (bool)
+bson_isspace (int c);
 
 
 BSON_END_DECLS

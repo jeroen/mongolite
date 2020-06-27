@@ -25,7 +25,12 @@ ssl_options <- function(cert = NULL, key = cert, ca = NULL, ca_dir = NULL,
       warning("Key does not seem to match certificate!")
     tmp <- tempfile()
     passwd <- paste(openssl::sha1(openssl::rand_bytes(100)), collapse = "")
-    writeLines(c(openssl::write_pem(key, password = passwd), openssl::write_pem(cert)), con = tmp)
+    keystring <- if(inherits(key, 'rsa')){
+      openssl::write_pkcs1(key, password = passwd)
+    } else {
+      openssl::write_pem(key, password = passwd)
+    }
+    writeLines(c(keystring, openssl::write_pem(cert)), con = tmp)
     opts$pem_file = tmp
     opts$pem_pwd = passwd
   }

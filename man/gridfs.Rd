@@ -4,8 +4,12 @@
 \alias{gridfs}
 \title{GridFS API}
 \usage{
-gridfs(db = "test", url = "mongodb://localhost", prefix = "fs",
-  options = ssl_options())
+gridfs(
+  db = "test",
+  url = "mongodb://localhost",
+  prefix = "fs",
+  options = ssl_options()
+)
 }
 \arguments{
 \item{db}{name of database}

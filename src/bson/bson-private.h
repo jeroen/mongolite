@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "bson/bson-prelude.h"
+#include "bson-prelude.h"
 
 
 #ifndef BSON_PRIVATE_H
 #define BSON_PRIVATE_H
 
 
-#include "bson/bson-macros.h"
-#include "bson/bson-memory.h"
-#include "bson/bson-types.h"
+#include "bson-macros.h"
+#include "bson-memory.h"
+#include "bson-types.h"
 
 
 #if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
@@ -57,7 +57,7 @@ typedef enum {
 
 
 #ifdef BSON_MEMCHECK
-#define BSON_INLINE_DATA_SIZE (120 - sizeof (char*))
+#define BSON_INLINE_DATA_SIZE (120 - sizeof (char *))
 #else
 #define BSON_INLINE_DATA_SIZE 120
 #endif
@@ -79,7 +79,11 @@ BSON_STATIC_ASSERT2 (impl_inline_t, sizeof (bson_impl_inline_t) == 128);
 
 BSON_ALIGNED_BEGIN (128)
 typedef struct {
-   bson_flags_t flags;        /* flags describing the bson_t */
+   bson_flags_t flags; /* flags describing the bson_t */
+   /* len is part of the public bson_t declaration. It is not
+    * exposed through an accessor function. Plus, it's redundant since
+    * BSON self describes the length in the first four bytes of the
+    * buffer. */
    uint32_t len;              /* length of bson document in bytes */
    bson_t *parent;            /* parent bson if a child */
    uint32_t depth;            /* Subdocument depth. */

@@ -37,7 +37,7 @@
  *
  * BSON minor version component (e.g. 2 if %BSON_VERSION is 1.2.3)
  */
-#define BSON_MINOR_VERSION (14)
+#define BSON_MINOR_VERSION (16)
 
 
 /**
@@ -45,7 +45,7 @@
  *
  * BSON micro version component (e.g. 3 if %BSON_VERSION is 1.2.3)
  */
-#define BSON_MICRO_VERSION (0)
+#define BSON_MICRO_VERSION (2)
 
 
 /**
@@ -60,7 +60,7 @@
  *
  * BSON version.
  */
-#define BSON_VERSION (1.14.0)
+#define BSON_VERSION (1.16.2)
 
 
 /**
@@ -69,7 +69,7 @@
  * BSON version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define BSON_VERSION_S "1.14.0"
+#define BSON_VERSION_S "1.16.2"
 
 
 /**

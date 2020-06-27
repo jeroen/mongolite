@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "bson/bson-prelude.h"
+#include "bson-prelude.h"
 
 
 #ifndef BSON_MACROS_H
@@ -27,7 +27,7 @@
 #include <algorithm>
 #endif
 
-#include "bson/bson-config.h"
+#include "bson-config.h"
 
 
 #if BSON_OS == 1
@@ -176,7 +176,7 @@
 #define bson_str_empty0(s) (!s || !s[0])
 
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 #define BSON_FUNC __FUNCTION__
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ < 199901L
 #define BSON_FUNC __FUNCTION__

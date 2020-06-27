@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 
 #ifndef MONGOC_COMPRESSION_PRIVATE_H
@@ -31,6 +31,9 @@
 
 #define MONGOC_COMPRESSOR_ZLIB_ID 2
 #define MONGOC_COMPRESSOR_ZLIB_STR "zlib"
+
+#define MONGOC_COMPRESSOR_ZSTD_ID 3
+#define MONGOC_COMPRESSOR_ZSTD_STR "zstd"
 
 
 BSON_BEGIN_DECLS

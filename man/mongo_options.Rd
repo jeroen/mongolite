@@ -4,8 +4,7 @@
 \alias{mongo_options}
 \title{Mongo Options}
 \usage{
-mongo_options(log_level = NULL, bigint_as_char = NULL,
-  date_as_char = NULL)
+mongo_options(log_level = NULL, bigint_as_char = NULL, date_as_char = NULL)
 }
 \arguments{
 \item{log_level}{integer between 0 and 6 or \code{NULL} to leave unchanged.}

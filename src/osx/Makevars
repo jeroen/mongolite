@@ -36,7 +36,8 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-opts.o mongoc/mongoc-opts-helpers.o \
 	mongoc/mongoc-cursor-cmd.o mongoc/mongoc-cursor-cmd-deprecated.o \
 	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
-	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o
+	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o mongoc/mongoc-aggregate.o \
+	mongoc/mongoc-client-side-encryption.o mongoc/mongoc-cursor-change-stream.o mongoc/mongoc-change-stream.o
 
 PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -lz -lsasl2 -lresolv -framework Security
 STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
@@ -44,7 +45,7 @@ PKG_CFLAGS=-Wno-deprecated-declarations
 
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
-# all: clean
+all: clean
 
 $(SHLIB): $(STATLIB)
 

@@ -109,7 +109,8 @@ SEXP ConvertValue(bson_iter_t* iter){
     bson_iter_recurse (iter, &child2);
     return ConvertObject(&child1, &child2);
   } else {
-    stop("Unimplemented BSON type %d\n", bson_iter_type(iter));
+    Rf_warning("Unimplemented BSON type %d\n", bson_iter_type(iter));
+    return R_NilValue;
   }
 }
 

@@ -20,3 +20,4 @@
 ^tests/testthat/specifications/source/(?!bson-).*$
 ^test.R$
 ^gridfs.rmd
+^configure.log$

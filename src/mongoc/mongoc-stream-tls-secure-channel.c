@@ -49,23 +49,23 @@
  * Thanks for code and inspiration!
  */
 
-#include "mongoc/mongoc-config.h"
+#include "mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_SECURE_CHANNEL
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-stream-tls.h"
-#include "mongoc/mongoc-stream-tls-private.h"
-#include "mongoc/mongoc-stream-private.h"
-#include "mongoc/mongoc-stream-tls-secure-channel-private.h"
-#include "mongoc/mongoc-secure-channel-private.h"
-#include "mongoc/mongoc-ssl.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-counters-private.h"
-#include "mongoc/mongoc-errno-private.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-log.h"
+#include "mongoc-stream-tls.h"
+#include "mongoc-stream-tls-private.h"
+#include "mongoc-stream-private.h"
+#include "mongoc-stream-tls-secure-channel-private.h"
+#include "mongoc-secure-channel-private.h"
+#include "mongoc-ssl.h"
+#include "mongoc-error.h"
+#include "mongoc-counters-private.h"
+#include "mongoc-errno-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "stream-tls-secure-channel"
@@ -923,6 +923,7 @@ mongoc_stream_tls_secure_channel_new (mongoc_stream_t *base_stream,
    SCHANNEL_CRED schannel_cred;
    mongoc_stream_tls_t *tls;
    mongoc_stream_tls_secure_channel_t *secure_channel;
+   PCCERT_CONTEXT cert = NULL;
 
    ENTRY;
    BSON_ASSERT (base_stream);
@@ -996,8 +997,7 @@ mongoc_stream_tls_secure_channel_new (mongoc_stream_t *base_stream,
    }
 
    if (opt->pem_file) {
-      PCCERT_CONTEXT cert =
-         mongoc_secure_channel_setup_certificate (secure_channel, opt);
+      cert = mongoc_secure_channel_setup_certificate (secure_channel, opt);
 
       if (cert) {
          schannel_cred.cCreds = 1;
