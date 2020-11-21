@@ -8,19 +8,19 @@ pandoc: false
 warnings_are_errors: false
 r_check_args: '--run-donttest'
 
-osx_image: xcode12.2
-
 matrix:
   include:
     - dist: xenial
       services: mongodb
       warnings_are_errors: true
     - os: osx
+      osx_image: xcode12
       before_install:
         - brew tap mongodb/brew
         - brew install mongodb-community
         - brew services start mongodb-community
     - os: osx
+      osx_image: xcode12
       brew_packages: openssl@1.1
       before_install:
         - brew tap mongodb/brew
@@ -30,6 +30,7 @@ matrix:
         - PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
         - MONGOLITE_USE_OPENSSL=1
     - os: osx
+      osx_image: xcode12
       brew_packages: libressl
       before_install:
         - brew uninstall --ignore-dependencies openssl@1.1
@@ -42,6 +43,7 @@ matrix:
     - os: osx
       osx_image: xcode10.1
       disable_homebrew: true
+      r_check_args: '--no-manual'
 
 addons:
   apt:
