@@ -85,10 +85,11 @@ mongo_collection_mapreduce <- function(col, map, reduce, query, sort, limit, out
     map = map,
     reduce = reduce,
     query = structure(query, class = "json"),
-    limit = limit,
     out = out,
     scope = scope
   )
+  if(length(limit) && limit > 0)
+    cmd$limit = limit
   if(length(jsonlite::fromJSON(sort)))
     cmd$sort = sort
   mongo_collection_command(col, jsonlite::toJSON(cmd, auto_unbox = TRUE, json_verbatim = TRUE))
