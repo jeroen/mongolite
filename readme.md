@@ -125,9 +125,3 @@ On __Fedora__, __CentOS or RHEL__ use [openssl-devel](https://apps.fedoraproject
 ```
 sudo yum install openssl-devel cyrus-sasl-devel
 ````
-
-On __OS-X__ sasl is included with the system so only [openssl](https://github.com/Homebrew/homebrew-core/blob/master/Formula/openssl.rb) is needed.
-
-```
-brew install openssl
-```
