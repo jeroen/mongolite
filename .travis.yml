@@ -40,10 +40,8 @@ matrix:
         - PKG_CONFIG_PATH="/usr/local/opt/libressl/lib/pkgconfig"
         - MONGOLITE_USE_OPENSSL=1
     - os: osx
-      osx_image: xcode7.3
+      osx_image: xcode10.1
       disable_homebrew: true
-      before_install: sed -i.bak 's/-isysroot /-I/g' $(R RHOME)/etc/Makeconf
-      r_check_args: '-as-cran --no-manual'
 
 addons:
   apt:
