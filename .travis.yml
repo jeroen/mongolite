@@ -8,6 +8,8 @@ pandoc: false
 warnings_are_errors: false
 r_check_args: '--run-donttest'
 
+osx_image: xcode12.2
+
 matrix:
   include:
     - dist: xenial
