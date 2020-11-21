@@ -20,7 +20,7 @@
 About the R package:
 
  - Book: [Mongolite User Manual](https://jeroen.github.io/mongolite/)
- - Presentation: [UseR 2015 slides](http://jeroen.github.io/mongo-slides)
+ - Presentation: [UseR 2015 slides](http://jeroen.github.io/mongo-slides/)
 
 ## Hello World
 
