@@ -28,8 +28,8 @@ About the R package:
 Example using a public test server
 
 ```r
-# Connect to demo server
-con <- mongo("mtcars", url = "mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test")
+con <- mongo("mtcars", url =
+  "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 
 # Wipe collection
 if(con$count() > 0) 
