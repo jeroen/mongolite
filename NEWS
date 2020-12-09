@@ -1,3 +1,6 @@
+2.3.0
+ - Add oid_to_timestamp utility function
+
 2.2.1
  - Switch examples to mongodb cloud server.
 
