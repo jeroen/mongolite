@@ -21,3 +21,4 @@
 ^test.R$
 ^gridfs.rmd
 ^configure.log$
+^\.github$

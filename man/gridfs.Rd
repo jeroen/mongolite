@@ -15,7 +15,7 @@ gridfs(
 \item{db}{name of database}
 
 \item{url}{address of the mongodb server in mongo connection string
-\href{http://docs.mongodb.org/manual/reference/connection-string}{URI format}}
+\href{https://docs.mongodb.com/manual/reference/connection-string}{URI format}}
 
 \item{prefix}{string to prefix the collection name}
 

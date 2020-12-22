@@ -20,7 +20,7 @@
 About the R package:
 
  - Book: [Mongolite User Manual](https://jeroen.github.io/mongolite/)
- - Presentation: [UseR 2015 slides](http://jeroen.github.io/mongo-slides)
+ - Presentation: [UseR 2015 slides](http://jeroen.github.io/mongo-slides/)
 
 ## Hello World
 
@@ -28,8 +28,8 @@ About the R package:
 Example using a public test server
 
 ```r
-# Connect to demo server
-con <- mongo("mtcars", url = "mongodb://readwrite:test@mongo.opencpu.org:43942/jeroen_test")
+con <- mongo("mtcars", url =
+  "mongodb+srv://readwrite:test@cluster0-84vdt.mongodb.net/test")
 
 # Wipe collection
 if(con$count() > 0) 
@@ -125,9 +125,3 @@ On __Fedora__, __CentOS or RHEL__ use [openssl-devel](https://apps.fedoraproject
 ```
 sudo yum install openssl-devel cyrus-sasl-devel
 ````
-
-On __OS-X__ sasl is included with the system so only [openssl](https://github.com/Homebrew/homebrew-core/blob/master/Formula/openssl.rb) is needed.
-
-```
-brew install openssl
-```
