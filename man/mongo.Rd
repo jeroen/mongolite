@@ -80,7 +80,7 @@ con$drop()
 rm(con)
 gc()
 
-\donttest{
+\dontrun{
 # dplyr example
 library(nycflights13)
 
