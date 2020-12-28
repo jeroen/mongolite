@@ -7,6 +7,8 @@
 oid_to_timestamp(oid)
 }
 \arguments{
+\item{oid}{string or raw value with document oid}
+
 \item{string}{of length 24 containing the OID}
 }
 \description{
