@@ -58,6 +58,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 # Apple has deprecated SASL but there is no alternative yet
+# NB: now unused because we use osx-Makevars
 if [[ "$OSTYPE" == "darwin"* ]]; then
   PKG_CFLAGS="$PKG_CFLAGS -Wno-deprecated-declarations"
 fi
