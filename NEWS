@@ -1,6 +1,6 @@
 2.3.0
  - Add oid_to_timestamp utility function
- - Fix a long-standing bug in the connection caching pool
+ - Fix a race condition in the connection caching pool
  - Change donttest to dontrun for CRAN
 
 2.2.1
