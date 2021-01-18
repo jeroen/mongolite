@@ -4,7 +4,6 @@
 #' the ObjectId creation, measured in seconds since the Unix epoch.
 #'
 #' @export
-#' @param string of length 24 containing the OID
 #' @param oid string or raw value with document oid
 #' @examples oid_to_timestamp('5349b4ddd2781d08c09890f3')
 oid_to_timestamp <- function(oid){

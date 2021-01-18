@@ -8,8 +8,6 @@ oid_to_timestamp(oid)
 }
 \arguments{
 \item{oid}{string or raw value with document oid}
-
-\item{string}{of length 24 containing the OID}
 }
 \description{
 The initial 4 bytes of a MongoDB OID contain a timestamp value, representing
