@@ -47,10 +47,6 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o mongoc/mongoc-aggregate.o \
 	mongoc/mongoc-client-side-encryption.o mongoc/mongoc-cursor-change-stream.o mongoc/mongoc-change-stream.o
 
-ifeq "$(WIN)" "32"
-	LIBMONGOC += win32/ipv6.o
-endif
-
 STATLIB = mongoc/libstatmongoc.a
 
 # For development only
