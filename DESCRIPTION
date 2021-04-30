@@ -26,6 +26,8 @@ Roxygen: list(markdown = TRUE)
 Suggests:
     spelling,
     nycflights13,
-    ggplot2
+    ggplot2,
+    data.table,
+    dplyr
 Language: en-GB
 Encoding: UTF-8

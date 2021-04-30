@@ -194,6 +194,11 @@ mongo_cursor_next_page <- function(cursor, size = 100, as_json = FALSE){
   .Call(R_mongo_cursor_next_page, cursor, size = size, as_json = as_json)
 }
 
+#' @useDynLib mongolite R_mongo_cursor_next_page_flattened
+mongo_cursor_next_page_flattened <- function(cursor, size = 100) {
+  .Call(R_mongo_cursor_next_page_flattened, cursor, size = size )
+}
+
 #' @useDynLib mongolite R_mongo_collection_find_indexes
 mongo_collection_find_indexes <- function(col){
   cur <- .Call(R_mongo_collection_find_indexes, col)
