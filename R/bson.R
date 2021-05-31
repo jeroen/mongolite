@@ -59,6 +59,63 @@ null_ptr <- function(x){
   .Call(R_null_ptr, x)
 }
 
+#' Create BSON Object IDs
+#'
+#' When it is necessary to keep track of BSON OIDs, you may want to create them
+#' manually.
+#'
+#' @param n The number of OIDs to create.
+#'
+#' @return A vector of class \code{"bson_oid"}.
+#'
+#' @examples
+#' df <- data.frame(`_id` = I(create_bson_oid(10)),
+#'                  x = 1:10, check.names = FALSE)
+#' \dontrun{
+#'
+#' # Insert this data into Mongo.
+#' m <- mongo("test_oid", verbose = FALSE)
+#' m$drop()
+#' m$insert(df)
+#'
+#' # The OIDs of the output should match.
+#' m$find(fields = "{}")
+#' }
+#'
+#' @useDynLib mongolite R_create_bson_oid
+#' @export
+create_bson_oid <- function(n = 1) {
+  stopifnot(is.numeric(n) && n >= 1)
+  .Call(R_create_bson_oid, n)
+}
+
+#' @export
+print.bson_oid <- function(x, ...) {
+  print(as.character(x))
+}
+
+#' @export
+`[.bson_oid` <- function(x, i, ...) {
+  out <- NextMethod("[")
+  class(out) <- class(x)
+  out
+}
+
+setOldClass("bson_oid")
+
+# Supporting insert() requires implementing asJSON from the jsonlite package.
+# Since that generic is not public, this is a workaround.
+setGeneric("asJSON", package = "jsonlite")
+
+setMethod("asJSON", "bson_oid", function(x, ...) {
+  # Inspired by jsonlite's asJSON.POSIXt.R
+  df <- data.frame(`$oid` = unclass(x), check.names = FALSE)
+  if (inherits(x, "scalar")) {
+    class(df) <- c("scalar", class(df))
+  }
+  asJSON(df, ...)
+})
+
 #setGeneric("serialize")
 #setOldClass("bson")
 #setMethod("serialize", "bson", function(object, connection){

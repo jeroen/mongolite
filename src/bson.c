@@ -215,3 +215,18 @@ SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter){
   UNPROTECT(2);
   return ret;
 }
+
+SEXP R_create_bson_oid(SEXP n) {
+  bson_oid_t oid;
+  char oid_str[25];
+  int size = Rf_asInteger(n); // Check this at the R level.
+  SEXP ret = PROTECT(Rf_allocVector(STRSXP, size));
+  for (int i = 0; i < size; i++) {
+    bson_oid_init(&oid, NULL);
+    bson_oid_to_string(&oid, oid_str);
+    SET_STRING_ELT(ret, i, Rf_mkCharLenCE(oid_str, 24, CE_NATIVE));
+  }
+  Rf_setAttrib(ret, R_ClassSymbol, Rf_mkString("bson_oid"));
+  UNPROTECT(1);
+  return ret;
+}
