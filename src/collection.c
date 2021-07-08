@@ -100,7 +100,9 @@ SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_er
   bson_error_t err;
   bson_t *b;
   bson_t reply;
-  mongoc_bulk_operation_t *bulk = mongoc_collection_create_bulk_operation_with_opts (r2col(ptr_col), NULL);
+  bson_t opts = BSON_INITIALIZER;
+  BSON_APPEND_BOOL (&opts, "ordered", ordered);
+  mongoc_bulk_operation_t *bulk = mongoc_collection_create_bulk_operation_with_opts (r2col(ptr_col), &opts);
   for(int i = 0; i < Rf_length(json_vec); i++){
     b = bson_new_from_json ((uint8_t*) Rf_translateCharUTF8(Rf_asChar(STRING_ELT(json_vec, i))), -1, &err);
     if(!b){
