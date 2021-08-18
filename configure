@@ -48,15 +48,17 @@ elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [ $(command -v brew) ]; then
     BREWDIR=$(brew --prefix)
+    PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+    PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib -lssl -lcrypto"
   else
-    curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > $TMPDIR/autobrew
+    curl -sfL "https://autobrew.github.io/scripts/openssl" > $TMPDIR/autobrew
     source $TMPDIR/autobrew
   fi
-  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-  PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib -lssl -lcrypto $SASL_LIBS"
+  PKG_LIBS="$PKG_LIBS $SASL_LIBS"
 fi
 
 # Apple has deprecated SASL but there is no alternative yet
+# NB: now unused because we use osx-Makevars
 if [[ "$OSTYPE" == "darwin"* ]]; then
   PKG_CFLAGS="$PKG_CFLAGS -Wno-deprecated-declarations"
 fi
@@ -114,11 +116,6 @@ fi
 
 # Write to Makevars
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" Makevars.in > Makevars
-
-# Prevent compiler warning about empty unit
-if [[ "$OSTYPE" != "linux"* ]]; then
-  sed -i.bak 's#mongoc/mongoc-linux-distro-scanner.o##' Makevars
-fi
 
 # Success
 exit 0

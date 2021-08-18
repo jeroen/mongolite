@@ -189,5 +189,7 @@ SEXP R_make_weakref(SEXP x){
 SEXP R_get_weakref(SEXP x){
   if(!Rf_length(x))
     return R_NilValue;
+  // Prevent R from giving us a value that is already scheduled for removal
+  R_RunPendingFinalizers();
   return R_WeakRefKey(x);
 }

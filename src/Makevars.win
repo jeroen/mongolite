@@ -1,5 +1,6 @@
+RWINLIB=../windows/openssl-1.1.1k
 PKG_CPPFLAGS = \
-	-I../windows/openssl-1.1.1/include \
+	-I$(RWINLIB)/include \
 	-I. -Icommon \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
@@ -8,7 +9,7 @@ PKG_CFLAGS = \
 	-Wno-deprecated-declarations
 
 PKG_LIBS = \
-	-L. -L../windows/openssl-1.1.1/lib${R_ARCH} \
+	-L. -L$(RWINLIB)/lib${R_ARCH}${CRT} \
 	-Lmongoc -lstatmongoc -lssl -lcrypto \
 	-lcrypto -lgdi32 -lcrypt32 -lws2_32 -lsecur32 -ldnsapi -lz
 
@@ -46,10 +47,6 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
 	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o mongoc/mongoc-aggregate.o \
 	mongoc/mongoc-client-side-encryption.o mongoc/mongoc-cursor-change-stream.o mongoc/mongoc-change-stream.o
-
-ifeq "$(WIN)" "32"
-	LIBMONGOC += win32/ipv6.o
-endif
 
 STATLIB = mongoc/libstatmongoc.a
 
