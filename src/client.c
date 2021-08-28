@@ -49,7 +49,9 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
     mongoc_client_set_ssl_opts(client, &opt);
   }
 
-  mongoc_client_set_appname (client, "r/mongolite");
+  if (NULL == mongoc_uri_get_appname (uri)) {
+    mongoc_client_set_appname (client, "r/mongolite");
+  }
 
 #endif
 
