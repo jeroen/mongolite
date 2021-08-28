@@ -1,3 +1,4 @@
+#include <Rinternals.h>
 #include <R_ext/Rdynload.h>
 #include <Rversion.h>
 #include <mongolite.h>
@@ -35,11 +36,18 @@ void R_init_mongolite(DllInfo *info) {
   static mongoc_log_func_t logfun = mongolite_log_handler;
   char *r_version;
   mongoc_init();
+
+  SEXP agent = GetOption1(install("HTTPUserAgent"));
+  if (isString(agent) && Rf_length(agent)) {
+    r_version = bson_strdup_printf ("%s ", CHAR(STRING_ELT(agent, 0)));
+  }
+  else {
 #if defined (R_VERSION)
   r_version = bson_strdup_printf ("R=%s.%s ", R_MAJOR, R_MINOR);
 #else
   r_version = bson_strdup ("R=undefined ");
 #endif
+  }
   mongoc_handshake_data_append ("mongolite", "", r_version);
   mongoc_log_set_handler(logfun, NULL);
   R_registerRoutines(info, NULL, NULL, NULL, NULL);
