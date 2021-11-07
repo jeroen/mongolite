@@ -16,14 +16,14 @@
 
 
 #include "mongoc-client-session-private.h"
+#include "mongoc-cluster-private.h"
 #include "mongoc-trace-private.h"
 #include "mongoc-client-private.h"
 #include "mongoc-rand-private.h"
 #include "mongoc-util-private.h"
 #include "mongoc-read-concern-private.h"
 #include "mongoc-read-prefs-private.h"
-
-#define SESSION_NEVER_USED (-1)
+#include "mongoc-error-private.h"
 
 #define WITH_TXN_TIMEOUT_MS (120 * 1000)
 
@@ -80,37 +80,6 @@ txn_opts_copy (const mongoc_transaction_opt_t *src,
 }
 
 
-static void
-copy_labels_plus_unknown_commit_result (const bson_t *src, bson_t *dst)
-{
-   bson_iter_t iter;
-   bson_iter_t src_label;
-   bson_t dst_labels;
-   char str[16];
-   uint32_t i = 0;
-   const char *key;
-
-   BSON_APPEND_ARRAY_BEGIN (dst, "errorLabels", &dst_labels);
-   BSON_APPEND_UTF8 (&dst_labels, "0", UNKNOWN_COMMIT_RESULT);
-
-   /* append any other errorLabels already in "src" */
-   if (bson_iter_init_find (&iter, src, "errorLabels") &&
-       bson_iter_recurse (&iter, &src_label)) {
-      while (bson_iter_next (&src_label) && BSON_ITER_HOLDS_UTF8 (&src_label)) {
-         if (strcmp (bson_iter_utf8 (&src_label, NULL),
-                     UNKNOWN_COMMIT_RESULT) != 0) {
-            i++;
-            bson_uint32_to_string (i, &key, str, sizeof str);
-            BSON_APPEND_UTF8 (
-               &dst_labels, key, bson_iter_utf8 (&src_label, NULL));
-         }
-      }
-   }
-
-   bson_append_array_end (dst, &dst_labels);
-}
-
-
 static bool
 txn_abort (mongoc_client_session_t *session, bson_t *reply, bson_error_t *error)
 {
@@ -119,7 +88,6 @@ txn_abort (mongoc_client_session_t *session, bson_t *reply, bson_error_t *error)
    bson_error_t err_local;
    bson_error_t *err_ptr = error ? error : &err_local;
    bson_t reply_local = BSON_INITIALIZER;
-   mongoc_write_err_type_t error_type;
    bool r = false;
 
    _mongoc_bson_init_if_set (reply);
@@ -150,9 +118,9 @@ txn_abort (mongoc_client_session_t *session, bson_t *reply, bson_error_t *error)
       session->client, "admin", &cmd, &opts, &reply_local, err_ptr);
 
    /* Transactions Spec: "Drivers MUST retry the commitTransaction command once
-    * after it fails with a retryable error", same for abort */
-   error_type = _mongoc_write_error_get_type (r, err_ptr, &reply_local);
-   if (error_type == MONGOC_WRITE_ERR_RETRY) {
+    * after it fails with a retryable error", same for abort. Note that a
+    * RetryableWriteError label has already been appended here. */
+   if (mongoc_error_has_label (&reply_local, RETRYABLE_WRITE_ERROR)) {
       _mongoc_client_session_unpin (session);
       bson_destroy (&reply_local);
       r = mongoc_client_write_command_with_opts (
@@ -266,8 +234,9 @@ retry:
       session->client, "admin", &cmd, &opts, &reply_local, err_ptr);
 
    /* Transactions Spec: "Drivers MUST retry the commitTransaction command once
-    * after it fails with a retryable error", same for abort */
-   error_type = _mongoc_write_error_get_type (r, err_ptr, &reply_local);
+    * after it fails with a retryable error", same for abort. Note that a
+    * RetryableWriteError label has already been appended here. */
+   error_type = _mongoc_write_error_get_type (&reply_local);
    if (!retrying_after_error && error_type == MONGOC_WRITE_ERR_RETRY) {
       retrying_after_error = true; /* retry after error only once */
       _mongoc_client_session_unpin (session);
@@ -290,7 +259,8 @@ retry:
       if (reply) {
          bson_copy_to_excluding_noinit (
             &reply_local, reply, "errorLabels", NULL);
-         copy_labels_plus_unknown_commit_result (&reply_local, reply);
+         _mongoc_error_copy_labels_and_upsert (
+            &reply_local, reply, UNKNOWN_COMMIT_RESULT);
       }
    } else if (reply) {
       /* maintain invariants: reply & reply_local are valid until the end */
@@ -426,18 +396,32 @@ mongoc_transaction_opts_get_read_prefs (const mongoc_transaction_opt_t *opts)
    return opts->read_prefs;
 }
 
-
-mongoc_session_opt_t *
-mongoc_session_opts_new (void)
+bool
+mongoc_session_opts_get_causal_consistency (const mongoc_session_opt_t *opts)
 {
-   mongoc_session_opt_t *opts = bson_malloc0 (sizeof (mongoc_session_opt_t));
+   ENTRY;
 
-   /* Driver Sessions Spec: causal consistency is true by default */
-   mongoc_session_opts_set_causal_consistency (opts, true);
+   BSON_ASSERT (opts);
 
-   return opts;
+   /* Causal Consistency spec: If no value is provided for causalConsistency
+    * and snapshot reads are not requested a value of true is implied. */
+   if (!mongoc_optional_is_set (&opts->causal_consistency) &&
+       !mongoc_optional_value (&opts->snapshot)) {
+      RETURN (true);
+   }
+
+   RETURN (mongoc_optional_value (&opts->causal_consistency));
 }
 
+bool
+mongoc_session_opts_get_snapshot (const mongoc_session_opt_t *opts)
+{
+   ENTRY;
+
+   BSON_ASSERT (opts);
+
+   RETURN (mongoc_optional_value (&opts->snapshot));
+}
 
 void
 mongoc_session_opts_set_causal_consistency (mongoc_session_opt_t *opts,
@@ -447,25 +431,33 @@ mongoc_session_opts_set_causal_consistency (mongoc_session_opt_t *opts,
 
    BSON_ASSERT (opts);
 
-   if (causal_consistency) {
-      opts->flags |= MONGOC_SESSION_CAUSAL_CONSISTENCY;
-   } else {
-      opts->flags &= ~MONGOC_SESSION_CAUSAL_CONSISTENCY;
-   }
+   mongoc_optional_set_value (&opts->causal_consistency, causal_consistency);
 
    EXIT;
 }
 
-bool
-mongoc_session_opts_get_causal_consistency (const mongoc_session_opt_t *opts)
+void
+mongoc_session_opts_set_snapshot (mongoc_session_opt_t *opts, bool snapshot)
 {
    ENTRY;
 
    BSON_ASSERT (opts);
 
-   RETURN (!!(opts->flags & MONGOC_SESSION_CAUSAL_CONSISTENCY));
+   mongoc_optional_set_value (&opts->snapshot, snapshot);
+
+   EXIT;
 }
 
+mongoc_session_opt_t *
+mongoc_session_opts_new (void)
+{
+   mongoc_session_opt_t *opts = bson_malloc0 (sizeof (mongoc_session_opt_t));
+
+   mongoc_optional_init (&opts->causal_consistency);
+   mongoc_optional_init (&opts->snapshot);
+
+   return opts;
+}
 
 void
 mongoc_session_opts_set_default_transaction_opts (
@@ -517,7 +509,8 @@ static void
 _mongoc_session_opts_copy (const mongoc_session_opt_t *src,
                            mongoc_session_opt_t *dst)
 {
-   dst->flags = src->flags;
+   mongoc_optional_copy (&src->causal_consistency, &dst->causal_consistency);
+   mongoc_optional_copy (&src->snapshot, &dst->snapshot);
    txn_opts_copy (&src->default_txn_opts, &dst->default_txn_opts);
 }
 
@@ -637,14 +630,19 @@ _mongoc_cluster_time_greater (const bson_t *new, const bson_t *old)
 void
 _mongoc_client_session_handle_reply (mongoc_client_session_t *session,
                                      bool is_acknowledged,
+                                     const char *cmd_name,
                                      const bson_t *reply)
 {
    bson_iter_t iter;
+   bson_iter_t cursor_iter;
    uint32_t len;
    const uint8_t *data;
    bson_t cluster_time;
-   uint32_t t;
-   uint32_t i;
+   uint32_t operation_t;
+   uint32_t operation_i;
+   uint32_t snapshot_t;
+   uint32_t snapshot_i;
+   bool is_find_aggregate_distinct;
 
    BSON_ASSERT (session);
 
@@ -652,13 +650,17 @@ _mongoc_client_session_handle_reply (mongoc_client_session_t *session,
       return;
    }
 
+   is_find_aggregate_distinct =
+      (!strcmp (cmd_name, "find") || !strcmp (cmd_name, "aggregate") ||
+       !strcmp (cmd_name, "distinct"));
+
    if (mongoc_error_has_label (reply, "TransientTransactionError")) {
       /* Transaction Spec: "Drivers MUST unpin a ClientSession when a command
        * within a transaction, including commitTransaction and abortTransaction,
        * fails with a TransientTransactionError". If the server reply included
        * a TransientTransactionError, we unpin here. If a network error caused
        * us to add a label client-side, we unpin in network_error_reply. */
-      session->server_id = 0;
+      _mongoc_client_session_unpin (session);
    }
 
    while (bson_iter_next (&iter)) {
@@ -670,8 +672,39 @@ _mongoc_client_session_handle_reply (mongoc_client_session_t *session,
          mongoc_client_session_advance_cluster_time (session, &cluster_time);
       } else if (!strcmp (bson_iter_key (&iter), "operationTime") &&
                  BSON_ITER_HOLDS_TIMESTAMP (&iter) && is_acknowledged) {
-         bson_iter_timestamp (&iter, &t, &i);
-         mongoc_client_session_advance_operation_time (session, t, i);
+         bson_iter_timestamp (&iter, &operation_t, &operation_i);
+         mongoc_client_session_advance_operation_time (
+            session, operation_t, operation_i);
+      } else if (is_find_aggregate_distinct &&
+                 !strcmp (bson_iter_key (&iter), "atClusterTime") &&
+                 mongoc_session_opts_get_snapshot (&session->opts) &&
+                 !session->snapshot_time_set) {
+         /* If command is "find", "aggregate" or "distinct", atClusterTime is on
+          * top level of reply, snapshot is enabled for the session, and
+          * snapshot_time has not already been set, set it. */
+         bson_iter_timestamp (&iter, &snapshot_t, &snapshot_i);
+         _mongoc_client_session_set_snapshot_time (
+            session, snapshot_t, snapshot_i);
+      } else if (is_find_aggregate_distinct &&
+                 !strcmp (bson_iter_key (&iter), "cursor") &&
+                 mongoc_session_opts_get_snapshot (&session->opts) &&
+                 !session->snapshot_time_set) {
+         /* If command is "find", "aggregate" or "distinct", cursor is present,
+          * snapshot is enabled for the session, and snapshot_time has not
+          * already been set, try to find atClusterTime in cursor field to set
+          * snapshot_time. */
+         bson_iter_recurse (&iter, &cursor_iter);
+
+         while (bson_iter_next (&cursor_iter)) {
+            /* If atClusterTime is in cursor and is a valid timestamp, use it to
+             * set snapshot_time. */
+            if (!strcmp (bson_iter_key (&cursor_iter), "atClusterTime") &&
+                BSON_ITER_HOLDS_TIMESTAMP (&cursor_iter)) {
+               bson_iter_timestamp (&cursor_iter, &snapshot_t, &snapshot_i);
+               _mongoc_client_session_set_snapshot_time (
+                  session, snapshot_t, snapshot_i);
+            }
+         }
       }
    }
 }
@@ -755,6 +788,7 @@ _mongoc_client_session_new (mongoc_client_t *client,
    ENTRY;
 
    BSON_ASSERT (client);
+   BSON_ASSERT (server_session);
 
    session = bson_malloc0 (sizeof (mongoc_client_session_t));
    session->client = client;
@@ -763,6 +797,8 @@ _mongoc_client_session_new (mongoc_client_t *client,
    session->client_session_id = client_session_id;
    bson_init (&session->cluster_time);
 
+   mongoc_optional_init (&session->opts.causal_consistency);
+   mongoc_optional_init (&session->opts.snapshot);
    txn_opts_set (&session->opts.default_txn_opts,
                  client->read_concern,
                  client->write_concern,
@@ -770,16 +806,17 @@ _mongoc_client_session_new (mongoc_client_t *client,
                  DEFAULT_MAX_COMMIT_TIME_MS);
 
    if (opts) {
-      session->opts.flags = opts->flags;
+      mongoc_optional_copy (&opts->causal_consistency, &session->opts.causal_consistency);
+      mongoc_optional_copy (&opts->snapshot, &session->opts.snapshot);
       txn_opts_set (&session->opts.default_txn_opts,
                     opts->default_txn_opts.read_concern,
                     opts->default_txn_opts.write_concern,
                     opts->default_txn_opts.read_prefs,
                     opts->default_txn_opts.max_commit_time_ms);
-   } else {
-      /* sessions are causally consistent by default */
-      session->opts.flags = MONGOC_SESSION_CAUSAL_CONSISTENCY;
    }
+
+   /* snapshot_time_set is false by default */
+   _mongoc_client_session_clear_snapshot_time (session);
 
    /* these values are used for testing only. */
    session->with_txn_timeout_ms = 0;
@@ -1071,22 +1108,32 @@ mongoc_client_session_start_transaction (mongoc_client_session_t *session,
                                          const mongoc_transaction_opt_t *opts,
                                          bson_error_t *error)
 {
-   mongoc_server_description_t *sd;
+   mongoc_server_stream_t *server_stream = NULL;
    bool ret;
 
    ENTRY;
    BSON_ASSERT (session);
 
    ret = true;
-   sd = mongoc_client_select_server (
-      session->client, true /* primary */, NULL, error);
-   if (!sd) {
+   server_stream = mongoc_cluster_stream_for_writes (
+      &session->client->cluster, session, NULL /* reply */, error);
+   if (!server_stream) {
       ret = false;
       GOTO (done);
    }
 
-   if (sd->max_wire_version < 7 ||
-       (sd->max_wire_version < 8 && sd->type == MONGOC_SERVER_MONGOS)) {
+   if (mongoc_session_opts_get_snapshot (&session->opts)) {
+      bson_set_error (error,
+                      MONGOC_ERROR_TRANSACTION,
+                      MONGOC_ERROR_TRANSACTION_INVALID_STATE,
+                      "Transactions are not supported in snapshot sessions");
+      ret = false;
+      GOTO (done);
+   }
+
+   if (server_stream->sd->max_wire_version < 7 ||
+       (server_stream->sd->max_wire_version < 8 &&
+        server_stream->sd->type == MONGOC_SERVER_MONGOS)) {
       bson_set_error (error,
                       MONGOC_ERROR_TRANSACTION,
                       MONGOC_ERROR_TRANSACTION_INVALID_STATE,
@@ -1156,7 +1203,7 @@ mongoc_client_session_start_transaction (mongoc_client_session_t *session,
    session->recovery_token = NULL;
 
 done:
-   mongoc_server_description_destroy (sd);
+   mongoc_server_stream_cleanup (server_stream);
    return ret;
 }
 
@@ -1296,6 +1343,10 @@ mongoc_client_session_abort_transaction (mongoc_client_session_t *session,
    case MONGOC_INTERNAL_TRANSACTION_STARTING:
       /* we sent no commands, not actually started on server */
       session->txn.state = MONGOC_INTERNAL_TRANSACTION_ABORTED;
+      /* Transactions Spec: aborting a transaction MUST unpin the session.
+       * It's likely the transaction is already unpinned if TRANSACTION_STARTING
+       * was just assigned, but there is no harm in doing so again. */
+      _mongoc_client_session_unpin (session);
       txn_opts_cleanup (&session->txn.opts);
       RETURN (true);
    case MONGOC_INTERNAL_TRANSACTION_IN_PROGRESS:
@@ -1303,6 +1354,8 @@ mongoc_client_session_abort_transaction (mongoc_client_session_t *session,
       /* Transactions Spec: ignore errors from abortTransaction command */
       txn_abort (session, NULL, NULL);
       session->txn.state = MONGOC_INTERNAL_TRANSACTION_ABORTED;
+      /* Transactions Spec: aborting a transaction MUST unpin the session. */
+      _mongoc_client_session_unpin (session);
       RETURN (true);
    case MONGOC_INTERNAL_TRANSACTION_COMMITTED:
    case MONGOC_INTERNAL_TRANSACTION_COMMITTED_EMPTY:
@@ -1522,6 +1575,7 @@ _mongoc_client_session_append_read_concern (const mongoc_client_session_t *cs,
    bool user_rc_has_level;
    bool txn_has_level;
    bool has_timestamp;
+   bool is_snapshot;
    bool has_level;
    bson_t child;
 
@@ -1540,12 +1594,15 @@ _mongoc_client_session_append_read_concern (const mongoc_client_session_t *cs,
       (txn_state == MONGOC_INTERNAL_TRANSACTION_STARTING || is_read_command) &&
       mongoc_session_opts_get_causal_consistency (&cs->opts) &&
       cs->operation_timestamp;
+   is_snapshot = mongoc_session_opts_get_snapshot (&cs->opts);
    user_rc_has_level = rc && bson_has_field (rc, "level");
    txn_has_level = txn_state == MONGOC_INTERNAL_TRANSACTION_STARTING &&
                    !mongoc_read_concern_is_default (txn_rc);
    has_level = user_rc_has_level || txn_has_level;
 
-   if (!has_timestamp && !has_level) {
+   /* do not append read concern if no causal consistency, snapshot disabled and
+    * no read concern is provided. */
+   if (!has_timestamp && !is_snapshot && !has_level) {
       return;
    }
 
@@ -1555,18 +1612,32 @@ _mongoc_client_session_append_read_concern (const mongoc_client_session_t *cs,
    }
 
    if (txn_state == MONGOC_INTERNAL_TRANSACTION_STARTING) {
-      /* add transaction's read concern level unless user overrides */
-      if (txn_has_level && !user_rc_has_level) {
+      /* add transaction's read concern level unless user overrides or snapshot
+       * is enabled. */
+      if (txn_has_level && !user_rc_has_level && !is_snapshot) {
          bson_append_utf8 (&child, "level", 5, txn_rc->level, -1);
       }
    }
+   if (is_snapshot) {
+      bson_append_utf8 (
+         &child, "level", 5, MONGOC_READ_CONCERN_LEVEL_SNAPSHOT, -1);
+   }
 
+   /* append afterClusterTime if causal consistency and operation_time is set.
+    * otherwise append atClusterTime if snapshot enabled and snapshot_time is
+    * set. */
    if (has_timestamp) {
       bson_append_timestamp (&child,
                              "afterClusterTime",
                              16,
                              cs->operation_timestamp,
                              cs->operation_increment);
+   } else if (is_snapshot && cs->snapshot_time_set) {
+      bson_append_timestamp (&child,
+                             "atClusterTime",
+                             13,
+                             cs->snapshot_time_timestamp,
+                             cs->snapshot_time_increment);
    }
 
    bson_append_document_end (cmd, &child);
@@ -1643,4 +1714,33 @@ _mongoc_client_session_pin (mongoc_client_session_t *session,
    BSON_ASSERT (session);
 
    session->server_id = server_id;
+}
+
+void
+_mongoc_client_session_set_snapshot_time (mongoc_client_session_t *session,
+                                          uint32_t t,
+                                          uint32_t i)
+{
+   BSON_ASSERT (session);
+   BSON_ASSERT (!session->snapshot_time_set);
+
+   session->snapshot_time_set = true;
+   session->snapshot_time_timestamp = t;
+   session->snapshot_time_increment = i;
+}
+
+void
+_mongoc_client_session_clear_snapshot_time (mongoc_client_session_t *session)
+{
+   BSON_ASSERT (session);
+
+   session->snapshot_time_set = false;
+}
+
+bool
+mongoc_client_session_get_dirty (mongoc_client_session_t *session)
+{
+   BSON_ASSERT_PARAM (session);
+
+   return session->server_session->dirty;
 }

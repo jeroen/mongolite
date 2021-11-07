@@ -31,6 +31,7 @@
 #include "mongoc-index.h"
 #include "mongoc-macros.h"
 #include "mongoc-read-prefs.h"
+#include "mongoc-server-api.h"
 #ifdef MONGOC_ENABLE_SSL
 #include "mongoc-ssl.h"
 #endif
@@ -42,7 +43,8 @@
 
 BSON_BEGIN_DECLS
 
-
+/* This define is part of our public API. But per MongoDB 4.4, there is no
+ * longer a size limit on collection names. */
 #define MONGOC_NAMESPACE_MAX 128
 
 
@@ -266,6 +268,17 @@ MONGOC_EXPORT (bool)
 mongoc_client_enable_auto_encryption (mongoc_client_t *client,
                                       mongoc_auto_encryption_opts_t *opts,
                                       bson_error_t *error);
+
+MONGOC_EXPORT (bool)
+mongoc_client_set_server_api (mongoc_client_t *client,
+                              const mongoc_server_api_t *api,
+                              bson_error_t *error);
+
+MONGOC_EXPORT (mongoc_server_description_t *)
+mongoc_client_get_handshake_description (mongoc_client_t *client,
+                                         uint32_t server_id,
+                                         bson_t *opts,
+                                         bson_error_t *error);
 
 BSON_END_DECLS
 

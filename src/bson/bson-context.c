@@ -229,7 +229,7 @@ _get_rand (unsigned int *pseed)
    /* no rand_r on android either */
    result = rand ();
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__DragonFly__) || \
-   defined(__OpenBSD__)
+   defined(__OpenBSD__) || defined(__APPLE__)
    arc4random_buf (&result, sizeof (result));
 #else
    result = rand_r (pseed);
@@ -354,10 +354,6 @@ _bson_context_init (bson_context_t *context, bson_context_flags_t flags)
  *       and use more than one thread, then %BSON_CONTEXT_THREAD_SAFE should
  *       be bitwise-or'd with your flags. This requires synchronization
  *       between threads.
- *
- *       If you expect your hostname to change often, you may consider
- *       specifying %BSON_CONTEXT_DISABLE_HOST_CACHE so that gethostname()
- *       is called for every OID generated. This is much slower.
  *
  *       If you expect your pid to change without notice, such as from an
  *       unexpected call to fork(), then specify

@@ -136,20 +136,20 @@ mongoc_async_cmd_run (mongoc_async_cmd_t *acmd)
 void
 _mongoc_async_cmd_init_send (mongoc_async_cmd_t *acmd, const char *dbname)
 {
-   bson_snprintf (acmd->ns, sizeof acmd->ns, "%s.$cmd", dbname);
+   acmd->ns = bson_strdup_printf ("%s.$cmd", dbname);
 
    acmd->rpc.header.msg_len = 0;
    acmd->rpc.header.request_id = ++acmd->async->request_id;
    acmd->rpc.header.response_to = 0;
    acmd->rpc.header.opcode = MONGOC_OPCODE_QUERY;
-   acmd->rpc.query.flags = MONGOC_QUERY_SLAVE_OK;
+   acmd->rpc.query.flags = MONGOC_QUERY_SECONDARY_OK;
    acmd->rpc.query.collection = acmd->ns;
    acmd->rpc.query.skip = 0;
    acmd->rpc.query.n_return = -1;
    acmd->rpc.query.query = bson_get_data (&acmd->cmd);
    acmd->rpc.query.fields = NULL;
 
-   /* This will always be isMaster, which are not allowed to be compressed */
+   /* This will always be hello, which are not allowed to be compressed */
    _mongoc_rpc_gather (&acmd->rpc, &acmd->array);
    acmd->iovec = (mongoc_iovec_t *) acmd->array.data;
    acmd->niovec = acmd->array.len;
@@ -236,6 +236,7 @@ mongoc_async_cmd_destroy (mongoc_async_cmd_t *acmd)
    _mongoc_array_destroy (&acmd->array);
    _mongoc_buffer_destroy (&acmd->buffer);
 
+   bson_free (acmd->ns);
    bson_free (acmd);
 }
 

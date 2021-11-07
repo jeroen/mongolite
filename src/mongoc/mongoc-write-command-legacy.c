@@ -55,6 +55,8 @@ _mongoc_monitor_legacy_write (mongoc_client_t *client,
       command->operation_id,
       &stream->sd->host,
       stream->sd->id,
+      &stream->sd->service_id,
+      NULL,
       client->apm_context);
 
    client->apm_callbacks.started (&event);
@@ -104,6 +106,8 @@ _mongoc_monitor_legacy_write_succeeded (mongoc_client_t *client,
       command->operation_id,
       &stream->sd->host,
       stream->sd->id,
+      &stream->sd->service_id,
+      false,
       client->apm_context);
 
    client->apm_callbacks.succeeded (&event);
@@ -133,7 +137,7 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t *command,
    bson_iter_t q_iter;
    uint32_t len;
    int64_t limit = 0;
-   char ns[MONGOC_NAMESPACE_MAX + 1];
+   char *ns;
    bool r;
    bson_reader_t *reader;
    const bson_t *bson;
@@ -160,7 +164,7 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t *command,
       EXIT;
    }
 
-   bson_snprintf (ns, sizeof ns, "%s.%s", database, collection);
+   ns = bson_strdup_printf ("%s.%s", database, collection);
 
    reader =
       bson_reader_new_from_data (command->payload.data, command->payload.len);
@@ -178,6 +182,7 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t *command,
             error, 0, len, max_bson_obj_size);
          result->failed = true;
          bson_reader_destroy (reader);
+         bson_free (ns);
          EXIT;
       }
 
@@ -205,6 +210,7 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t *command,
       if (!mongoc_cluster_legacy_rpc_sendv_to_server (
              &client->cluster, &rpc, server_stream, error)) {
          result->failed = true;
+         bson_free (ns);
          bson_reader_destroy (reader);
          EXIT;
       }
@@ -220,6 +226,7 @@ _mongoc_write_command_delete_legacy (mongoc_write_command_t *command,
    }
    bson_reader_destroy (reader);
 
+   bson_free (ns);
    EXIT;
 }
 
@@ -239,7 +246,7 @@ _mongoc_write_command_insert_legacy (mongoc_write_command_t *command,
    mongoc_rpc_t rpc;
    uint32_t size = 0;
    bool has_more;
-   char ns[MONGOC_NAMESPACE_MAX + 1];
+   char *ns;
    uint32_t n_docs_in_batch;
    uint32_t request_id = 0;
    uint32_t idx = 0;
@@ -273,7 +280,7 @@ _mongoc_write_command_insert_legacy (mongoc_write_command_t *command,
       EXIT;
    }
 
-   bson_snprintf (ns, sizeof ns, "%s.%s", database, collection);
+   ns = bson_strdup_printf ("%s.%s", database, collection);
 
    iov = (mongoc_iovec_t *) bson_malloc ((sizeof *iov) * command->n_documents);
 
@@ -356,6 +363,7 @@ cleanup:
       GOTO (again);
    }
 
+   bson_free (ns);
    bson_free (iov);
 
    EXIT;
@@ -376,16 +384,13 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t *command,
    int32_t max_bson_obj_size;
    mongoc_rpc_t rpc;
    uint32_t request_id = 0;
-   bson_iter_t subiter, subsubiter;
-   bson_t doc;
+   bson_iter_t subiter;
    bson_t update, selector;
    const uint8_t *data = NULL;
    uint32_t len = 0;
-   size_t err_offset;
    bool val = false;
-   char ns[MONGOC_NAMESPACE_MAX + 1];
-   int vflags = (BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
-                 BSON_VALIDATE_DOLLAR_KEYS | BSON_VALIDATE_DOT_KEYS);
+   char *ns;
+   bool r;
    bson_reader_t *reader;
    const bson_t *bson;
    bool eof;
@@ -402,45 +407,19 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t *command,
 
    max_bson_obj_size = mongoc_server_stream_max_bson_obj_size (server_stream);
 
+   ns = bson_strdup_printf ("%s.%s", database, collection);
+
    reader =
       bson_reader_new_from_data (command->payload.data, command->payload.len);
    while ((bson = bson_reader_read (reader, &eof))) {
-      if (bson_iter_init (&subiter, bson) && bson_iter_find (&subiter, "u") &&
-          BSON_ITER_HOLDS_DOCUMENT (&subiter)) {
-         bson_iter_document (&subiter, &len, &data);
-         BSON_ASSERT (bson_init_static (&doc, data, len));
+      /* ensure the document has "q" and "u" document fields in that order */
+      r = (bson_iter_init (&subiter, bson) && bson_iter_find (&subiter, "q") &&
+           BSON_ITER_HOLDS_DOCUMENT (&subiter) &&
+           bson_iter_find (&subiter, "u") &&
+           BSON_ITER_HOLDS_DOCUMENT (&subiter));
 
-         if (bson_iter_init (&subsubiter, &doc) &&
-             bson_iter_next (&subsubiter) &&
-             (bson_iter_key (&subsubiter)[0] != '$') &&
-             !bson_validate (
-                &doc, (bson_validate_flags_t) vflags, &err_offset)) {
-            result->failed = true;
-            bson_set_error (error,
-                            MONGOC_ERROR_BSON,
-                            MONGOC_ERROR_BSON_INVALID,
-                            "update document is corrupt or contains "
-                            "invalid keys including $ or .");
-            bson_reader_destroy (reader);
-            EXIT;
-         }
-      } else {
-         result->failed = true;
-         bson_set_error (error,
-                         MONGOC_ERROR_BSON,
-                         MONGOC_ERROR_BSON_INVALID,
-                         "updates is malformed.");
-         bson_reader_destroy (reader);
-         EXIT;
-      }
-   }
+      BSON_ASSERT (r);
 
-   bson_snprintf (ns, sizeof ns, "%s.%s", database, collection);
-
-   bson_reader_destroy (reader);
-   reader =
-      bson_reader_new_from_data (command->payload.data, command->payload.len);
-   while ((bson = bson_reader_read (reader, &eof))) {
       request_id = ++client->cluster.request_id;
 
       rpc.header.msg_len = 0;
@@ -455,11 +434,16 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t *command,
       while (bson_iter_next (&subiter)) {
          if (strcmp (bson_iter_key (&subiter), "u") == 0) {
             bson_iter_document (&subiter, &len, &data);
+
+            BSON_ASSERT (data);
+            BSON_ASSERT (len >= 5);
+
             if (len > max_bson_obj_size) {
                _mongoc_write_command_too_large_error (
                   error, 0, len, max_bson_obj_size);
                result->failed = true;
                bson_reader_destroy (reader);
+               bson_free (ns);
                EXIT;
             }
 
@@ -467,11 +451,16 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t *command,
             BSON_ASSERT (bson_init_static (&update, data, len));
          } else if (strcmp (bson_iter_key (&subiter), "q") == 0) {
             bson_iter_document (&subiter, &len, &data);
+
+            BSON_ASSERT (data);
+            BSON_ASSERT (len >= 5);
+
             if (len > max_bson_obj_size) {
                _mongoc_write_command_too_large_error (
                   error, 0, len, max_bson_obj_size);
                result->failed = true;
                bson_reader_destroy (reader);
+               bson_free (ns);
                EXIT;
             }
 
@@ -499,6 +488,7 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t *command,
              &client->cluster, &rpc, server_stream, error)) {
          result->failed = true;
          bson_reader_destroy (reader);
+         bson_free (ns);
          EXIT;
       }
 
@@ -512,4 +502,5 @@ _mongoc_write_command_update_legacy (mongoc_write_command_t *command,
       started = bson_get_monotonic_time ();
    }
    bson_reader_destroy (reader);
+   bson_free (ns);
 }

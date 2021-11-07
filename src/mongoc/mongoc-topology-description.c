@@ -24,6 +24,8 @@
 #include "mongoc-set-private.h"
 #include "mongoc-client-private.h"
 #include "mongoc-thread-private.h"
+#include "mongoc-host-list-private.h"
+#include "utlist.h"
 
 
 static bool
@@ -34,6 +36,7 @@ _is_data_node (mongoc_server_description_t *sd)
    case MONGOC_SERVER_STANDALONE:
    case MONGOC_SERVER_RS_SECONDARY:
    case MONGOC_SERVER_RS_PRIMARY:
+   case MONGOC_SERVER_LOAD_BALANCER:
       return true;
    case MONGOC_SERVER_RS_OTHER:
    case MONGOC_SERVER_RS_ARBITER:
@@ -349,6 +352,14 @@ _mongoc_topology_description_server_is_candidate (
       default:
          return false;
       }
+
+   /* Note, there is no call path that leads to the
+    * MONGOC_TOPOLOGY_LOAD_BALANCED case. Server selection for load balanced
+    * topologies bypasses this logic. This silences compiler warnings on
+    * unhandled enum values. */
+   case MONGOC_TOPOLOGY_LOAD_BALANCED:
+      return desc_type == MONGOC_SERVER_LOAD_BALANCER;
+
    default:
       return false;
    }
@@ -465,7 +476,9 @@ mongoc_topology_description_lowest_max_wire_version (
    for (i = 0; (size_t) i < td->servers->items_len; i++) {
       sd = (mongoc_server_description_t *) mongoc_set_get_item (td->servers, i);
 
-      if (sd->type != MONGOC_SERVER_UNKNOWN && sd->max_wire_version < ret) {
+      if (sd->type != MONGOC_SERVER_UNKNOWN &&
+          sd->type != MONGOC_SERVER_POSSIBLE_PRIMARY &&
+          sd->max_wire_version < ret) {
          ret = sd->max_wire_version;
       }
    }
@@ -709,6 +722,16 @@ mongoc_topology_description_suitable_servers (
          topology->servers, _mongoc_find_suitable_mongos_cb, &data);
    }
 
+   /* Load balanced clusters --
+    * Always select the only server. */
+   if (topology->type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
+      BSON_ASSERT (topology->servers->items_len == 1);
+      server = (mongoc_server_description_t *) mongoc_set_get_item (
+         topology->servers, 0);
+      _mongoc_array_append_val (set, server);
+      goto DONE;
+   }
+
    /* Ways to get here:
     *   - secondary read
     *   - secondary preferred read
@@ -801,7 +824,7 @@ mongoc_topology_description_select (mongoc_topology_description_t *topology,
       sd = (mongoc_server_description_t *) mongoc_set_get_item (
          topology->servers, 0);
 
-      if (sd->has_is_master) {
+      if (sd->has_hello_response) {
          RETURN (sd);
       } else {
          TRACE ("Topology type single, [%s] is down", sd->host.host_and_port);
@@ -1129,8 +1152,14 @@ mongoc_topology_description_invalidate_server (
 {
    BSON_ASSERT (error);
 
-   /* send NULL ismaster reply */
-   mongoc_topology_description_handle_ismaster (topology, id, NULL, 0, error);
+   if (topology->type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
+      /* Load balancers must never be marked unknown. */
+      return;
+   }
+
+   /* send NULL hello reply */
+   mongoc_topology_description_handle_hello (
+      topology, id, NULL, MONGOC_RTT_UNSET, error);
 }
 
 /*
@@ -1411,7 +1440,7 @@ _mongoc_topology_description_update_rs_from_primary (
       return;
 
    /* If server->set_name was null this function wouldn't be called from
-    * mongoc_server_description_handle_ismaster(). static code analyzers however
+    * mongoc_server_description_handle_hello(). static code analyzers however
     * don't know that so we check for it explicitly. */
    if (server->set_name) {
       /* 'Server' can only be the primary if it has the right rs name  */
@@ -1789,6 +1818,8 @@ _mongoc_topology_description_type (mongoc_topology_description_t *topology)
       return "RSWithPrimary";
    case MONGOC_TOPOLOGY_SINGLE:
       return "Single";
+   case MONGOC_TOPOLOGY_LOAD_BALANCED:
+      return "LoadBalanced";
    case MONGOC_TOPOLOGY_DESCRIPTION_TYPES:
    default:
       MONGOC_ERROR ("Invalid mongoc_topology_description_type_t type");
@@ -1900,11 +1931,11 @@ _mongoc_topology_description_check_compatible (
 /*
  *--------------------------------------------------------------------------
  *
- * mongoc_topology_description_handle_ismaster --
+ * mongoc_topology_description_handle_hello --
  *
- *      Handle an ismaster. This is called by the background SDAM process,
- *      and by client when invalidating servers. If there was an error
- *      calling ismaster, pass it in as @error.
+ *      Handle a hello. This is called by the background SDAM process,
+ *      and by client when performing a handshake or invalidating servers.
+ *      If there was an error calling hello, pass it in as @error.
  *
  *      NOTE: this method should only be called while holding the mutex on
  *      the owning topology object.
@@ -1913,16 +1944,20 @@ _mongoc_topology_description_check_compatible (
  */
 
 void
-mongoc_topology_description_handle_ismaster (
+mongoc_topology_description_handle_hello (
    mongoc_topology_description_t *topology,
    uint32_t server_id,
-   const bson_t *ismaster_response,
+   const bson_t *hello_response,
    int64_t rtt_msec,
    const bson_error_t *error /* IN */)
 {
    mongoc_topology_description_t *prev_td = NULL;
    mongoc_server_description_t *prev_sd = NULL;
    mongoc_server_description_t *sd;
+   bson_iter_t iter;
+   /* sd_changed is set if the server description meaningfully changed AND
+    * callbacks are registered. */
+   bool sd_changed = false;
 
    BSON_ASSERT (topology);
    BSON_ASSERT (server_id != 0);
@@ -1937,25 +1972,88 @@ mongoc_topology_description_handle_ismaster (
       _mongoc_topology_description_copy_to (topology, prev_td);
    }
 
-   if (topology->apm_callbacks.server_changed) {
+   if (hello_response &&
+       bson_iter_init_find (&iter, hello_response, "topologyVersion") &&
+       BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+      bson_t incoming_topology_version;
+      const uint8_t *bytes;
+      uint32_t len;
+
+      bson_iter_document (&iter, &len, &bytes);
+      bson_init_static (&incoming_topology_version, bytes, len);
+
+      if (mongoc_server_description_topology_version_cmp (
+             &sd->topology_version, &incoming_topology_version) == 1) {
+         TRACE ("%s", "topology version is strictly less. Skipping.");
+         if (prev_td) {
+            mongoc_topology_description_destroy (prev_td);
+            bson_free (prev_td);
+         }
+         return;
+      }
+   }
+
+   if (topology->apm_callbacks.topology_changed ||
+       topology->apm_callbacks.server_changed) {
+      /* Only copy the previous server description if a monitoring callback is
+       * registered. */
       prev_sd = mongoc_server_description_new_copy (sd);
    }
 
+   DUMP_BSON (hello_response);
    /* pass the current error in */
-   mongoc_server_description_handle_ismaster (
-      sd, ismaster_response, rtt_msec, error);
 
-   mongoc_topology_description_update_cluster_time (topology,
-                                                    ismaster_response);
-   _mongoc_topology_description_monitor_server_changed (topology, prev_sd, sd);
+   mongoc_server_description_handle_hello (sd, hello_response, rtt_msec, error);
+
+   /* if the user specified a set_name in the connection string
+    * and they are in topology type single, check that the set name
+    * matches. */
+   if (topology->set_name && topology->type == MONGOC_TOPOLOGY_SINGLE) {
+      bool wrong_set_name = false;
+      bson_error_t set_name_err = {0};
+
+      if (!sd->set_name) {
+         wrong_set_name = true;
+         bson_set_error (&set_name_err,
+                         MONGOC_ERROR_SERVER_SELECTION,
+                         MONGOC_ERROR_SERVER_SELECTION_FAILURE,
+                         "no reported set name, but expected '%s'",
+                         topology->set_name);
+      } else if (0 != strcmp (sd->set_name, topology->set_name)) {
+         wrong_set_name = true;
+         bson_set_error (&set_name_err,
+                         MONGOC_ERROR_SERVER_SELECTION,
+                         MONGOC_ERROR_SERVER_SELECTION_FAILURE,
+                         "reported set name '%s' does not match '%s'",
+                         sd->set_name,
+                         topology->set_name);
+      }
+
+      if (wrong_set_name) {
+         /* Replace with unknown. */
+         TRACE ("%s", "wrong set name");
+         mongoc_server_description_handle_hello (
+            sd, NULL, MONGOC_RTT_UNSET, &set_name_err);
+      }
+   }
+
+   mongoc_topology_description_update_cluster_time (topology, hello_response);
+
+   if (prev_sd) {
+      sd_changed = !_mongoc_server_description_equal (prev_sd, sd);
+   }
+   if (sd_changed) {
+      _mongoc_topology_description_monitor_server_changed (
+         topology, prev_sd, sd);
+   }
 
    if (gSDAMTransitionTable[sd->type][topology->type]) {
-      TRACE ("Transitioning to %s for %s",
+      TRACE ("Topology description %s handling server description %s",
              _mongoc_topology_description_type (topology),
              mongoc_server_description_type (sd));
       gSDAMTransitionTable[sd->type][topology->type](topology, sd);
    } else {
-      TRACE ("No transition entry to %s for %s",
+      TRACE ("Topology description %s ignoring server description %s",
              _mongoc_topology_description_type (topology),
              mongoc_server_description_type (sd));
    }
@@ -1963,19 +2061,22 @@ mongoc_topology_description_handle_ismaster (
    _mongoc_topology_description_update_session_timeout (topology);
 
    /* Don't bother checking wire version compatibility if we already errored */
-   if (ismaster_response && (!error || !error->code)) {
+   if (hello_response && (!error || !error->code)) {
       _mongoc_topology_description_check_compatible (topology);
    }
-   _mongoc_topology_description_monitor_changed (prev_td, topology);
+
+   /* If server description did not change, then neither did topology
+    * description */
+   if (sd_changed) {
+      _mongoc_topology_description_monitor_changed (prev_td, topology);
+   }
 
    if (prev_td) {
       mongoc_topology_description_destroy (prev_td);
       bson_free (prev_td);
    }
 
-   if (prev_sd) {
-      mongoc_server_description_destroy (prev_sd);
-   }
+   mongoc_server_description_destroy (prev_sd);
 }
 
 /*
@@ -2066,6 +2167,8 @@ mongoc_topology_description_type (const mongoc_topology_description_t *td)
       return "ReplicaSetWithPrimary";
    case MONGOC_TOPOLOGY_SINGLE:
       return "Single";
+   case MONGOC_TOPOLOGY_LOAD_BALANCED:
+      return "LoadBalanced";
    case MONGOC_TOPOLOGY_DESCRIPTION_TYPES:
    default:
       fprintf (stderr, "ERROR: Unknown topology type %d\n", td->type);
@@ -2118,4 +2221,47 @@ mongoc_topology_description_get_servers (
    }
 
    return sds;
+}
+
+typedef struct {
+   mongoc_host_list_t *host_list;
+   mongoc_topology_description_t *td;
+} _remove_if_not_in_host_list_ctx_t;
+
+bool
+_remove_if_not_in_host_list_cb (void *sd_void, void *ctx_void)
+{
+   _remove_if_not_in_host_list_ctx_t *ctx;
+   mongoc_topology_description_t *td;
+   mongoc_server_description_t *sd;
+   mongoc_host_list_t *host_list;
+
+   ctx = ctx_void;
+   sd = sd_void;
+   host_list = ctx->host_list;
+   td = ctx->td;
+
+   if (_mongoc_host_list_contains_one (host_list, &sd->host)) {
+      return true;
+   }
+   _mongoc_topology_description_remove_server (td, sd);
+   return true;
+}
+
+void
+mongoc_topology_description_reconcile (mongoc_topology_description_t *td,
+                                       mongoc_host_list_t *host_list)
+{
+   mongoc_host_list_t *host;
+   _remove_if_not_in_host_list_ctx_t ctx;
+
+   LL_FOREACH (host_list, host)
+   {
+      /* "add" is really an "upsert" */
+      mongoc_topology_description_add_server (td, host->host_and_port, NULL);
+   }
+
+   ctx.host_list = host_list;
+   ctx.td = td;
+   mongoc_set_for_each (td->servers, _remove_if_not_in_host_list_cb, &ctx);
 }

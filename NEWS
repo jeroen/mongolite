@@ -1,3 +1,7 @@
+2.4.0
+ - Update vendored mongo-c-driver to v1.19.2
+ - Windows: switch to windows native TLS, drop OpenSSL.
+
 2.3.1
  - Windows: update to openssl 1.1.1k
 

@@ -35,6 +35,9 @@
 #include "mongoc-topology-private.h"
 #include "mongoc-host-list-private.h"
 #include "mongoc-uri-private.h"
+#include "mongoc-cluster-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-util-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "topology_scanner"
@@ -48,7 +51,7 @@ _async_connected (mongoc_async_cmd_t *acmd);
 
 static void
 _async_success (mongoc_async_cmd_t *acmd,
-                const bson_t *ismaster_response,
+                const bson_t *hello_response,
                 int64_t duration_usec);
 
 static void
@@ -59,7 +62,7 @@ _async_error_or_timeout (mongoc_async_cmd_t *acmd,
 static void
 _async_handler (mongoc_async_cmd_t *acmd,
                 mongoc_async_cmd_result_t async_status,
-                const bson_t *ismaster_response,
+                const bson_t *hello_response,
                 int64_t duration_usec);
 
 static void
@@ -101,15 +104,150 @@ _jumpstart_other_acmds (mongoc_topology_scanner_node_t *node,
                         mongoc_async_cmd_t *acmd);
 
 static void
-_add_ismaster (bson_t *cmd)
+_add_hello (mongoc_topology_scanner_t *ts)
 {
-   BSON_APPEND_INT32 (cmd, "isMaster", 1);
+   mongoc_server_api_t *api = ts->api;
+
+   BSON_APPEND_INT32 (&ts->hello_cmd, "hello", 1);
+   BSON_APPEND_BOOL (&ts->hello_cmd, "helloOk", true);
+
+   BSON_APPEND_INT32 (&ts->legacy_hello_cmd, HANDSHAKE_CMD_LEGACY_HELLO, 1);
+   BSON_APPEND_BOOL (&ts->legacy_hello_cmd, "helloOk", true);
+
+   if (api) {
+      _mongoc_cmd_append_server_api (&ts->hello_cmd, api);
+   }
+}
+
+static void
+_init_hello (mongoc_topology_scanner_t *ts)
+{
+   bson_init (&ts->hello_cmd);
+   bson_init (&ts->legacy_hello_cmd);
+   bson_init (&ts->handshake_cmd);
+   bson_init (&ts->cluster_time);
+
+   _add_hello (ts);
+}
+
+static void
+_reset_hello (mongoc_topology_scanner_t *ts)
+{
+   bson_reinit (&ts->hello_cmd);
+   bson_reinit (&ts->legacy_hello_cmd);
+   bson_reinit (&ts->handshake_cmd);
+
+   _add_hello (ts);
+}
+
+const char *
+_mongoc_topology_scanner_get_speculative_auth_mechanism (
+   const mongoc_uri_t *uri)
+{
+   const char *mechanism = mongoc_uri_get_auth_mechanism (uri);
+   bool requires_auth = mechanism || mongoc_uri_get_username (uri);
+
+   if (!requires_auth) {
+      return NULL;
+   }
+
+   if (!mechanism) {
+      return "SCRAM-SHA-256";
+   }
+
+   return mechanism;
+}
+
+void
+_mongoc_topology_scanner_add_speculative_authentication (
+   bson_t *cmd,
+   const mongoc_uri_t *uri,
+   const mongoc_ssl_opt_t *ssl_opts,
+   mongoc_scram_cache_t *scram_cache,
+   mongoc_scram_t *scram /* OUT */)
+{
+   bson_t auth_cmd;
+   bson_error_t error;
+   bool has_auth = false;
+   const char *mechanism =
+      _mongoc_topology_scanner_get_speculative_auth_mechanism (uri);
+
+   if (!mechanism) {
+      return;
+   }
+
+   if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
+      /* Ignore errors while building authentication document: we proceed with
+       * the handshake as usual and let the subsequent authenticate command
+       * fail. */
+      if (_mongoc_cluster_get_auth_cmd_x509 (
+             uri, ssl_opts, &auth_cmd, &error)) {
+         has_auth = true;
+         BSON_APPEND_UTF8 (&auth_cmd, "db", "$external");
+      }
+   }
+
+#ifdef MONGOC_ENABLE_CRYPTO
+   if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
+       strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
+      mongoc_crypto_hash_algorithm_t algo =
+         strcasecmp (mechanism, "SCRAM-SHA-1") == 0
+            ? MONGOC_CRYPTO_ALGORITHM_SHA_1
+            : MONGOC_CRYPTO_ALGORITHM_SHA_256;
+
+      _mongoc_uri_init_scram (uri, scram, algo);
+
+      if (scram_cache) {
+         _mongoc_scram_set_cache (scram, scram_cache);
+      }
+
+      if (_mongoc_cluster_get_auth_cmd_scram (algo, scram, &auth_cmd, &error)) {
+         const char *auth_source;
+
+         if (!(auth_source = mongoc_uri_get_auth_source (uri)) ||
+             (*auth_source == '\0')) {
+            auth_source = "admin";
+         }
+
+         has_auth = true;
+         BSON_APPEND_UTF8 (&auth_cmd, "db", auth_source);
+      }
+   }
+#endif
+
+   if (has_auth) {
+      BSON_APPEND_DOCUMENT (cmd, "speculativeAuthenticate", &auth_cmd);
+      bson_destroy (&auth_cmd);
+   }
+}
+
+void
+_mongoc_topology_scanner_parse_speculative_authentication (
+   const bson_t *hello, bson_t *speculative_authenticate)
+{
+   bson_iter_t iter;
+   uint32_t data_len;
+   const uint8_t *data;
+   bson_t auth_response;
+
+   BSON_ASSERT (hello);
+   BSON_ASSERT (speculative_authenticate);
+
+   if (!bson_iter_init_find (&iter, hello, "speculativeAuthenticate")) {
+      return;
+   }
+
+   bson_iter_document (&iter, &data_len, &data);
+   BSON_ASSERT (bson_init_static (&auth_response, data, data_len));
+
+   bson_destroy (speculative_authenticate);
+   bson_copy_to (&auth_response, speculative_authenticate);
 }
 
 static bool
-_build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
+_build_handshake_cmd (mongoc_topology_scanner_t *ts)
 {
-   bson_t *doc = &ts->ismaster_cmd_with_handshake;
+   bson_t *doc = &ts->handshake_cmd;
    bson_t subdoc;
    bson_iter_t iter;
    const char *key;
@@ -119,7 +257,8 @@ _build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
    int count = 0;
    char buf[16];
 
-   _add_ismaster (doc);
+   bson_destroy (doc);
+   bson_copy_to (ts->api ? &ts->hello_cmd : &ts->legacy_hello_cmd, doc);
 
    BSON_APPEND_DOCUMENT_BEGIN (doc, HANDSHAKE_FIELD, &subdoc);
    res = _mongoc_handshake_build_doc_with_application (&subdoc, ts->appname);
@@ -139,54 +278,78 @@ _build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
    }
    bson_append_array_end (doc, &subdoc);
 
+   if (ts->loadbalanced) {
+      BSON_APPEND_BOOL (doc, "loadBalanced", true);
+   }
+
    /* Return whether the handshake doc fit the size limit */
    return res;
 }
 
-/* Caller must lock topology->mutex to protect ismaster_cmd_with_handshake. This
- * is called at the start of the scan in _mongoc_topology_run_background, when a
- * node is added in _mongoc_topology_reconcile_add_nodes, or when running an
- * ismaster directly on a node in _mongoc_stream_run_ismaster. */
 const bson_t *
-_mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts)
+_mongoc_topology_scanner_get_monitoring_cmd (mongoc_topology_scanner_t *ts,
+                                             bool hello_ok)
+{
+   return hello_ok || ts->api ? &ts->hello_cmd : &ts->legacy_hello_cmd;
+}
+
+/* Caller must lock topology->mutex to protect handshake_cmd. This
+ * is called at the start of the scan in _mongoc_topology_run_background, when a
+ * node is added in _mongoc_topology_reconcile_add_nodes, or when running a
+ * hello directly on a node in _mongoc_stream_run_hello. */
+const bson_t *
+_mongoc_topology_scanner_get_handshake_cmd (mongoc_topology_scanner_t *ts)
 {
    /* If this is the first time using the node or if it's the first time
     * using it after a failure, build handshake doc */
-   if (bson_empty (&ts->ismaster_cmd_with_handshake)) {
-      ts->handshake_ok_to_send = _build_ismaster_with_handshake (ts);
+   if (bson_empty (&ts->handshake_cmd)) {
+      ts->handshake_ok_to_send = _build_handshake_cmd (ts);
       if (!ts->handshake_ok_to_send) {
-         MONGOC_WARNING ("Handshake doc too big, not including in isMaster");
+         MONGOC_WARNING ("Handshake doc too big, not including in hello");
       }
    }
 
    /* If the doc turned out to be too big */
    if (!ts->handshake_ok_to_send) {
-      return &ts->ismaster_cmd;
+      return ts->api ? &ts->hello_cmd : &ts->legacy_hello_cmd;
    }
 
-   return &ts->ismaster_cmd_with_handshake;
+   return &ts->handshake_cmd;
 }
 
 static void
-_begin_ismaster_cmd (mongoc_topology_scanner_node_t *node,
-                     mongoc_stream_t *stream,
-                     bool is_setup_done,
-                     struct addrinfo *dns_result,
-                     int64_t initiate_delay_ms)
+_begin_hello_cmd (mongoc_topology_scanner_node_t *node,
+                  mongoc_stream_t *stream,
+                  bool is_setup_done,
+                  struct addrinfo *dns_result,
+                  int64_t initiate_delay_ms)
 {
    mongoc_topology_scanner_t *ts = node->ts;
    bson_t cmd;
 
    if (node->last_used != -1 && node->last_failed == -1) {
       /* The node's been used before and not failed recently */
-      bson_copy_to (&ts->ismaster_cmd, &cmd);
+      bson_copy_to (_mongoc_topology_scanner_get_monitoring_cmd (ts, node->hello_ok),
+                    &cmd);
    } else {
-      bson_copy_to (_mongoc_topology_scanner_get_ismaster (ts), &cmd);
+      bson_copy_to (_mongoc_topology_scanner_get_handshake_cmd (ts), &cmd);
    }
 
    if (node->ts->negotiate_sasl_supported_mechs &&
        !node->negotiated_sasl_supported_mechs) {
       _mongoc_handshake_append_sasl_supported_mechs (ts->uri, &cmd);
+   }
+
+   if (node->ts->speculative_authentication && !node->has_auth &&
+       bson_empty (&node->speculative_auth_response) && node->scram.step == 0) {
+      mongoc_ssl_opt_t *ssl_opts = NULL;
+
+#ifdef MONGOC_ENABLE_SSL
+      ssl_opts = ts->ssl_opts;
+#endif
+
+      _mongoc_topology_scanner_add_speculative_authentication (
+         &cmd, ts->uri, ssl_opts, NULL, &node->scram);
    }
 
    if (!bson_empty (&ts->cluster_time)) {
@@ -227,20 +390,18 @@ mongoc_topology_scanner_new (
 
    ts->async = mongoc_async_new ();
 
-   bson_init (&ts->ismaster_cmd);
-   _add_ismaster (&ts->ismaster_cmd);
-   bson_init (&ts->ismaster_cmd_with_handshake);
-   bson_init (&ts->cluster_time);
-
    ts->setup_err_cb = setup_err_cb;
    ts->cb = cb;
    ts->cb_data = data;
    ts->uri = uri;
    ts->appname = NULL;
+   ts->api = NULL;
    ts->handshake_ok_to_send = false;
    ts->connect_timeout_msec = connect_timeout_msec;
    /* may be overridden for testing. */
    ts->dns_cache_timeout_ms = DNS_CACHE_TIMEOUT_MS;
+
+   _init_hello (ts);
 
    return ts;
 }
@@ -276,9 +437,11 @@ mongoc_topology_scanner_destroy (mongoc_topology_scanner_t *ts)
    }
 
    mongoc_async_destroy (ts->async);
-   bson_destroy (&ts->ismaster_cmd);
-   bson_destroy (&ts->ismaster_cmd_with_handshake);
+   bson_destroy (&ts->hello_cmd);
+   bson_destroy (&ts->legacy_hello_cmd);
+   bson_destroy (&ts->handshake_cmd);
    bson_destroy (&ts->cluster_time);
+   mongoc_server_api_destroy (ts->api);
 
    /* This field can be set by a mongoc_client */
    bson_free ((char *) ts->appname);
@@ -297,7 +460,8 @@ mongoc_topology_scanner_valid (mongoc_topology_scanner_t *ts)
 void
 mongoc_topology_scanner_add (mongoc_topology_scanner_t *ts,
                              const mongoc_host_list_t *host,
-                             uint32_t id)
+                             uint32_t id,
+                             bool hello_ok)
 {
    mongoc_topology_scanner_node_t *node;
 
@@ -309,6 +473,8 @@ mongoc_topology_scanner_add (mongoc_topology_scanner_t *ts,
    node->ts = ts;
    node->last_failed = -1;
    node->last_used = -1;
+   node->hello_ok = hello_ok;
+   bson_init (&node->speculative_auth_response);
 
    DL_APPEND (ts->nodes, node);
 }
@@ -367,7 +533,10 @@ mongoc_topology_scanner_node_disconnect (mongoc_topology_scanner_node_t *node,
       memset (
          &node->sasl_supported_mechs, 0, sizeof (node->sasl_supported_mechs));
       node->negotiated_sasl_supported_mechs = false;
+      bson_reinit (&node->speculative_auth_response);
    }
+   mongoc_server_description_destroy (node->handshake_sd);
+   node->handshake_sd = NULL;
 }
 
 void
@@ -379,6 +548,13 @@ mongoc_topology_scanner_node_destroy (mongoc_topology_scanner_node_t *node,
    if (node->dns_results) {
       freeaddrinfo (node->dns_results);
    }
+
+   bson_destroy (&node->speculative_auth_response);
+
+#ifdef MONGOC_ENABLE_CRYPTO
+   _mongoc_scram_destroy (&node->scram);
+#endif
+
    bson_free (node);
 }
 
@@ -427,7 +603,7 @@ mongoc_topology_scanner_has_node_for_host (mongoc_topology_scanner_t *ts,
 
    DL_FOREACH_SAFE (ts->nodes, ele, tmp)
    {
-      if (_mongoc_host_list_equal (&ele->host, host)) {
+      if (_mongoc_host_list_compare_one (&ele->host, host)) {
          return true;
       }
    }
@@ -447,7 +623,7 @@ _async_connected (mongoc_async_cmd_t *acmd)
 
 static void
 _async_success (mongoc_async_cmd_t *acmd,
-                const bson_t *ismaster_response,
+                const bson_t *hello_response,
                 int64_t duration_usec)
 {
    void *data = acmd->data;
@@ -467,21 +643,37 @@ _async_success (mongoc_async_cmd_t *acmd,
    node->last_failed = -1;
 
    _mongoc_topology_scanner_monitor_heartbeat_succeeded (
-      ts, &node->host, ismaster_response, duration_usec);
+      ts, &node->host, hello_response, duration_usec);
 
    /* set our successful stream. */
    BSON_ASSERT (!node->stream);
    node->stream = stream;
 
+   if (!node->handshake_sd) {
+      mongoc_server_description_t sd;
+
+      /* Store a server description associated with the handshake. */
+      mongoc_server_description_init (&sd, node->host.host_and_port, node->id);
+      mongoc_server_description_handle_hello (
+         &sd, hello_response, duration_usec / 1000, &acmd->error);
+      node->handshake_sd = mongoc_server_description_new_copy (&sd);
+      mongoc_server_description_cleanup (&sd);
+   }
+
    if (ts->negotiate_sasl_supported_mechs &&
        !node->negotiated_sasl_supported_mechs) {
       _mongoc_handshake_parse_sasl_supported_mechs (
-         ismaster_response, &node->sasl_supported_mechs);
+         hello_response, &node->sasl_supported_mechs);
+   }
+
+   if (ts->speculative_authentication) {
+      _mongoc_topology_scanner_parse_speculative_authentication (
+         hello_response, &node->speculative_auth_response);
    }
 
    /* mongoc_topology_scanner_cb_t takes rtt_msec, not usec */
    ts->cb (node->id,
-           ismaster_response,
+           hello_response,
            duration_usec / 1000,
            ts->cb_data,
            &acmd->error);
@@ -531,7 +723,7 @@ _async_error_or_timeout (mongoc_async_cmd_t *acmd,
       bson_set_error (&node->last_error,
                       MONGOC_ERROR_CLIENT,
                       MONGOC_ERROR_STREAM_CONNECT,
-                      "%s calling ismaster on \'%s\'",
+                      "%s calling hello on \'%s\'",
                       message,
                       node->host.host_and_port);
 
@@ -541,6 +733,9 @@ _async_error_or_timeout (mongoc_async_cmd_t *acmd,
       /* call the topology scanner callback. cannot connect to this node.
        * callback takes rtt_msec, not usec. */
       ts->cb (node->id, NULL, duration_usec / 1000, ts->cb_data, error);
+
+      mongoc_server_description_destroy (node->handshake_sd);
+      node->handshake_sd = NULL;
    } else {
       /* there are still more commands left for this node or it succeeded
        * with another stream. skip the topology scanner callback. */
@@ -552,7 +747,7 @@ _async_error_or_timeout (mongoc_async_cmd_t *acmd,
  *-----------------------------------------------------------------------
  *
  * This is the callback passed to async_cmd when we're running
- * ismasters from within the topology monitor.
+ * hellos from within the topology monitor.
  *
  *-----------------------------------------------------------------------
  */
@@ -560,7 +755,7 @@ _async_error_or_timeout (mongoc_async_cmd_t *acmd,
 static void
 _async_handler (mongoc_async_cmd_t *acmd,
                 mongoc_async_cmd_result_t async_status,
-                const bson_t *ismaster_response,
+                const bson_t *hello_response,
                 int64_t duration_usec)
 {
    BSON_ASSERT (acmd->data);
@@ -570,7 +765,7 @@ _async_handler (mongoc_async_cmd_t *acmd,
       _async_connected (acmd);
       return;
    case MONGOC_ASYNC_CMD_SUCCESS:
-      _async_success (acmd, ismaster_response, duration_usec);
+      _async_success (acmd, hello_response, duration_usec);
       return;
    case MONGOC_ASYNC_CMD_TIMEOUT:
       _async_error_or_timeout (acmd, duration_usec, "connection timeout");
@@ -696,11 +891,11 @@ mongoc_topology_scanner_node_setup_tcp (mongoc_topology_scanner_node_t *node,
    }
 
    if (node->successful_dns_result) {
-      _begin_ismaster_cmd (node, NULL, false, node->successful_dns_result, 0);
+      _begin_hello_cmd (node, NULL, false, node->successful_dns_result, 0);
    } else {
       LL_FOREACH2 (node->dns_results, iter, ai_next)
       {
-         _begin_ismaster_cmd (node, NULL, false, iter, delay);
+         _begin_hello_cmd (node, NULL, false, iter, delay);
          /* each subsequent DNS result will have an additional 250ms delay. */
          delay += HAPPY_EYEBALLS_DELAY_MS;
       }
@@ -763,13 +958,17 @@ mongoc_topology_scanner_node_connect_unix (mongoc_topology_scanner_node_t *node,
    stream = _mongoc_topology_scanner_node_setup_stream_for_tls (
       node, mongoc_stream_socket_new (sock));
    if (stream) {
-      _begin_ismaster_cmd (node,
-                           stream,
-                           false /* is_setup_done */,
-                           NULL /* dns result */,
-                           0 /* delay */);
+      _begin_hello_cmd (node,
+                        stream,
+                        false /* is_setup_done */,
+                        NULL /* dns result */,
+                        0 /* delay */);
       RETURN (true);
    }
+   bson_set_error (error,
+                   MONGOC_ERROR_STREAM,
+                   MONGOC_ERROR_STREAM_CONNECT,
+                   "Failed to create TLS stream");
    RETURN (false);
 #endif
 }
@@ -801,8 +1000,7 @@ mongoc_topology_scanner_node_setup (mongoc_topology_scanner_node_t *node,
 
    /* if there is already a working stream, push it back to be re-scanned. */
    if (node->stream) {
-      _begin_ismaster_cmd (
-         node, node->stream, true /* is_setup_done */, NULL, 0);
+      _begin_hello_cmd (node, node->stream, true /* is_setup_done */, NULL, 0);
       node->stream = NULL;
       return;
    }
@@ -814,7 +1012,7 @@ mongoc_topology_scanner_node_setup (mongoc_topology_scanner_node_t *node,
          node->ts->uri, &node->host, node->ts->initiator_context, error);
       if (stream) {
          success = true;
-         _begin_ismaster_cmd (node, stream, false, NULL, 0);
+         _begin_hello_cmd (node, stream, false, NULL, 0);
       }
    } else {
       if (node->host.family == AF_UNIX) {
@@ -836,7 +1034,6 @@ mongoc_topology_scanner_node_setup (mongoc_topology_scanner_node_t *node,
    }
 
    node->has_auth = false;
-   node->timestamp = bson_get_monotonic_time ();
 }
 
 /*
@@ -845,7 +1042,7 @@ mongoc_topology_scanner_node_setup (mongoc_topology_scanner_node_t *node,
  * mongoc_topology_scanner_node_in_cooldown --
  *
  *      Return true if @node has experienced a network error attempting
- *      to call "ismaster" less than 5 seconds before @when, a timestamp in
+ *      to call "hello" less than 5 seconds before @when, a timestamp in
  *      microseconds.
  *
  *      Server Discovery and Monitoring Spec: "After a single-threaded client
@@ -1073,6 +1270,7 @@ _mongoc_topology_scanner_monitor_heartbeat_started (
       mongoc_apm_server_heartbeat_started_t event;
       event.host = host;
       event.context = ts->apm_context;
+      event.awaited = false;
       ts->apm_callbacks.server_heartbeat_started (&event);
    }
 }
@@ -1087,11 +1285,20 @@ _mongoc_topology_scanner_monitor_heartbeat_succeeded (
 {
    if (ts->apm_callbacks.server_heartbeat_succeeded) {
       mongoc_apm_server_heartbeat_succeeded_t event;
+      bson_t hello_redacted;
+
+      bson_init (&hello_redacted);
+      bson_copy_to_excluding_noinit (
+         reply, &hello_redacted, "speculativeAuthenticate", NULL);
+
       event.host = host;
       event.context = ts->apm_context;
       event.reply = reply;
       event.duration_usec = duration_usec;
+      event.awaited = false;
       ts->apm_callbacks.server_heartbeat_succeeded (&event);
+
+      bson_destroy (&hello_redacted);
    }
 }
 
@@ -1109,6 +1316,7 @@ _mongoc_topology_scanner_monitor_heartbeat_failed (
       event.context = ts->apm_context;
       event.error = error;
       event.duration_usec = duration_usec;
+      event.awaited = false;
       ts->apm_callbacks.server_heartbeat_failed (&event);
    }
 }
@@ -1176,4 +1384,27 @@ _jumpstart_other_acmds (mongoc_topology_scanner_node_t *node,
             BSON_MAX (iter->initiate_delay_ms - HAPPY_EYEBALLS_DELAY_MS, 0);
       }
    }
+}
+
+/* Caller must lock topology->mutex to protect handshake_cmd. */
+void
+_mongoc_topology_scanner_set_server_api (mongoc_topology_scanner_t *ts,
+                                         const mongoc_server_api_t *api)
+{
+   BSON_ASSERT (ts);
+   BSON_ASSERT (api);
+
+   mongoc_server_api_destroy (ts->api);
+   ts->api = mongoc_server_api_copy (api);
+   _reset_hello (ts);
+}
+
+/* This must be called before the handshake command is constructed. Caller does
+ * not need to lock the topology->mutex. */
+void
+_mongoc_topology_scanner_set_loadbalanced (mongoc_topology_scanner_t *ts,
+                                           bool val)
+{
+   BSON_ASSERT (bson_empty (&ts->handshake_cmd));
+   ts->loadbalanced = true;
 }

@@ -75,6 +75,10 @@ _mongoc_hex_md5 (const char *input);
 void
 _mongoc_usleep (int64_t usec);
 
+/* Get the current time as a number of milliseconds since the Unix Epoch. */
+int64_t
+_mongoc_get_real_time_ms (void);
+
 const char *
 _mongoc_get_command_name (const bson_t *command);
 
@@ -84,8 +88,9 @@ _mongoc_get_documents_field_name (const char *command_name);
 bool
 _mongoc_lookup_bool (const bson_t *bson, const char *key, bool default_value);
 
-void
-_mongoc_get_db_name (const char *ns, char *db /* OUT */);
+/* Returns a database name that the caller must free. */
+char *
+_mongoc_get_db_name (const char *ns);
 
 void
 _mongoc_bson_init_if_set (bson_t *bson);
@@ -133,6 +138,24 @@ _mongoc_bson_init_with_transient_txn_error (const mongoc_client_session_t *cs,
 
 bool
 _mongoc_document_is_pipeline (const bson_t *document);
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_getenv --
+ *
+ *       Get the value of an environment variable.
+ *
+ * Returns:
+ *       A string you must bson_free, or NULL if the variable is not set.
+ *
+ * Side effects:
+ *       None.
+ *
+ *--------------------------------------------------------------------------
+ */
+char *
+_mongoc_getenv (const char *name);
 
 BSON_END_DECLS
 

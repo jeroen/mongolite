@@ -1,23 +1,19 @@
-RWINLIB=../windows/openssl-1.1.1k
 PKG_CPPFLAGS = \
-	-I$(RWINLIB)/include \
 	-I. -Icommon \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
+	-DMONGOC_ENABLE_SSL_SECURE_CHANNEL -DMONGOC_ENABLE_CRYPTO_CNG \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
 
-PKG_CFLAGS = \
-	-Wno-deprecated-declarations
-
 PKG_LIBS = \
-	-L. -L$(RWINLIB)/lib${R_ARCH}${CRT} \
-	-Lmongoc -lstatmongoc -lssl -lcrypto \
-	-lcrypto -lgdi32 -lcrypt32 -lws2_32 -lsecur32 -ldnsapi -lz
+	-L. -Lmongoc -lstatmongoc \
+	-lbcrypt -lgdi32 -lcrypt32 -lws2_32 -lsecur32 -ldnsapi -lz
 
 LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
 	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
 	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
-	bson/bson-value.o  bson/bson.o bson/bson-decimal128.o jsonsl/jsonsl.o
+	bson/bson-value.o  bson/bson.o bson/bson-decimal128.o bson/bson-atomic.o \
+	jsonsl/jsonsl.o
 
 LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
@@ -26,7 +22,7 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
 	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
 	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
-	mongoc/mongoc-rand-openssl.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
+	mongoc/mongoc-rand-cng.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
 	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
 	mongoc/mongoc-stream-buffered.o	mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
 	mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
@@ -35,9 +31,9 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-set.o mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
 	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o \
 	mongoc/mongoc-memcmp.o mongoc/mongoc-server-stream.o mongoc/mongoc-find-and-modify.o \
-	mongoc/mongoc-read-concern.o mongoc/mongoc-openssl.o mongoc/mongoc-apm.o \
-	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-openssl.o mongoc/mongoc-handshake.o \
-	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o \
+	mongoc/mongoc-read-concern.o mongoc/mongoc-secure-channel.o mongoc/mongoc-apm.o \
+	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-common-crypto.o mongoc/mongoc-crypto-cng.o mongoc/mongoc-handshake.o \
+	mongoc/mongoc-stream-tls-secure-channel.o \
 	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o mongoc/mongoc-stream-file.o \
 	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o \
 	mongoc/mongoc-compression.o mongoc/mongoc-write-command-legacy.o \
@@ -46,7 +42,10 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cursor-cmd.o mongoc/mongoc-cursor-cmd-deprecated.o \
 	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
 	mongoc/mongoc-cursor-legacy.o mongoc/mongoc-error.o mongoc/mongoc-aggregate.o \
-	mongoc/mongoc-client-side-encryption.o mongoc/mongoc-cursor-change-stream.o mongoc/mongoc-change-stream.o
+	mongoc/mongoc-client-side-encryption.o mongoc/mongoc-cursor-change-stream.o mongoc/mongoc-change-stream.o \
+	mongoc/mongoc-cluster-aws.o mongoc/mongoc-generation-map.o mongoc/mongoc-timeout.o \
+	mongoc/mongoc-server-monitor.o mongoc/mongoc-topology-background-monitoring.o common/common-thread.o \
+	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-ocsp-cache.o
 
 STATLIB = mongoc/libstatmongoc.a
 
@@ -58,8 +57,6 @@ all: $(SHLIB)
 
 $(SHLIB): $(STATLIB)
 
-$(OBJECTS): winlibs
-
 $(STATLIB): $(LIBBSON) $(LIBMONGOC)
 
 winlibs:
@@ -68,4 +65,4 @@ winlibs:
 clean:
 	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)
 
-.PHONY: all clean winlibs
+.PHONY: all clean

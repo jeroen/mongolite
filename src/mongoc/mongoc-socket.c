@@ -100,14 +100,14 @@ _mongoc_socket_setflags (int sd)
 #else
    int flags;
 
-   flags = fcntl (sd, F_GETFL, sd);
+   flags = fcntl (sd, F_GETFL);
 
    if (-1 == fcntl (sd, F_SETFL, (flags | O_NONBLOCK))) {
       return false;
    }
 
 #ifdef FD_CLOEXEC
-   flags = fcntl (sd, F_GETFD, sd);
+   flags = fcntl (sd, F_GETFD);
    if (-1 == fcntl (sd, F_SETFD, (flags | FD_CLOEXEC))) {
       return false;
    }
@@ -359,7 +359,7 @@ mongoc_socket_poll (mongoc_socket_poll_t *sds, /* IN */
 
 /* https://jira.mongodb.org/browse/CDRIVER-2176 */
 #define MONGODB_KEEPALIVEINTVL 10
-#define MONGODB_KEEPIDLE 300
+#define MONGODB_KEEPIDLE 120
 #define MONGODB_KEEPALIVECNT 9
 
 #ifdef _WIN32
@@ -993,6 +993,9 @@ mongoc_socket_new (int domain,   /* IN */
 #else
    int sd;
 #endif
+#ifdef SO_NOSIGPIPE
+   int on = 1;
+#endif
 
    ENTRY;
 
@@ -1016,6 +1019,12 @@ mongoc_socket_new (int domain,   /* IN */
       }
       _mongoc_socket_setkeepalive (sd);
    }
+
+   /* Set SO_NOSIGPIPE, to ignore SIGPIPE on writes for platforms where
+      setting MSG_NOSIGNAL on writes is not supported (primarily OSX). */
+#ifdef SO_NOSIGPIPE
+   setsockopt(sd, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+#endif
 
    sock = (mongoc_socket_t *) bson_malloc0 (sizeof *sock);
    sock->sd = sd;
