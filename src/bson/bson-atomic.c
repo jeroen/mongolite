@@ -83,13 +83,13 @@ bson_atomic_int64_add (volatile int64_t *p, int64_t n)
 int32_t
 bson_atomic_int_add (volatile int32_t *p, int32_t n)
 {
-   return InterlockedExchangeAdd (p, n) + n;
+   return InterlockedExchangeAdd ((long *) p, n) + n;
 }
 
 
 int64_t
 bson_atomic_int64_add (volatile int64_t *p, int64_t n)
 {
-   return InterlockedExchangeAdd (p, n) + n;
+   return InterlockedExchangeAdd ((long *) p, n) + n;
 }
 #endif
