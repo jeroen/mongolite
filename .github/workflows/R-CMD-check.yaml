@@ -43,6 +43,12 @@ jobs:
           extra-packages: rcmdcheck
 
       - uses: r-lib/actions/check-r-package@v1
+        if: runner.os != 'macos'
+
+      - uses: r-lib/actions/check-r-package@v1
+        if: runner.os == 'macos'
+        with:
+          args: '"--no-manual"'
 
       - name: Show testthat output
         if: always()
