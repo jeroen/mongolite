@@ -3,9 +3,6 @@ PKG_CPPFLAGS = \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
 
-PKG_CFLAGS = \
-	-Wno-deprecated-declarations
-
 PKG_LIBS = \
 	-L. -Lmongoc -lstatmongoc \
 	-lbcrypt -lgdi32 -lcrypt32 -lws2_32 -lsecur32 -ldnsapi -lz
