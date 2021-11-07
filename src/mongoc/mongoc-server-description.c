@@ -31,6 +31,10 @@
 
 static bson_oid_t kObjectIdZero = {{0}};
 
+const bson_oid_t kZeroServiceId = {{0}};
+
+bool mongoc_global_mock_service_id = false;
+
 static bool
 _match_tag_set (const mongoc_server_description_t *sd,
                 bson_iter_t *tag_set_iter);
@@ -41,16 +45,18 @@ mongoc_server_description_cleanup (mongoc_server_description_t *sd)
 {
    BSON_ASSERT (sd);
 
-   bson_destroy (&sd->last_is_master);
+   bson_destroy (&sd->last_hello_response);
    bson_destroy (&sd->hosts);
    bson_destroy (&sd->passives);
    bson_destroy (&sd->arbiters);
    bson_destroy (&sd->tags);
    bson_destroy (&sd->compressors);
+   bson_destroy (&sd->topology_version);
+   mongoc_generation_map_destroy (sd->generation_map);
 }
 
-/* Reset fields inside this sd, but keep same id, host information, and RTT,
-   and leave ismaster in empty inited state */
+/* Reset fields inside this sd, but keep same id, host information, RTT,
+   generation, topology version, and leave hello in empty inited state */
 void
 mongoc_server_description_reset (mongoc_server_description_t *sd)
 {
@@ -67,11 +73,12 @@ mongoc_server_description_reset (mongoc_server_description_t *sd)
    sd->max_write_batch_size = MONGOC_DEFAULT_WRITE_BATCH_SIZE;
    sd->session_timeout_minutes = MONGOC_NO_SESSIONS;
    sd->last_write_date_ms = -1;
+   sd->hello_ok = false;
 
-   /* always leave last ismaster in an init-ed state until we destroy sd */
-   bson_destroy (&sd->last_is_master);
-   bson_init (&sd->last_is_master);
-   sd->has_is_master = false;
+   /* always leave last hello in an init-ed state until we destroy sd */
+   bson_destroy (&sd->last_hello_response);
+   bson_init (&sd->last_hello_response);
+   sd->has_hello_response = false;
    sd->last_update_time_usec = bson_get_monotonic_time ();
 
    bson_destroy (&sd->hosts);
@@ -90,6 +97,7 @@ mongoc_server_description_reset (mongoc_server_description_t *sd)
    sd->current_primary = NULL;
    sd->set_version = MONGOC_NO_SET_VERSION;
    bson_oid_copy_unsafe (&kObjectIdZero, &sd->election_id);
+   bson_oid_copy_unsafe (&kObjectIdZero, &sd->service_id);
 }
 
 /*
@@ -119,7 +127,10 @@ mongoc_server_description_init (mongoc_server_description_t *sd,
 
    sd->id = id;
    sd->type = MONGOC_SERVER_UNKNOWN;
-   sd->round_trip_time_msec = -1;
+   sd->round_trip_time_msec = MONGOC_RTT_UNSET;
+   sd->generation = 0;
+   sd->opened = 0;
+   sd->generation_map = mongoc_generation_map_new ();
 
    if (!_mongoc_host_list_from_string (&sd->host, address)) {
       MONGOC_WARNING ("Failed to parse uri for %s", address);
@@ -127,12 +138,13 @@ mongoc_server_description_init (mongoc_server_description_t *sd,
    }
 
    sd->connection_address = sd->host.host_and_port;
-   bson_init (&sd->last_is_master);
+   bson_init (&sd->last_hello_response);
    bson_init (&sd->hosts);
    bson_init (&sd->passives);
    bson_init (&sd->arbiters);
    bson_init (&sd->tags);
    bson_init (&sd->compressors);
+   bson_init (&sd->topology_version);
 
    mongoc_server_description_reset (sd);
 
@@ -220,7 +232,7 @@ mongoc_server_description_has_rs_member (mongoc_server_description_t *server,
  *
  * mongoc_server_description_has_set_version --
  *
- *      Did this server's ismaster response have a "setVersion" field?
+ *      Did this server's hello response have a "setVersion" field?
  *
  * Returns:
  *      True if the server description's setVersion is set.
@@ -240,7 +252,7 @@ mongoc_server_description_has_set_version (
  *
  * mongoc_server_description_has_election_id --
  *
- *      Did this server's ismaster response have an "electionId" field?
+ *      Did this server's hello response have an "electionId" field?
  *
  * Returns:
  *      True if the server description's electionId is set.
@@ -307,7 +319,7 @@ mongoc_server_description_last_update_time (
  * mongoc_server_description_round_trip_time --
  *
  *      Get the round trip time of this server, which is the client's
- *      measurement of the duration of an "ismaster" command.
+ *      measurement of the duration of a "hello" command.
  *
  * Returns:
  *      The server's round trip time in milliseconds.
@@ -358,6 +370,8 @@ mongoc_server_description_type (const mongoc_server_description_t *description)
       return "RSOther";
    case MONGOC_SERVER_RS_GHOST:
       return "RSGhost";
+   case MONGOC_SERVER_LOAD_BALANCER:
+      return "LoadBalancer";
    case MONGOC_SERVER_DESCRIPTION_TYPES:
    default:
       MONGOC_ERROR ("Invalid mongoc_server_description_t type");
@@ -368,9 +382,29 @@ mongoc_server_description_type (const mongoc_server_description_t *description)
 /*
  *--------------------------------------------------------------------------
  *
+ * mongoc_server_description_hello_response --
+ *
+ *      Return this server's most recent "hello" command response.
+ *
+ * Returns:
+ *      A reference to a BSON document, owned by the server description.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+const bson_t *
+mongoc_server_description_hello_response (
+   const mongoc_server_description_t *description)
+{
+   return &description->last_hello_response;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
  * mongoc_server_description_ismaster --
  *
- *      Return this server's most recent "ismaster" command response.
+ *      Return this server's most recent "hello" command response.
  *
  * Returns:
  *      A reference to a BSON document, owned by the server description.
@@ -382,7 +416,7 @@ const bson_t *
 mongoc_server_description_ismaster (
    const mongoc_server_description_t *description)
 {
-   return &description->last_is_master;
+   return mongoc_server_description_hello_response (description);
 }
 
 /*
@@ -455,13 +489,18 @@ mongoc_server_description_set_election_id (
  * Side effects:
  *       None.
  *
+ * If rtt_msec is MONGOC_RTT_UNSET, the value is not updated.
+ *
  *-------------------------------------------------------------------------
  */
 void
 mongoc_server_description_update_rtt (mongoc_server_description_t *server,
                                       int64_t rtt_msec)
 {
-   if (server->round_trip_time_msec == -1) {
+   if (rtt_msec == MONGOC_RTT_UNSET) {
+      return;
+   }
+   if (server->round_trip_time_msec == MONGOC_RTT_UNSET) {
       server->round_trip_time_msec = rtt_msec;
    } else {
       server->round_trip_time_msec = (int64_t) (
@@ -480,35 +519,35 @@ _mongoc_server_description_set_error (mongoc_server_description_t *sd,
       bson_set_error (&sd->error,
                       MONGOC_ERROR_STREAM,
                       MONGOC_ERROR_STREAM_CONNECT,
-                      "unknown error calling ismaster");
+                      "unknown error calling hello");
    }
 
    /* Server Discovery and Monitoring Spec: if the server type changes from a
     * known type to Unknown its RTT is set to null. */
-   sd->round_trip_time_msec = -1;
+   sd->round_trip_time_msec = MONGOC_RTT_UNSET;
 }
 
 
 /*
  *-------------------------------------------------------------------------
  *
- * Called during SDAM, from topology description's ismaster handler, or
+ * Called during SDAM, from topology description's hello handler, or
  * when handshaking a connection in _mongoc_cluster_stream_for_server.
  *
- * If @ismaster_response is empty, @error must say why ismaster failed.
+ * If @hello_response is empty, @error must say why hello failed.
  *
  *-------------------------------------------------------------------------
  */
 
 void
-mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
-                                           const bson_t *ismaster_response,
-                                           int64_t rtt_msec,
-                                           const bson_error_t *error /* IN */)
+mongoc_server_description_handle_hello (mongoc_server_description_t *sd,
+                                        const bson_t *hello_response,
+                                        int64_t rtt_msec,
+                                        const bson_error_t *error /* IN */)
 {
    bson_iter_t iter;
    bson_iter_t child;
-   bool is_master = false;
+   bool is_primary = false;
    bool is_shard = false;
    bool is_secondary = false;
    bool is_arbiter = false;
@@ -522,16 +561,24 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
    BSON_ASSERT (sd);
 
    mongoc_server_description_reset (sd);
-   if (!ismaster_response) {
+   if (!hello_response) {
       _mongoc_server_description_set_error (sd, error);
       EXIT;
    }
 
-   bson_destroy (&sd->last_is_master);
-   bson_copy_to (ismaster_response, &sd->last_is_master);
-   sd->has_is_master = true;
+   bson_destroy (&sd->last_hello_response);
+   bson_init (&sd->last_hello_response);
+   bson_copy_to_excluding_noinit (hello_response,
+                                  &sd->last_hello_response,
+                                  "speculativeAuthenticate",
+                                  NULL);
+   sd->has_hello_response = true;
 
-   BSON_ASSERT (bson_iter_init (&iter, &sd->last_is_master));
+   /* Only reinitialize the topology version if we have a hello response.
+    * Resetting a server description should not effect the topology version. */
+   bson_reinit (&sd->topology_version);
+
+   BSON_ASSERT (bson_iter_init (&iter, &sd->last_hello_response));
 
    while (bson_iter_next (&iter)) {
       num_keys++;
@@ -540,18 +587,27 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
             /* it doesn't really matter what error API we use. the code and
              * domain will be overwritten. */
             (void) _mongoc_cmd_check_ok (
-               ismaster_response, MONGOC_ERROR_API_VERSION_2, &sd->error);
-            /* ismaster response returned ok: 0. According to auth spec: "If the
-             * isMaster of the MongoDB Handshake fails with an error, drivers
+               hello_response, MONGOC_ERROR_API_VERSION_2, &sd->error);
+            /* TODO CDRIVER-3696: this is an existing bug. If this is handling
+             * a hello reply that is NOT from a handshake, this should not
+             * be considered an auth error. */
+            /* hello response returned ok: 0. According to auth spec: "If the
+             * hello of the MongoDB Handshake fails with an error, drivers
              * MUST treat this an authentication error." */
             sd->error.domain = MONGOC_ERROR_CLIENT;
             sd->error.code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
             goto failure;
          }
-      } else if (strcmp ("ismaster", bson_iter_key (&iter)) == 0) {
+      } else if (strcmp ("isWritablePrimary", bson_iter_key (&iter)) == 0 ||
+                 strcmp (HANDSHAKE_RESPONSE_LEGACY_HELLO,
+                         bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_BOOL (&iter))
             goto failure;
-         is_master = bson_iter_bool (&iter);
+         is_primary = bson_iter_bool (&iter);
+      } else if (strcmp ("helloOk", bson_iter_key (&iter)) == 0) {
+         if (!BSON_ITER_HOLDS_BOOL (&iter))
+            goto failure;
+         sd->hello_ok = bson_iter_bool (&iter);
       } else if (strcmp ("me", bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_UTF8 (&iter))
             goto failure;
@@ -587,9 +643,13 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
             goto failure;
          sd->max_wire_version = bson_iter_int32 (&iter);
       } else if (strcmp ("msg", bson_iter_key (&iter)) == 0) {
+         const char *msg;
          if (!BSON_ITER_HOLDS_UTF8 (&iter))
             goto failure;
-         is_shard = !!bson_iter_utf8 (&iter, NULL);
+         msg = bson_iter_utf8 (&iter, NULL);
+         if (msg && 0 == strcmp (msg, "isdbgrid")) {
+            is_shard = true;
+         }
       } else if (strcmp ("setName", bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_UTF8 (&iter))
             goto failure;
@@ -652,14 +712,38 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
          }
 
          sd->last_write_date_ms = bson_iter_date_time (&child);
-      } else if (strcmp ("idleWritePeriodMillis", bson_iter_key (&iter)) == 0) {
-         sd->last_write_date_ms = bson_iter_as_int64 (&iter);
       } else if (strcmp ("compression", bson_iter_key (&iter)) == 0) {
          if (!BSON_ITER_HOLDS_ARRAY (&iter))
             goto failure;
          bson_iter_array (&iter, &len, &bytes);
          bson_destroy (&sd->compressors);
          BSON_ASSERT (bson_init_static (&sd->compressors, bytes, len));
+      } else if (strcmp ("topologyVersion", bson_iter_key (&iter)) == 0) {
+         bson_t incoming_topology_version;
+
+         if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+            goto failure;
+         }
+
+         bson_iter_document (&iter, &len, &bytes);
+         bson_init_static (&incoming_topology_version, bytes, len);
+         mongoc_server_description_set_topology_version (
+            sd, &incoming_topology_version);
+         bson_destroy (&incoming_topology_version);
+      } else if (strcmp ("serviceId", bson_iter_key (&iter)) == 0) {
+          if (!BSON_ITER_HOLDS_OID (&iter))
+            goto failure;
+         bson_oid_copy_unsafe (bson_iter_oid (&iter), &sd->service_id);
+      }
+   }
+
+
+   if (mongoc_global_mock_service_id) {
+      bson_iter_t pid_iter;
+
+      if (bson_iter_init_find (&pid_iter, &sd->topology_version, "processId") &&
+          BSON_ITER_HOLDS_OID (&pid_iter)) {
+         bson_oid_copy (bson_iter_oid (&pid_iter), &sd->service_id);
       }
    }
 
@@ -668,7 +752,7 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
    } else if (sd->set_name) {
       if (is_hidden) {
          sd->type = MONGOC_SERVER_RS_OTHER;
-      } else if (is_master) {
+      } else if (is_primary) {
          sd->type = MONGOC_SERVER_RS_PRIMARY;
       } else if (is_secondary) {
          sd->type = MONGOC_SERVER_RS_SECONDARY;
@@ -686,7 +770,7 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
    }
 
    if (!num_keys) {
-      /* empty reply means ismaster failed */
+      /* empty reply means hello failed */
       _mongoc_server_description_set_error (sd, error);
    }
 
@@ -696,7 +780,7 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
 
 failure:
    sd->type = MONGOC_SERVER_UNKNOWN;
-   sd->round_trip_time_msec = -1;
+   sd->round_trip_time_msec = MONGOC_RTT_UNSET;
 
    EXIT;
 }
@@ -725,29 +809,37 @@ mongoc_server_description_new_copy (
    copy->id = description->id;
    copy->opened = description->opened;
    memcpy (&copy->host, &description->host, sizeof (copy->host));
-   copy->round_trip_time_msec = -1;
+   copy->round_trip_time_msec = MONGOC_RTT_UNSET;
 
    copy->connection_address = copy->host.host_and_port;
-   bson_init (&copy->last_is_master);
+   bson_init (&copy->last_hello_response);
    bson_init (&copy->hosts);
    bson_init (&copy->passives);
    bson_init (&copy->arbiters);
    bson_init (&copy->tags);
    bson_init (&copy->compressors);
+   bson_copy_to (&description->topology_version, &copy->topology_version);
+   bson_oid_copy (&description->service_id, &copy->service_id);
 
-   if (description->has_is_master) {
+   if (description->has_hello_response) {
       /* calls mongoc_server_description_reset */
-      mongoc_server_description_handle_ismaster (
-         copy,
-         &description->last_is_master,
-         description->round_trip_time_msec,
-         &description->error);
+      mongoc_server_description_handle_hello (copy,
+                                              &description->last_hello_response,
+                                              description->round_trip_time_msec,
+                                              &description->error);
    } else {
       mongoc_server_description_reset (copy);
+      /* preserve the original server description type, which is manually set
+       * for a LoadBalancer server */
+      copy->type = description->type;
    }
 
    /* Preserve the error */
    memcpy (&copy->error, &description->error, sizeof copy->error);
+
+   copy->generation = description->generation;
+   copy->generation_map =
+      mongoc_generation_map_copy (description->generation_map);
    return copy;
 }
 
@@ -1004,4 +1096,178 @@ mongoc_server_description_compressor_id (
    }
 
    return -1;
+}
+
+/* Returns true if either or both is NULL. out is 1 if exactly one NULL, 0 if
+ * both NULL */
+typedef int (*strcmp_fn) (const char *, const char *);
+
+static int
+_nullable_cmp (const char *a, const char *b, strcmp_fn cmp_fn)
+{
+   if (!a && b) {
+      return 1;
+   }
+
+   if (a && !b) {
+      return 1;
+   }
+
+   if (!a && !b) {
+      return 0;
+   }
+
+   /* Both not NULL. */
+   return cmp_fn (a, b);
+}
+static int
+_nullable_strcasecmp (const char *a, const char *b)
+{
+   return _nullable_cmp (a, b, strcasecmp);
+}
+
+static int
+_nullable_strcmp (const char *a, const char *b)
+{
+   return _nullable_cmp (a, b, strcmp);
+}
+
+bool
+_mongoc_server_description_equal (mongoc_server_description_t *sd1,
+                                  mongoc_server_description_t *sd2)
+{
+   if (sd1->type != sd2->type) {
+      return false;
+   }
+
+   if (sd1->min_wire_version != sd2->min_wire_version) {
+      return false;
+   }
+
+   if (sd1->max_wire_version != sd2->max_wire_version) {
+      return false;
+   }
+
+   if (0 != _nullable_strcasecmp (sd1->me, sd2->me)) {
+      return false;
+   }
+
+   /* CDRIVER-3527: The hosts/passives/arbiters checks should really be a set
+    * comparison of case insensitive hostnames. */
+   if (!bson_equal (&sd1->hosts, &sd2->hosts)) {
+      return false;
+   }
+
+   if (!bson_equal (&sd1->passives, &sd2->passives)) {
+      return false;
+   }
+
+   if (!bson_equal (&sd1->arbiters, &sd2->arbiters)) {
+      return false;
+   }
+
+   if (!bson_equal (&sd1->tags, &sd2->tags)) {
+      return false;
+   }
+
+   if (0 != _nullable_strcmp (sd1->set_name, sd2->set_name)) {
+      return false;
+   }
+
+   if (sd1->set_version != sd2->set_version) {
+      return false;
+   }
+
+   if (!bson_oid_equal (&sd1->election_id, &sd2->election_id)) {
+      return false;
+   }
+
+   if (0 != _nullable_strcasecmp (sd1->current_primary, sd2->current_primary)) {
+      return false;
+   }
+
+   if (sd1->session_timeout_minutes != sd2->session_timeout_minutes) {
+      return false;
+   }
+
+   if (0 != memcmp (&sd1->error, &sd2->error, sizeof (bson_error_t))) {
+      return false;
+   }
+
+   if (!bson_equal (&sd1->topology_version, &sd2->topology_version)) {
+      return false;
+   }
+
+   return true;
+}
+
+int
+mongoc_server_description_topology_version_cmp (const bson_t *tv1,
+                                                const bson_t *tv2)
+{
+   const bson_oid_t *pid1;
+   const bson_oid_t *pid2;
+   int64_t counter1;
+   int64_t counter2;
+   bson_iter_t iter;
+
+   BSON_ASSERT (tv1);
+   BSON_ASSERT (tv2);
+
+   if (bson_empty (tv1) || bson_empty (tv2)) {
+      return -1;
+   }
+
+   if (!bson_iter_init_find (&iter, tv1, "processId") ||
+       !BSON_ITER_HOLDS_OID (&iter)) {
+      return -1;
+   }
+   pid1 = bson_iter_oid (&iter);
+
+   if (!bson_iter_init_find (&iter, tv2, "processId") ||
+       !BSON_ITER_HOLDS_OID (&iter)) {
+      return -1;
+   }
+   pid2 = bson_iter_oid (&iter);
+
+   if (0 != bson_oid_compare (pid1, pid2)) {
+      /* Assume greater. */
+      return -1;
+   }
+
+   if (!bson_iter_init_find (&iter, tv1, "counter") ||
+       !BSON_ITER_HOLDS_INT (&iter)) {
+      return -1;
+   }
+   counter1 = bson_iter_as_int64 (&iter);
+
+   if (!bson_iter_init_find (&iter, tv2, "counter") ||
+       !BSON_ITER_HOLDS_INT (&iter)) {
+      return -1;
+   }
+   counter2 = bson_iter_as_int64 (&iter);
+
+   if (counter1 < counter2) {
+      return -1;
+   } else if (counter1 > counter2) {
+      return 1;
+   }
+   return 0;
+}
+
+void
+mongoc_server_description_set_topology_version (mongoc_server_description_t *sd,
+                                                const bson_t *tv)
+{
+   BSON_ASSERT (tv);
+   bson_destroy (&sd->topology_version);
+   bson_copy_to (tv, &sd->topology_version);
+}
+
+bool
+mongoc_server_description_has_service_id (const mongoc_server_description_t *description) {
+   if (0 == bson_oid_compare (&description->service_id, &kZeroServiceId)) {
+      return false;
+   }
+   return true;
 }

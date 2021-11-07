@@ -40,14 +40,42 @@
 typedef enum {
    MONGOC_TOPOLOGY_SCANNER_OFF,
    MONGOC_TOPOLOGY_SCANNER_BG_RUNNING,
-   MONGOC_TOPOLOGY_SCANNER_SHUTTING_DOWN,
-   MONGOC_TOPOLOGY_SCANNER_SINGLE_THREADED,
+   MONGOC_TOPOLOGY_SCANNER_SHUTTING_DOWN
 } mongoc_topology_scanner_state_t;
 
+struct _mongoc_background_monitor_t;
 struct _mongoc_client_pool_t;
+
+typedef enum { MONGOC_RR_SRV, MONGOC_RR_TXT } mongoc_rr_type_t;
+
+typedef struct _mongoc_rr_data_t {
+   /* Number of records returned by DNS. */
+   uint32_t count;
+
+   /* Set to lowest TTL found when polling SRV records. */
+   uint32_t min_ttl;
+
+   /* Set to the resulting host list when polling SRV records */
+   mongoc_host_list_t *hosts;
+
+   /* Set to the TXT record when polling for TXT */
+   char *txt_record_opts;
+} mongoc_rr_data_t;
+
+typedef bool (*_mongoc_rr_resolver_fn) (const char *service,
+                                        mongoc_rr_type_t rr_type,
+                                        mongoc_rr_data_t *rr_data,
+                                        size_t initial_buffer_size,
+                                        bson_error_t *error);
 
 typedef struct _mongoc_topology_t {
    mongoc_topology_description_t description;
+   /* topology->uri is initialized as a copy of the client/pool's URI.
+    * For a "mongodb+srv://" URI, topology->uri is then updated in
+    * mongoc_topology_new() after initial seedlist discovery.
+    * Afterwards, it remains read-only and may be read outside of the topology
+    * mutex.
+    */
    mongoc_uri_t *uri;
    mongoc_topology_scanner_t *scanner;
    bool server_selection_try_once;
@@ -61,16 +89,16 @@ typedef struct _mongoc_topology_t {
 
    /* Minimum of SRV record TTLs, but no lower than 60 seconds.
     * May be zero for non-SRV/non-MongoS topology. */
-   int64_t rescanSRVIntervalMS;
-   int64_t last_srv_scan;
+   int64_t srv_polling_rescan_interval_ms;
+   int64_t srv_polling_last_scan_ms;
+   /* For multi-threaded, srv polling occurs in a separate thread. */
+   bson_thread_t srv_polling_thread;
+   mongoc_cond_t srv_polling_cond;
 
    bson_mutex_t mutex;
    mongoc_cond_t cond_client;
-   mongoc_cond_t cond_server;
-   bson_thread_t thread;
-
    mongoc_topology_scanner_state_t scanner_state;
-   bool scan_requested;
+
    bool single_threaded;
    bool stale;
 
@@ -78,6 +106,7 @@ typedef struct _mongoc_topology_t {
 
    /* Is client side encryption enabled? */
    bool cse_enabled;
+   bool is_srv_polling;
 
 #ifdef MONGOC_ENABLE_CLIENT_SIDE_ENCRYPTION
    _mongoc_crypt_t *crypt;
@@ -92,6 +121,19 @@ typedef struct _mongoc_topology_t {
    char *mongocryptd_spawn_path;
    bson_t *mongocryptd_spawn_args;
 #endif
+
+   /* For background monitoring. */
+   mongoc_set_t *server_monitors;
+   mongoc_set_t *rtt_monitors;
+   bson_mutex_t apm_mutex;
+
+   /* This is overridable for SRV polling tests to mock DNS records. */
+   _mongoc_rr_resolver_fn rr_resolver;
+
+   /* valid is false when mongoc_topology_new failed to construct a valid topology.
+    * This could occur if the URI is invalid.
+    * An invalid topology does not monitor servers. */
+   bool valid;
 } mongoc_topology_t;
 
 mongoc_topology_t *
@@ -135,6 +177,12 @@ _mongoc_topology_host_by_id (mongoc_topology_t *topology,
                              uint32_t id,
                              bson_error_t *error);
 
+/* TODO: Try to remove this function when CDRIVER-3654 is complete.
+ * It is only called when an application thread needs to mark a server Unknown.
+ * But an application error is also tied to other behavior, and should also
+ * consider the connection generation. This logic is captured in
+ * _mongoc_topology_handle_app_error. This should not be called directly
+ */
 void
 mongoc_topology_invalidate_server (mongoc_topology_t *topology,
                                    uint32_t id,
@@ -153,12 +201,6 @@ mongoc_topology_server_timestamp (mongoc_topology_t *topology, uint32_t id);
 
 mongoc_topology_description_type_t
 _mongoc_topology_get_type (mongoc_topology_t *topology);
-
-bool
-_mongoc_topology_start_background_scanner (mongoc_topology_t *topology);
-
-void
-_mongoc_topology_background_thread_stop (mongoc_topology_t *topology);
 
 bool
 _mongoc_topology_set_appname (mongoc_topology_t *topology, const char *appname);
@@ -185,10 +227,74 @@ void
 _mongoc_topology_do_blocking_scan (mongoc_topology_t *topology,
                                    bson_error_t *error);
 const bson_t *
-_mongoc_topology_get_ismaster (mongoc_topology_t *topology);
+_mongoc_topology_get_handshake_cmd (mongoc_topology_t *topology);
 void
 _mongoc_topology_request_scan (mongoc_topology_t *topology);
 
 void
 _mongoc_topology_bypass_cooldown (mongoc_topology_t *topology);
+
+typedef enum {
+   MONGOC_SDAM_APP_ERROR_COMMAND,
+   MONGOC_SDAM_APP_ERROR_NETWORK,
+   MONGOC_SDAM_APP_ERROR_TIMEOUT
+} _mongoc_sdam_app_error_type_t;
+
+bool
+_mongoc_topology_handle_app_error (mongoc_topology_t *topology,
+                                   uint32_t server_id,
+                                   bool handshake_complete,
+                                   _mongoc_sdam_app_error_type_t type,
+                                   const bson_t *reply,
+                                   const bson_error_t *why,
+                                   uint32_t max_wire_version,
+                                   uint32_t generation,
+                                   const bson_oid_t *service_id);
+
+/* Invalidate open connections to a server.
+ * This is not applicable to single-threaded clients, which only have one
+ * or zero connections to any single server.
+ * service_id is only applicable to load balanced deployments.
+ * Pass kZeroServiceID as service_id to clear connections that have no
+ * associated service ID. */
+void
+_mongoc_topology_clear_connection_pool (mongoc_topology_t *topology,
+                                        uint32_t server_id,
+                                        const bson_oid_t* service_id);
+
+void
+mongoc_topology_rescan_srv (mongoc_topology_t *topology);
+
+bool
+mongoc_topology_should_rescan_srv (mongoc_topology_t *topology);
+
+/* _mongoc_topology_set_rr_resolver is called by tests to mock DNS responses for
+ * SRV polling.
+ * This is necessarily called after initial seedlist discovery completes in
+ * mongoc_topology_new.
+ * Callers should call this before monitoring starts.
+ * Callers must lock topology->mutex.
+ */
+void
+_mongoc_topology_set_rr_resolver (mongoc_topology_t *topology,
+                                  _mongoc_rr_resolver_fn rr_resolver);
+
+/* _mongoc_topology_set_srv_polling_rescan_interval_ms is called by tests to
+ * shorten the rescan interval.
+ * Callers should call this before monitoring starts.
+ * Callers must lock topology->mutex.
+ */
+void
+_mongoc_topology_set_srv_polling_rescan_interval_ms (
+   mongoc_topology_t *topology, int64_t val);
+
+/* Return the latest connection generation for the server_id and/or service_id.
+ * Use this generation for newly established connections.
+ * Pass kZeroServiceID connections do not have an associated service ID.
+ * Callers must lock topology->mutex if topology is pooled. */
+uint32_t
+_mongoc_topology_get_connection_pool_generation (mongoc_topology_t *topology,
+                                                 uint32_t server_id,
+                                                 const bson_oid_t *service_id);
+
 #endif

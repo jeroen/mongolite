@@ -32,6 +32,7 @@ typedef enum {
    MONGOC_TOPOLOGY_RS_NO_PRIMARY,
    MONGOC_TOPOLOGY_RS_WITH_PRIMARY,
    MONGOC_TOPOLOGY_SINGLE,
+   MONGOC_TOPOLOGY_LOAD_BALANCED,
    MONGOC_TOPOLOGY_DESCRIPTION_TYPES
 } mongoc_topology_description_type_t;
 
@@ -76,10 +77,10 @@ mongoc_topology_description_destroy (
    mongoc_topology_description_t *description);
 
 void
-mongoc_topology_description_handle_ismaster (
+mongoc_topology_description_handle_hello (
    mongoc_topology_description_t *topology,
    uint32_t server_id,
-   const bson_t *reply,
+   const bson_t *hello_response,
    int64_t rtt_msec,
    const bson_error_t *error /* IN */);
 
@@ -134,5 +135,9 @@ mongoc_topology_description_add_server (mongoc_topology_description_t *topology,
 void
 mongoc_topology_description_update_cluster_time (
    mongoc_topology_description_t *td, const bson_t *reply);
+
+void
+mongoc_topology_description_reconcile (mongoc_topology_description_t *td,
+                                       mongoc_host_list_t *host_list);
 
 #endif /* MONGOC_TOPOLOGY_DESCRIPTION_PRIVATE_H */

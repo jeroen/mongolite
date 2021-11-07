@@ -194,6 +194,10 @@ _mongoc_handshake_get_config_hex_string (void)
    _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_CLIENT_SIDE_ENCRYPTION);
 #endif
 
+#ifdef MONGOC_ENABLE_MONGODB_AWS_AUTH
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_MONGODB_AWS_AUTH);
+#endif
+
    str = bson_string_new ("0x");
    for (i = 0; i < byte_count; i++) {
       bson_string_append_printf (str, "%02x", bf[i]);
@@ -469,13 +473,13 @@ _append_platform_field (bson_t *doc, const char *platform)
                             1 +
 
                             /* key size */
-                            (int) strlen (HANDSHAKE_PLATFORM_FIELD) +
-                            1 +
+                            (int) strlen (HANDSHAKE_PLATFORM_FIELD) + 1 +
 
                             /* 4 bytes for length of string */
                             4);
 
    if (max_platform_str_size <= 0) {
+      bson_string_free (combined_platform, true);
       return;
    }
 
@@ -507,7 +511,7 @@ _append_platform_field (bson_t *doc, const char *platform)
 /*
  * Return true if we build the document, and it's not too big
  * false if there's no way to prevent the doc from being too big. In this
- * case, the caller shouldn't include it with isMaster
+ * case, the caller shouldn't include it with hello
  */
 bool
 _mongoc_handshake_build_doc_with_application (bson_t *doc, const char *appname)
@@ -568,7 +572,6 @@ _mongoc_handshake_freeze (void)
 /*
  * free (*s) and make *s point to *s concated with suffix.
  * If *s is NULL it's treated like it's an empty string.
- * If suffix is NULL, nothing happens.
  */
 static void
 _append_and_truncate (char **s, const char *suffix, int max_len)
@@ -578,13 +581,10 @@ _append_and_truncate (char **s, const char *suffix, int max_len)
    const int delim_len = (int) strlen (" / ");
    int space_for_suffix;
 
-   BSON_ASSERT (s);
+   BSON_ASSERT_PARAM (s);
+   BSON_ASSERT_PARAM (suffix);
 
    prefix = old_str ? old_str : "";
-
-   if (!suffix) {
-      return;
-   }
 
    space_for_suffix = max_len - (int) strlen (prefix) - delim_len;
 
@@ -602,7 +602,7 @@ _append_and_truncate (char **s, const char *suffix, int max_len)
 
 /*
  * Set some values in our global handshake struct. These values will be sent
- * to the server as part of the initial connection handshake (isMaster).
+ * to the server as part of the initial connection handshake (hello).
  * If this function is called more than once, or after we've connected to a
  * mongod, then it will do nothing and return false. It will return true if it
  * successfully sets the values.
@@ -623,29 +623,37 @@ mongoc_handshake_data_append (const char *driver_name,
       return false;
    }
 
+   BSON_ASSERT (_mongoc_handshake_get ()->platform);
+
    /* allow practically any size for "platform", we'll trim it down in
     * _mongoc_handshake_build_doc_with_application */
    platform_space =
       HANDSHAKE_MAX_SIZE - (int) strlen (_mongoc_handshake_get ()->platform);
 
-   /* we check for an empty string as a special case to avoid an unnecessary
-    * delimiter being added in front of the string by _append_and_truncate */
-   if (strcmp (_mongoc_handshake_get ()->platform, "") == 0) {
-      bson_free (_mongoc_handshake_get ()->platform);
-      _mongoc_handshake_get ()->platform =
-         bson_strdup_printf ("%.*s", platform_space, platform);
-   } else {
-      _append_and_truncate (
-         &_mongoc_handshake_get ()->platform, platform, HANDSHAKE_MAX_SIZE);
+   if (platform) {
+      /* we check for an empty string as a special case to avoid an unnecessary
+       * delimiter being added in front of the string by _append_and_truncate */
+      if (_mongoc_handshake_get ()->platform[0] == '\0') {
+         bson_free (_mongoc_handshake_get ()->platform);
+         _mongoc_handshake_get ()->platform =
+            bson_strdup_printf ("%.*s", platform_space, platform);
+      } else {
+         _append_and_truncate (
+            &_mongoc_handshake_get ()->platform, platform, HANDSHAKE_MAX_SIZE);
+      }
    }
 
-   _append_and_truncate (&_mongoc_handshake_get ()->driver_name,
-                         driver_name,
-                         HANDSHAKE_DRIVER_NAME_MAX);
+   if (driver_name) {
+      _append_and_truncate (&_mongoc_handshake_get ()->driver_name,
+                            driver_name,
+                            HANDSHAKE_DRIVER_NAME_MAX);
+   }
 
-   _append_and_truncate (&_mongoc_handshake_get ()->driver_version,
-                         driver_version,
-                         HANDSHAKE_DRIVER_VERSION_MAX);
+   if (driver_version) {
+      _append_and_truncate (&_mongoc_handshake_get ()->driver_version,
+                            driver_version,
+                            HANDSHAKE_DRIVER_VERSION_MAX);
+   }
 
    _mongoc_handshake_freeze ();
    bson_mutex_unlock (&gHandshakeLock);
@@ -680,12 +688,12 @@ _mongoc_handshake_append_sasl_supported_mechs (const mongoc_uri_t *uri,
 
 void
 _mongoc_handshake_parse_sasl_supported_mechs (
-   const bson_t *ismaster,
+   const bson_t *hello,
    mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs)
 {
    bson_iter_t iter;
    memset (sasl_supported_mechs, 0, sizeof (*sasl_supported_mechs));
-   if (bson_iter_init_find (&iter, ismaster, "saslSupportedMechs")) {
+   if (bson_iter_init_find (&iter, hello, "saslSupportedMechs")) {
       bson_iter_t array_iter;
       if (BSON_ITER_HOLDS_ARRAY (&iter) &&
           bson_iter_recurse (&iter, &array_iter)) {

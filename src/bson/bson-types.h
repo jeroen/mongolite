@@ -57,10 +57,9 @@ typedef uint32_t bson_unichar_t;
  *
  * %BSON_CONTEXT_NONE: Use default options.
  * %BSON_CONTEXT_THREAD_SAFE: Context will be called from multiple threads.
+ * %BSON_CONTEXT_DISABLE_HOST_CACHE: Does nothing, is ignored.
  * %BSON_CONTEXT_DISABLE_PID_CACHE: Call getpid() instead of caching the
  *   result of getpid() when initializing the context.
- * %BSON_CONTEXT_DISABLE_HOST_CACHE: Call gethostname() instead of caching the
- *   result of gethostname() when initializing the context.
  */
 typedef enum {
    BSON_CONTEXT_NONE = 0,
@@ -97,6 +96,17 @@ typedef enum {
  * provided in _bson_context_t to hold the structure.
  */
 typedef struct _bson_context_t bson_context_t;
+
+/**
+ * bson_json_opts_t:
+ *
+ * This structure is used to pass options for serializing BSON into extended
+ * JSON to the respective serialization methods.
+ *
+ * max_len can be either a non-negative integer, or BSON_MAX_LEN_UNLIMITED to
+ * set no limit for serialization length.
+ */
+typedef struct _bson_json_opts_t bson_json_opts_t;
 
 
 /**

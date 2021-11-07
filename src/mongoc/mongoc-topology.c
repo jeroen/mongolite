@@ -29,26 +29,40 @@
 #include "mongoc-uri-private.h"
 #include "mongoc-util-private.h"
 #include "mongoc-trace-private.h"
+#include "mongoc-error-private.h"
+#include "mongoc-topology-background-monitoring-private.h"
+#include "mongoc-read-prefs-private.h"
 
 #include "utlist.h"
+
+static void
+_topology_collect_errors (mongoc_topology_t *topology, bson_error_t *error_out);
 
 static bool
 _mongoc_topology_reconcile_add_nodes (mongoc_server_description_t *sd,
                                       mongoc_topology_t *topology)
 {
    mongoc_topology_scanner_t *scanner = topology->scanner;
+   mongoc_topology_scanner_node_t *node;
 
-   /* quickly search by id, then check if a node for this host was retired in
-    * this scan. */
-   if (!mongoc_topology_scanner_get_node (scanner, sd->id) &&
-       !mongoc_topology_scanner_has_node_for_host (scanner, &sd->host)) {
-      mongoc_topology_scanner_add (scanner, &sd->host, sd->id);
+   /* Search by ID and update hello_ok */
+   node = mongoc_topology_scanner_get_node (scanner, sd->id);
+   if (node) {
+      node->hello_ok = sd->hello_ok;
+   } else if (!mongoc_topology_scanner_has_node_for_host (scanner, &sd->host)) {
+      /* A node for this host was retired in this scan. */
+      mongoc_topology_scanner_add (scanner, &sd->host, sd->id, sd->hello_ok);
       mongoc_topology_scanner_scan (scanner, sd->id);
    }
 
    return true;
 }
 
+/* Called from:
+ * - the topology scanner callback (when a hello was just received)
+ * - at the start of a single-threaded scan (mongoc_topology_scan_once)
+ * Not called for multi threaded monitoring.
+ */
 void
 mongoc_topology_reconcile (mongoc_topology_t *topology)
 {
@@ -81,13 +95,13 @@ mongoc_topology_reconcile (mongoc_topology_t *topology)
 /* call this while already holding the lock */
 static bool
 _mongoc_topology_update_no_lock (uint32_t id,
-                                 const bson_t *ismaster_response,
+                                 const bson_t *hello_response,
                                  int64_t rtt_msec,
                                  mongoc_topology_t *topology,
                                  const bson_error_t *error /* IN */)
 {
-   mongoc_topology_description_handle_ismaster (
-      &topology->description, id, ismaster_response, rtt_msec, error);
+   mongoc_topology_description_handle_hello (
+      &topology->description, id, hello_response, rtt_msec, error);
 
    /* return false if server removed from topology */
    return mongoc_topology_description_server_by_id (
@@ -117,11 +131,17 @@ _mongoc_topology_scanner_setup_err_cb (uint32_t id,
 
    topology = (mongoc_topology_t *) data;
 
-   mongoc_topology_description_handle_ismaster (&topology->description,
-                                                id,
-                                                NULL /* ismaster reply */,
-                                                -1 /* rtt_msec */,
-                                                error);
+   if (topology->description.type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
+      /* In load balanced mode, scanning is only for connection establishment.
+       * It must not modify the topology description. */
+      return;
+   }
+
+   mongoc_topology_description_handle_hello (&topology->description,
+                                             id,
+                                             NULL /* hello reply */,
+                                             -1 /* rtt_msec */,
+                                             error);
 }
 
 
@@ -130,17 +150,18 @@ _mongoc_topology_scanner_setup_err_cb (uint32_t id,
  *
  * _mongoc_topology_scanner_cb --
  *
- *       Callback method to handle ismaster responses received by async
+ *       Callback method to handle hello responses received by async
  *       command objects.
  *
  *       NOTE: This method locks the given topology's mutex.
+ *       Only called for single-threaded monitoring.
  *
  *-------------------------------------------------------------------------
  */
 
 void
 _mongoc_topology_scanner_cb (uint32_t id,
-                             const bson_t *ismaster_response,
+                             const bson_t *hello_response,
                              int64_t rtt_msec,
                              void *data,
                              const bson_error_t *error /* IN */)
@@ -152,27 +173,40 @@ _mongoc_topology_scanner_cb (uint32_t id,
 
    topology = (mongoc_topology_t *) data;
 
+   if (topology->description.type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
+      /* In load balanced mode, scanning is only for connection establishment.
+       * It must not modify the topology description. */
+      return;
+   }
+
    bson_mutex_lock (&topology->mutex);
    sd = mongoc_topology_description_server_by_id (
       &topology->description, id, NULL);
 
+   if (!hello_response) {
+      /* Server monitoring: When a server check fails due to a network error
+       * (including a network timeout), the client MUST clear its connection
+       * pool for the server */
+      _mongoc_topology_clear_connection_pool (topology, id, &kZeroServiceId);
+   }
+
    /* Server Discovery and Monitoring Spec: "Once a server is connected, the
     * client MUST change its type to Unknown only after it has retried the
     * server once." */
-   if (!ismaster_response && sd && sd->type != MONGOC_SERVER_UNKNOWN) {
+   if (!hello_response && sd && sd->type != MONGOC_SERVER_UNKNOWN) {
       _mongoc_topology_update_no_lock (
-         id, ismaster_response, rtt_msec, topology, error);
+         id, hello_response, rtt_msec, topology, error);
 
-      /* add another ismaster call to the current scan - the scan continues
+      /* add another hello call to the current scan - the scan continues
        * until all commands are done */
       mongoc_topology_scanner_scan (topology->scanner, sd->id);
    } else {
       _mongoc_topology_update_no_lock (
-         id, ismaster_response, rtt_msec, topology, error);
+         id, hello_response, rtt_msec, topology, error);
 
-      /* The processing of the ismaster results above may have added/removed
-       * server descriptions. We need to reconcile that with our monitoring
-       * agents
+      /* The processing of the hello results above may have added, changed, or
+       * removed server descriptions. We need to reconcile that with our
+       * monitoring agents
        */
       mongoc_topology_reconcile (topology);
 
@@ -203,13 +237,14 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
    int64_t heartbeat_default;
    int64_t heartbeat;
    mongoc_topology_t *topology;
-   bool topology_valid;
    mongoc_topology_description_type_t init_type;
    const char *service;
    char *prefixed_service;
    uint32_t id;
    const mongoc_host_list_t *hl;
    mongoc_rr_data_t rr_data;
+   bool has_directconnection;
+   bool directconnection;
 
    BSON_ASSERT (uri);
 
@@ -224,6 +259,7 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
 
    topology = (mongoc_topology_t *) bson_malloc0 (sizeof *topology);
    topology->session_pool = NULL;
+   topology->valid = false;
    heartbeat_default =
       single_threaded ? MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_SINGLE_THREADED
                       : MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_MULTI_THREADED;
@@ -289,9 +325,12 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
 
    bson_mutex_init (&topology->mutex);
    mongoc_cond_init (&topology->cond_client);
-   mongoc_cond_init (&topology->cond_server);
 
    if (single_threaded) {
+      /* single threaded drivers attempt speculative authentication during a
+       * topology scan */
+      topology->scanner->speculative_authentication = true;
+
       /* single threaded clients negotiate sasl supported mechanisms during
        * a topology scan. */
       if (_mongoc_uri_requires_auth_negotiation (uri)) {
@@ -299,41 +338,120 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
       }
    }
 
-   topology_valid = true;
    service = mongoc_uri_get_service (uri);
    if (service) {
       memset (&rr_data, 0, sizeof (mongoc_rr_data_t));
+      /* Set the default resource record resolver */
+      topology->rr_resolver = _mongoc_client_get_rr;
+
+      /* Initialize the last scan time and interval. Even if the initial DNS
+       * lookup fails, SRV polling will still start when background monitoring
+       * starts. */
+      topology->srv_polling_last_scan_ms = bson_get_monotonic_time () / 1000;
+      topology->srv_polling_rescan_interval_ms =
+         MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS;
 
       /* a mongodb+srv URI. try SRV lookup, if no error then also try TXT */
       prefixed_service = bson_strdup_printf ("_mongodb._tcp.%s", service);
-      if (!_mongoc_client_get_rr (prefixed_service,
+      if (!topology->rr_resolver (prefixed_service,
                                   MONGOC_RR_SRV,
-                                  topology->uri,
                                   &rr_data,
-                                  &topology->scanner->error) ||
-          !_mongoc_client_get_rr (service,
-                                  MONGOC_RR_TXT,
-                                  topology->uri,
-                                  NULL,
+                                  MONGOC_RR_DEFAULT_BUFFER_SIZE,
                                   &topology->scanner->error)) {
-         topology_valid = false;
-      } else {
-         topology->last_srv_scan = bson_get_monotonic_time ();
-         topology->rescanSRVIntervalMS = BSON_MAX (
-            rr_data.min_ttl * 1000, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
+         GOTO (srv_fail);
       }
 
+      /* Failure to find TXT records will not return an error (since it is only
+       * for options). But _mongoc_client_get_rr may return an error if
+       * there is more than one TXT record returned. */
+      if (!topology->rr_resolver (service,
+                                  MONGOC_RR_TXT,
+                                  &rr_data,
+                                  MONGOC_RR_DEFAULT_BUFFER_SIZE,
+                                  &topology->scanner->error)) {
+         GOTO (srv_fail);
+      }
+
+      /* Use rr_data to update the topology's URI. */
+      if (rr_data.txt_record_opts &&
+          !mongoc_uri_parse_options (topology->uri,
+                                     rr_data.txt_record_opts,
+                                     true /* from_dns */,
+                                     &topology->scanner->error)) {
+         GOTO (srv_fail);
+      }
+
+      if (!mongoc_uri_init_with_srv_host_list (
+             topology->uri, rr_data.hosts, &topology->scanner->error)) {
+         GOTO (srv_fail);
+      }
+
+      topology->srv_polling_last_scan_ms = bson_get_monotonic_time () / 1000;
+      /* TODO (CDRIVER-4047) use BSON_MIN */
+      topology->srv_polling_rescan_interval_ms = BSON_MAX (
+         rr_data.min_ttl * 1000, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
+
+      topology->valid = true;
+   srv_fail:
+      bson_free (rr_data.txt_record_opts);
       bson_free (prefixed_service);
+      _mongoc_host_list_destroy_all (rr_data.hosts);
+   } else {
+      topology->valid = true;
+   }
+
+   if (!mongoc_uri_finalize_loadbalanced (topology->uri,
+                                          &topology->scanner->error)) {
+      topology->valid = false;
    }
 
    /*
     * Set topology type from URI:
-    *   - if we've got a replicaSet name, initialize to RS_NO_PRIMARY
-    *   - otherwise, if the seed list has a single host, initialize to SINGLE
+    *   + if directConnection=true
+    *     - whether or not we have a replicaSet name, initialize to SINGLE
+    *     (directConnect with SRV or multiple hosts triggers a URI parse error)
+    *   + if directConnection=false
+    *     - if we've got a replicaSet name, initialize to RS_NO_PRIMARY
+    *     - otherwise, initialize to UNKNOWN
+    *   + if directConnection was not specified in the URI (old behavior)
+    *     - if we've got a replicaSet name, initialize to RS_NO_PRIMARY
+    *     - otherwise, if the seed list has a single host, initialize to SINGLE
     *   - everything else gets initialized to UNKNOWN
     */
+   has_directconnection =
+      mongoc_uri_has_option (uri, MONGOC_URI_DIRECTCONNECTION);
+   directconnection =
+      has_directconnection &&
+      mongoc_uri_get_option_as_bool (uri, MONGOC_URI_DIRECTCONNECTION, false);
    hl = mongoc_uri_get_hosts (topology->uri);
-   if (mongoc_uri_get_replica_set (topology->uri)) {
+   /* If loadBalanced is enabled, directConnection is disabled. This was
+    * validated in mongoc_uri_finalize_loadbalanced. */
+   if (mongoc_uri_get_option_as_bool (
+          topology->uri, MONGOC_URI_LOADBALANCED, false)) {
+      init_type = MONGOC_TOPOLOGY_LOAD_BALANCED;
+      if (topology->single_threaded) {
+         /* Cooldown only applies to server monitoring for single-threaded
+          * clients. In load balanced mode, the topology scanner is used to
+          * create connections. The cooldown period does not apply. A network
+          * error to a load balanced connection does not imply subsequent
+          * connection attempts will be to the same server and that a delay
+          * should occur. */
+         _mongoc_topology_bypass_cooldown (topology);
+      }
+      _mongoc_topology_scanner_set_loadbalanced (topology->scanner, true);
+   } else if (service && !has_directconnection) {
+      init_type = MONGOC_TOPOLOGY_UNKNOWN;
+   } else if (has_directconnection) {
+      if (directconnection) {
+         init_type = MONGOC_TOPOLOGY_SINGLE;
+      } else {
+         if (mongoc_uri_get_replica_set (topology->uri)) {
+            init_type = MONGOC_TOPOLOGY_RS_NO_PRIMARY;
+         } else {
+            init_type = MONGOC_TOPOLOGY_UNKNOWN;
+         }
+      }
+   } else if (mongoc_uri_get_replica_set (topology->uri)) {
       init_type = MONGOC_TOPOLOGY_RS_NO_PRIMARY;
    } else {
       if (hl && hl->next) {
@@ -345,7 +463,15 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
 
    topology->description.type = init_type;
 
-   if (!topology_valid) {
+   if (!topology->single_threaded) {
+      topology->server_monitors = mongoc_set_new (1, NULL, NULL);
+      topology->rtt_monitors = mongoc_set_new (1, NULL, NULL);
+      bson_mutex_init (&topology->apm_mutex);
+      mongoc_cond_init (&topology->srv_polling_cond);
+   }
+
+   if (!topology->valid) {
+      TRACE ("%s", "topology invalid");
       /* add no nodes */
       return topology;
    }
@@ -353,7 +479,7 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
    while (hl) {
       mongoc_topology_description_add_server (
          &topology->description, hl->host_and_port, &id);
-      mongoc_topology_scanner_add (topology->scanner, hl, id);
+      mongoc_topology_scanner_add (topology->scanner, hl, id, false);
 
       hl = hl->next;
    }
@@ -366,6 +492,8 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
  * mongoc_topology_set_apm_callbacks --
  *
  *       Set Application Performance Monitoring callbacks.
+ *
+ * Caller must hold topology->mutex.
  *
  *-------------------------------------------------------------------------
  */
@@ -425,8 +553,22 @@ mongoc_topology_destroy (mongoc_topology_t *topology)
    bson_free (topology->mongocryptd_spawn_path);
 #endif
 
-   _mongoc_topology_background_thread_stop (topology);
-   _mongoc_topology_description_monitor_closed (&topology->description);
+   if (!topology->single_threaded) {
+      bson_mutex_lock (&topology->mutex);
+      _mongoc_topology_background_monitoring_stop (topology);
+      bson_mutex_unlock (&topology->mutex);
+      BSON_ASSERT (topology->scanner_state == MONGOC_TOPOLOGY_SCANNER_OFF);
+      mongoc_set_destroy (topology->server_monitors);
+      mongoc_set_destroy (topology->rtt_monitors);
+      bson_mutex_destroy (&topology->apm_mutex);
+      mongoc_cond_destroy (&topology->srv_polling_cond);
+   }
+
+   if (topology->valid) {
+      /* Do not emit a topology_closed event. A topology opening event was not
+       * emitted. */
+      _mongoc_topology_description_monitor_closed (&topology->description);
+   }
 
    mongoc_uri_destroy (topology->uri);
    mongoc_topology_description_destroy (&topology->description);
@@ -439,7 +581,6 @@ mongoc_topology_destroy (mongoc_topology_t *topology)
    _mongoc_topology_clear_session_pool (topology);
 
    mongoc_cond_destroy (&topology->cond_client);
-   mongoc_cond_destroy (&topology->cond_server);
    bson_mutex_destroy (&topology->mutex);
 
    bson_free (topology);
@@ -473,6 +614,85 @@ _mongoc_topology_clear_session_pool (mongoc_topology_t *topology)
    topology->session_pool = NULL;
 }
 
+/* Returns false if none of the hosts were valid. */
+bool
+mongoc_topology_apply_scanned_srv_hosts (mongoc_uri_t *uri,
+                                         mongoc_topology_description_t *td,
+                                         mongoc_host_list_t *hosts,
+                                         bson_error_t *error)
+{
+   mongoc_host_list_t *host;
+   mongoc_host_list_t *valid_hosts = NULL;
+   bool had_valid_hosts = false;
+
+   /* Validate that the hosts have a matching domain.
+    * If validation fails, log it.
+    * If no valid hosts remain, do not update the topology description.
+    */
+   LL_FOREACH (hosts, host)
+   {
+      if (mongoc_uri_validate_srv_result (uri, host->host, error)) {
+         _mongoc_host_list_upsert (&valid_hosts, host);
+      } else {
+         MONGOC_ERROR ("Invalid host returned by SRV: %s", host->host_and_port);
+         /* Continue on, there may still be valid hosts returned. */
+      }
+   }
+
+   if (valid_hosts) {
+      /* Reconcile with the topology description. Newly found servers will start
+       * getting monitored and are eligible to be used by clients. */
+      mongoc_topology_description_reconcile (td, valid_hosts);
+      had_valid_hosts = true;
+   } else {
+      bson_set_error (error,
+                      MONGOC_ERROR_STREAM,
+                      MONGOC_ERROR_STREAM_NAME_RESOLUTION,
+                      "SRV response did not contain any valid hosts");
+   }
+
+   _mongoc_host_list_destroy_all (valid_hosts);
+   return had_valid_hosts;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_topology_should_rescan_srv --
+ *
+ *      Checks whether it is valid to rescan SRV records on the topology.
+ *      Namely, that the topology type is Sharded or Unknown, and that
+ *      the topology URI was configured with SRV.
+ *
+ *      If this returns false, caller can stop scanning SRV records
+ *      and does not need to try again in the future.
+ *
+ *      NOTE: this method expects @topology's mutex to be locked on entry.
+ *
+ * --------------------------------------------------------------------------
+ */
+bool
+mongoc_topology_should_rescan_srv (mongoc_topology_t *topology)
+{
+   const char *service;
+
+   MONGOC_DEBUG_ASSERT (COMMON_PREFIX (mutex_is_locked) (&topology->mutex));
+
+   service = mongoc_uri_get_service (topology->uri);
+   if (!service) {
+      /* Only rescan if we have a mongodb+srv:// URI. */
+      return false;
+   }
+
+
+   if ((topology->description.type != MONGOC_TOPOLOGY_SHARDED) &&
+       (topology->description.type != MONGOC_TOPOLOGY_UNKNOWN)) {
+      /* Only perform rescan for sharded topology. */
+      return false;
+   }
+
+   return true;
+}
 
 /*
  *--------------------------------------------------------------------------
@@ -480,78 +700,79 @@ _mongoc_topology_clear_session_pool (mongoc_topology_t *topology)
  * mongoc_topology_rescan_srv --
  *
  *      Queries SRV records for new hosts in a mongos cluster.
+ *      Caller must call mongoc_topology_should_rescan_srv before calling
+ *      to ensure preconditions are met (while holding @topology's mutex
+ *      for the duration of both calls).
  *
  *      NOTE: this method expects @topology's mutex to be locked on entry.
  *
  * --------------------------------------------------------------------------
  */
-static void
+void
 mongoc_topology_rescan_srv (mongoc_topology_t *topology)
 {
    mongoc_rr_data_t rr_data = {0};
-   mongoc_host_list_t *h = NULL;
    const char *service;
    char *prefixed_service = NULL;
-   int64_t scan_time;
+   int64_t scan_time_ms;
+   bool ret;
 
-   if ((topology->description.type != MONGOC_TOPOLOGY_SHARDED) &&
-       (topology->description.type != MONGOC_TOPOLOGY_UNKNOWN)) {
-      /* Only perform rescan for sharded topology. */
-      return;
-   }
+   MONGOC_DEBUG_ASSERT (COMMON_PREFIX (mutex_is_locked) (&topology->mutex));
+   BSON_ASSERT (mongoc_topology_should_rescan_srv (topology));
 
    service = mongoc_uri_get_service (topology->uri);
-   if (!service) {
-      /* Only rescan if we have a mongodb+srv:// URI. */
+   scan_time_ms = topology->srv_polling_last_scan_ms +
+                  topology->srv_polling_rescan_interval_ms;
+   if (bson_get_monotonic_time () / 1000 < scan_time_ms) {
+      /* Query SRV no more frequently than srv_polling_rescan_interval_ms. */
       return;
    }
 
-   scan_time = topology->last_srv_scan + (topology->rescanSRVIntervalMS * 1000);
-   if (bson_get_monotonic_time () < scan_time) {
-      /* Query SRV no more frequently than rescanSRVIntervalMS. */
-      return;
-   }
+   TRACE ("%s", "Polling for SRV records");
 
    /* Go forth and query... */
-   rr_data.hosts =
-      _mongoc_host_list_copy (mongoc_uri_get_hosts (topology->uri), NULL);
-
    prefixed_service = bson_strdup_printf ("_mongodb._tcp.%s", service);
-   if (!_mongoc_client_get_rr (prefixed_service,
-                               MONGOC_RR_SRV,
-                               topology->uri,
-                               &rr_data,
-                               &topology->scanner->error)) {
+
+   /* Unlock topology mutex during scan so it does not hold up other operations.
+    */
+   bson_mutex_unlock (&topology->mutex);
+   ret = topology->rr_resolver (prefixed_service,
+                                MONGOC_RR_SRV,
+                                &rr_data,
+                                MONGOC_RR_DEFAULT_BUFFER_SIZE,
+                                &topology->scanner->error);
+   bson_mutex_lock (&topology->mutex);
+
+   topology->srv_polling_last_scan_ms = bson_get_monotonic_time () / 1000;
+   if (!ret) {
       /* Failed querying, soldier on and try again next time. */
-      topology->rescanSRVIntervalMS = topology->description.heartbeat_msec;
+      topology->srv_polling_rescan_interval_ms =
+         topology->description.heartbeat_msec;
+      MONGOC_ERROR ("SRV polling error: %s", topology->scanner->error.message);
       GOTO (done);
    }
 
-   topology->last_srv_scan = bson_get_monotonic_time ();
-   topology->rescanSRVIntervalMS = BSON_MAX (
+   /* TODO (CDRIVER-4047) use BSON_MIN */
+   topology->srv_polling_rescan_interval_ms = BSON_MAX (
       rr_data.min_ttl * 1000, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
 
-   if (rr_data.count == 0) {
-      /* Special case when DNS returns zero records successfully.
+   if (!mongoc_topology_apply_scanned_srv_hosts (topology->uri,
+                                                 &topology->description,
+                                                 rr_data.hosts,
+                                                 &topology->scanner->error)) {
+      MONGOC_ERROR ("%s", topology->scanner->error.message);
+      /* Special case when DNS returns zero records successfully or no valid
+       * hosts exist.
        * Leave the toplogy alone and perform another scan at the next interval
        * rather than removing all records and having nothing to connect to.
-       * For no verified hosts drivers "MUST temporarily set rescanSRVIntervalMS
+       * For no verified hosts drivers "MUST temporarily set
+       * srv_polling_rescan_interval_ms
        * to heartbeatFrequencyMS until at least one verified SRV record is
        * obtained."
        */
-      topology->rescanSRVIntervalMS = topology->description.heartbeat_msec;
+      topology->srv_polling_rescan_interval_ms =
+         topology->description.heartbeat_msec;
       GOTO (done);
-   }
-
-   /* rr_data.hosts was initialized to the current set of known hosts
-    * on entry, and mongoc_client_get_rr will have stripped it down to
-    * only include hosts which were NOT included in the most recent query.
-    * Remove those hosts and we're left with only active servers.
-    */
-   for (h = rr_data.hosts; h; h = rr_data.hosts) {
-      rr_data.hosts = h->next;
-      mongoc_uri_remove_host (topology->uri, h->host, h->port);
-      bson_free (h);
    }
 
 done:
@@ -571,16 +792,24 @@ done:
  *
  *      NOTE: this method unlocks and re-locks @topology's mutex.
  *
+ *      Only runs for single threaded monitoring. (obey_cooldown is always
+ *      true).
+ *
  *--------------------------------------------------------------------------
  */
 static void
 mongoc_topology_scan_once (mongoc_topology_t *topology, bool obey_cooldown)
 {
-   /* Prior to scanning hosts, update the list of SRV hosts, if applicable. */
-   mongoc_topology_rescan_srv (topology);
+   MONGOC_DEBUG_ASSERT (COMMON_PREFIX (mutex_is_locked) (&topology->mutex));
+
+   if (mongoc_topology_should_rescan_srv (topology)) {
+      /* Prior to scanning hosts, update the list of SRV hosts, if applicable.
+       */
+      mongoc_topology_rescan_srv (topology);
+   }
 
    /* since the last scan, members may be added or removed from the topology
-    * description based on ismaster responses in connection handshakes, see
+    * description based on hello responses in connection handshakes, see
     * _mongoc_topology_update_from_handshake. retire scanner nodes for removed
     * members and create scanner nodes for new ones. */
    mongoc_topology_reconcile (topology);
@@ -613,8 +842,6 @@ void
 _mongoc_topology_do_blocking_scan (mongoc_topology_t *topology,
                                    bson_error_t *error)
 {
-   topology->scanner_state = MONGOC_TOPOLOGY_SCANNER_SINGLE_THREADED;
-
    _mongoc_handshake_freeze ();
 
    bson_mutex_lock (&topology->mutex);
@@ -744,6 +971,88 @@ mongoc_topology_select (mongoc_topology_t *topology,
    }
 }
 
+/* Bypasses normal server selection behavior for a load balanced topology.
+ * Returns the id of the one load balancer server. Returns 0 on failure.
+ * Successful post-condition: On a single threaded client, a connection will
+ * have been established. */
+static uint32_t
+_mongoc_topology_select_server_id_loadbalanced (mongoc_topology_t *topology,
+                                                bson_error_t *error)
+{
+   mongoc_server_description_t *selected_server;
+   int32_t selected_server_id;
+   mongoc_topology_scanner_node_t *node;
+   bson_error_t scanner_error = {0};
+
+   bson_mutex_lock (&topology->mutex);
+
+   BSON_ASSERT (topology->description.type == MONGOC_TOPOLOGY_LOAD_BALANCED);
+
+   /* Emit the opening SDAM events if they have not emitted already. */
+   _mongoc_topology_description_monitor_opening (&topology->description);
+   selected_server =
+      mongoc_topology_description_select (&topology->description,
+                                          MONGOC_SS_WRITE,
+                                          NULL /* read prefs */,
+                                          0 /* local threshold */);
+
+   if (!selected_server) {
+      _mongoc_server_selection_error (
+         "No suitable server found in load balanced deployment", NULL, error);
+      bson_mutex_unlock (&topology->mutex);
+      return 0;
+   }
+
+   selected_server_id = selected_server->id;
+   bson_mutex_unlock (&topology->mutex);
+
+   if (!topology->single_threaded) {
+      return selected_server_id;
+   }
+
+   /* If this is a single threaded topology, we must ensure that a connection is
+    * available to this server. Wrapping drivers make the assumption that
+    * successful server selection implies a connection is available. */
+   node =
+      mongoc_topology_scanner_get_node (topology->scanner, selected_server_id);
+   if (!node) {
+      _mongoc_server_selection_error (
+         "Topology scanner in invalid state; cannot find load balancer",
+         NULL,
+         error);
+      return 0;
+   }
+
+   if (!node->stream) {
+      TRACE ("%s",
+             "Server selection performing scan since no connection has "
+             "been established");
+      _mongoc_topology_do_blocking_scan (topology, &scanner_error);
+   }
+
+   if (!node->stream) {
+      /* Use the same error domain / code that is returned in mongoc-cluster.c
+       * when fetching a stream fails. */
+      if (scanner_error.code) {
+         bson_set_error (error,
+                         MONGOC_ERROR_STREAM,
+                         MONGOC_ERROR_STREAM_NOT_ESTABLISHED,
+                         "Could not establish stream for node %s: %s",
+                         node->host.host_and_port,
+                         scanner_error.message);
+      } else {
+         bson_set_error (error,
+                         MONGOC_ERROR_STREAM,
+                         MONGOC_ERROR_STREAM_NOT_ESTABLISHED,
+                         "Could not establish stream for node %s",
+                         node->host.host_and_port);
+      }
+      return 0;
+   }
+
+   return selected_server_id;
+}
+
 /*
  *-------------------------------------------------------------------------
  *
@@ -798,6 +1107,12 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
       bson_mutex_unlock (&topology->mutex);
       return 0;
    }
+
+   if (topology->description.type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
+      bson_mutex_unlock (&topology->mutex);
+      return _mongoc_topology_select_server_id_loadbalanced (topology, error);   
+   }
+
    bson_mutex_unlock (&topology->mutex);
 
    heartbeat_msec = topology->description.heartbeat_msec;
@@ -908,13 +1223,19 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
          &topology->description, optype, read_prefs, local_threshold_ms);
 
       if (!selected_server) {
+         TRACE (
+            "server selection requesting an immediate scan, want %s",
+            _mongoc_read_mode_as_str (mongoc_read_prefs_get_mode (read_prefs)));
          _mongoc_topology_request_scan (topology);
 
+         TRACE ("server selection about to wait for %" PRId64 "ms",
+                (expire_at - loop_start) / 1000);
          r = mongoc_cond_timedwait (&topology->cond_client,
                                     &topology->mutex,
                                     (expire_at - loop_start) / 1000);
+         TRACE ("%s", "server selection awake");
+         _topology_collect_errors (topology, &scanner_error);
 
-         mongoc_topology_scanner_get_error (ts, &scanner_error);
          bson_mutex_unlock (&topology->mutex);
 
 #ifdef _WIN32
@@ -1040,21 +1361,15 @@ _mongoc_topology_host_by_id (mongoc_topology_t *topology,
 }
 
 /*
- *--------------------------------------------------------------------------
+
+ * Caller must have topology->mutex locked.
  *
- * _mongoc_topology_request_scan --
- *
- *       Non-locking variant
- *
- *--------------------------------------------------------------------------
  */
 
 void
 _mongoc_topology_request_scan (mongoc_topology_t *topology)
 {
-   topology->scan_requested = true;
-
-   mongoc_cond_signal (&topology->cond_server);
+   _mongoc_topology_background_monitoring_request_scan (topology);
 }
 
 /*
@@ -1083,20 +1398,14 @@ mongoc_topology_invalidate_server (mongoc_topology_t *topology,
 }
 
 /*
- *--------------------------------------------------------------------------
- *
- * _mongoc_topology_update_from_handshake --
- *
- *      A client opens a new connection and calls ismaster on it when it
- *      detects a closed connection in _mongoc_cluster_check_interval, or if
- *      mongoc_client_pool_pop creates a new client. Update the topology
- *      description from the ismaster response.
- *
- *      NOTE: this method uses @topology's mutex.
- *
- * Returns:
- *      false if the server was removed from the topology
- *--------------------------------------------------------------------------
+ * Update the topology from the response to a handshake on a new application
+ * connection.
+ * Only applicable to a client pool (single-threaded clients reuse monitoring
+ * connections).
+ * Caller must not have the topology->mutex locked.
+ * Locks topology->mutex.
+ * Called only from app threads (not server monitor threads).
+ * Returns false if the server was removed from the topology
  */
 bool
 _mongoc_topology_update_from_handshake (mongoc_topology_t *topology,
@@ -1106,15 +1415,28 @@ _mongoc_topology_update_from_handshake (mongoc_topology_t *topology,
 
    BSON_ASSERT (topology);
    BSON_ASSERT (sd);
+   BSON_ASSERT (!topology->single_threaded);
 
    bson_mutex_lock (&topology->mutex);
 
+   if (topology->description.type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
+      /* In load balanced mode, scanning is only for connection establishment.
+       * It must not modify the topology description. */
+      bson_mutex_unlock (&topology->mutex);
+      return true;
+   }
+
    /* return false if server was removed from topology */
-   has_server = _mongoc_topology_update_no_lock (
-      sd->id, &sd->last_is_master, sd->round_trip_time_msec, topology, NULL);
+   has_server = _mongoc_topology_update_no_lock (sd->id,
+                                                 &sd->last_hello_response,
+                                                 sd->round_trip_time_msec,
+                                                 topology,
+                                                 NULL);
 
    /* if pooled, wake threads waiting in mongoc_topology_server_by_id */
    mongoc_cond_broadcast (&topology->cond_client);
+   /* Update background monitoring. */
+   _mongoc_topology_background_monitoring_reconcile (topology);
    bson_mutex_unlock (&topology->mutex);
 
    return has_server;
@@ -1148,38 +1470,6 @@ _mongoc_topology_update_last_used (mongoc_topology_t *topology,
    }
 }
 
-/*
- *--------------------------------------------------------------------------
- *
- * mongoc_topology_server_timestamp --
- *
- *      Return the topology's scanner's timestamp for the given server,
- *      or -1 if there is no scanner node for the given server.
- *
- *      NOTE: this method uses @topology's mutex.
- *
- * Returns:
- *      Timestamp, or -1
- *
- *--------------------------------------------------------------------------
- */
-int64_t
-mongoc_topology_server_timestamp (mongoc_topology_t *topology, uint32_t id)
-{
-   mongoc_topology_scanner_node_t *node;
-   int64_t timestamp = -1;
-
-   bson_mutex_lock (&topology->mutex);
-
-   node = mongoc_topology_scanner_get_node (topology->scanner, id);
-   if (node) {
-      timestamp = node->timestamp;
-   }
-
-   bson_mutex_unlock (&topology->mutex);
-
-   return timestamp;
-}
 
 /*
  *--------------------------------------------------------------------------
@@ -1207,212 +1497,6 @@ _mongoc_topology_get_type (mongoc_topology_t *topology)
    bson_mutex_unlock (&topology->mutex);
 
    return td_type;
-}
-
-/*
- *--------------------------------------------------------------------------
- *
- * _mongoc_topology_run_background --
- *
- *       The background topology monitoring thread runs in this loop.
- *
- *       NOTE: this method uses @topology's mutex.
- *
- *--------------------------------------------------------------------------
- */
-static void *
-_mongoc_topology_run_background (void *data)
-{
-   mongoc_topology_t *topology;
-   int64_t now;
-   int64_t last_scan;
-   int64_t timeout;
-   int64_t force_timeout;
-   int64_t heartbeat_msec;
-   int r;
-
-   BSON_ASSERT (data);
-
-   last_scan = 0;
-   topology = (mongoc_topology_t *) data;
-   heartbeat_msec = topology->description.heartbeat_msec;
-
-   /* we exit this loop when shutting down, or on error */
-   for (;;) {
-      /* unlocked after starting a scan or after breaking out of the loop */
-      bson_mutex_lock (&topology->mutex);
-      if (!mongoc_topology_scanner_valid (topology->scanner)) {
-         bson_mutex_unlock (&topology->mutex);
-         goto DONE;
-      }
-
-      /* we exit this loop on error, or when we should scan immediately */
-      for (;;) {
-         if (topology->scanner_state == MONGOC_TOPOLOGY_SCANNER_SHUTTING_DOWN) {
-            bson_mutex_unlock (&topology->mutex);
-            goto DONE;
-         }
-
-         now = bson_get_monotonic_time ();
-
-         if (last_scan == 0) {
-            /* set up the "last scan" as exactly long enough to force an
-             * immediate scan on the first pass */
-            last_scan = now - (heartbeat_msec * 1000);
-         }
-
-         timeout = heartbeat_msec - ((now - last_scan) / 1000);
-
-         /* if someone's specifically asked for a scan, use a shorter interval
-          */
-         if (topology->scan_requested) {
-            force_timeout = topology->min_heartbeat_frequency_msec -
-                            ((now - last_scan) / 1000);
-
-            timeout = BSON_MIN (timeout, force_timeout);
-         }
-
-         /* if we can start scanning, do so immediately */
-         if (timeout <= 0) {
-            break;
-         } else {
-            /* otherwise wait until someone:
-             *   o requests a scan
-             *   o we time out
-             *   o requests a shutdown
-             */
-            r = mongoc_cond_timedwait (
-               &topology->cond_server, &topology->mutex, timeout);
-
-#ifdef _WIN32
-            if (!(r == 0 || r == WSAETIMEDOUT)) {
-#else
-            if (!(r == 0 || r == ETIMEDOUT)) {
-#endif
-               bson_mutex_unlock (&topology->mutex);
-               /* handle errors */
-               goto DONE;
-            }
-
-            /* if we timed out, or were woken up, check if it's time to scan
-             * again, or bail out */
-         }
-      }
-
-      topology->scan_requested = false;
-      mongoc_topology_scan_once (topology, false /* obey cooldown */);
-      bson_mutex_unlock (&topology->mutex);
-
-      last_scan = bson_get_monotonic_time ();
-   }
-
-DONE:
-   return NULL;
-}
-
-/*
- *--------------------------------------------------------------------------
- *
- * mongoc_topology_start_background_scanner
- *
- *       Start the topology background thread running. This should only be
- *       called once per pool. If clients are created separately (not
- *       through a pool) the SDAM logic will not be run in a background
- *       thread. Returns whether or not the scanner is running on termination
- *       of the function.
- *
- *       NOTE: this method uses @topology's mutex.
- *
- *--------------------------------------------------------------------------
- */
-
-bool
-_mongoc_topology_start_background_scanner (mongoc_topology_t *topology)
-{
-   int r;
-
-   if (topology->single_threaded) {
-      return false;
-   }
-
-   bson_mutex_lock (&topology->mutex);
-
-   if (topology->scanner_state == MONGOC_TOPOLOGY_SCANNER_BG_RUNNING) {
-      bson_mutex_unlock (&topology->mutex);
-      return true;
-   }
-
-   BSON_ASSERT (topology->scanner_state == MONGOC_TOPOLOGY_SCANNER_OFF);
-
-   topology->scanner_state = MONGOC_TOPOLOGY_SCANNER_BG_RUNNING;
-
-   _mongoc_handshake_freeze ();
-   _mongoc_topology_description_monitor_opening (&topology->description);
-
-   r = bson_thread_create (
-      &topology->thread, _mongoc_topology_run_background, topology);
-
-   if (r != 0) {
-      MONGOC_ERROR ("could not start topology scanner thread: %s",
-                    strerror (r));
-      abort ();
-   }
-
-   bson_mutex_unlock (&topology->mutex);
-
-   return true;
-}
-
-/*
- *--------------------------------------------------------------------------
- *
- * mongoc_topology_background_thread_stop --
- *
- *       Stop the topology background thread. Called by the owning pool at
- *       its destruction.
- *
- *       NOTE: this method uses @topology's mutex.
- *
- *--------------------------------------------------------------------------
- */
-
-void
-_mongoc_topology_background_thread_stop (mongoc_topology_t *topology)
-{
-   bool join_thread = false;
-
-   if (topology->single_threaded) {
-      return;
-   }
-
-   bson_mutex_lock (&topology->mutex);
-
-   BSON_ASSERT (topology->scanner_state !=
-                MONGOC_TOPOLOGY_SCANNER_SHUTTING_DOWN);
-
-   if (topology->scanner_state == MONGOC_TOPOLOGY_SCANNER_BG_RUNNING) {
-      /* if the background thread is running, request a shutdown and signal the
-       * thread */
-      topology->scanner_state = MONGOC_TOPOLOGY_SCANNER_SHUTTING_DOWN;
-      mongoc_cond_signal (&topology->cond_server);
-      join_thread = true;
-   } else {
-      /* nothing to do if it's already off */
-   }
-
-   bson_mutex_unlock (&topology->mutex);
-
-   if (join_thread) {
-      /* if we're joining the thread, wait for it to come back and broadcast
-       * all listeners */
-      bson_thread_join (topology->thread);
-
-      bson_mutex_lock (&topology->mutex);
-      topology->scanner_state = MONGOC_TOPOLOGY_SCANNER_OFF;
-      bson_mutex_unlock (&topology->mutex);
-
-      mongoc_cond_broadcast (&topology->cond_client);
-   }
 }
 
 bool
@@ -1473,6 +1557,7 @@ _mongoc_topology_pop_server_session (mongoc_topology_t *topology,
    int64_t timeout;
    mongoc_server_session_t *ss = NULL;
    mongoc_topology_description_t *td;
+   bool loadbalanced;
 
    ENTRY;
 
@@ -1480,8 +1565,10 @@ _mongoc_topology_pop_server_session (mongoc_topology_t *topology,
 
    td = &topology->description;
    timeout = td->session_timeout_minutes;
+   loadbalanced = td->type == MONGOC_TOPOLOGY_LOAD_BALANCED;
 
-   if (timeout == MONGOC_NO_SESSIONS) {
+   /* When the topology type is LoadBalanced, sessions are always supported. */
+   if (!loadbalanced && timeout == MONGOC_NO_SESSIONS) {
       /* if needed, connect and check for session timeout again */
       if (!mongoc_topology_description_has_data_node (td)) {
          bson_mutex_unlock (&topology->mutex);
@@ -1507,6 +1594,11 @@ _mongoc_topology_pop_server_session (mongoc_topology_t *topology,
    while (topology->session_pool) {
       ss = topology->session_pool;
       CDL_DELETE (topology->session_pool, ss);
+      /* Sessions do not expire when the topology type is load balanced. */
+      if (loadbalanced) {
+         break;
+      }
+
       if (_mongoc_server_session_timed_out (ss, timeout)) {
          _mongoc_server_session_destroy (ss);
          ss = NULL;
@@ -1540,17 +1632,20 @@ _mongoc_topology_push_server_session (mongoc_topology_t *topology,
 {
    int64_t timeout;
    mongoc_server_session_t *ss;
+   bool loadbalanced;
 
    ENTRY;
 
    bson_mutex_lock (&topology->mutex);
 
    timeout = topology->description.session_timeout_minutes;
+   loadbalanced = topology->description.type == MONGOC_TOPOLOGY_LOAD_BALANCED;
 
    /* start at back of queue and reap timed-out sessions */
    while (topology->session_pool && topology->session_pool->prev) {
       ss = topology->session_pool->prev;
-      if (_mongoc_server_session_timed_out (ss, timeout)) {
+      /* Sessions do not expire when the topology type is load balanced. */
+      if (!loadbalanced && _mongoc_server_session_timed_out (ss, timeout)) {
          BSON_ASSERT (ss->next); /* silences clang scan-build */
          CDL_DELETE (topology->session_pool, ss);
          _mongoc_server_session_destroy (ss);
@@ -1561,15 +1656,24 @@ _mongoc_topology_push_server_session (mongoc_topology_t *topology,
    }
 
    /* If session is expiring or "dirty" (a network error occurred on it), do not
-    * return it to the pool. */
-   if (_mongoc_server_session_timed_out (server_session, timeout) ||
+    * return it to the pool. Sessions do not expire when the topology type is
+    * load balanced. */
+   if ((!loadbalanced &&
+        _mongoc_server_session_timed_out (server_session, timeout)) ||
        server_session->dirty) {
       _mongoc_server_session_destroy (server_session);
    } else {
       /* silences clang scan-build */
       BSON_ASSERT (!topology->session_pool || (topology->session_pool->next &&
                                                topology->session_pool->prev));
-      CDL_PREPEND (topology->session_pool, server_session);
+
+      /* add server session (lsid) to session pool to be reused only if the
+       * server session has been used (the server is aware of the session) */
+      if (server_session->last_used_usec == SESSION_NEVER_USED) {
+         _mongoc_server_session_destroy (server_session);
+      } else {
+         CDL_PREPEND (topology->session_pool, server_session);
+      }
    }
 
    bson_mutex_unlock (&topology->mutex);
@@ -1631,22 +1735,22 @@ _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd)
 /*
  *--------------------------------------------------------------------------
  *
- * _mongoc_topology_get_ismaster --
+ * _mongoc_topology_get_handshake_cmd --
  *
  *       Locks topology->mutex and retrieves (possibly constructing) the
  *       handshake on the topology scanner.
  *
  * Returns:
- *      A bson_t representing an ismaster command.
+ *      A bson_t representing a hello command.
  *
  *--------------------------------------------------------------------------
  */
 const bson_t *
-_mongoc_topology_get_ismaster (mongoc_topology_t *topology)
+_mongoc_topology_get_handshake_cmd (mongoc_topology_t *topology)
 {
    const bson_t *cmd;
    bson_mutex_lock (&topology->mutex);
-   cmd = _mongoc_topology_scanner_get_ismaster (topology->scanner);
+   cmd = _mongoc_topology_scanner_get_handshake_cmd (topology->scanner);
    bson_mutex_unlock (&topology->mutex);
    return cmd;
 }
@@ -1656,4 +1760,266 @@ _mongoc_topology_bypass_cooldown (mongoc_topology_t *topology)
 {
    BSON_ASSERT (topology->single_threaded);
    topology->scanner->bypass_cooldown = true;
+}
+
+static void
+_find_topology_version (const bson_t *reply, bson_t *topology_version)
+{
+   bson_iter_t iter;
+   const uint8_t *bytes;
+   uint32_t len;
+
+   if (!bson_iter_init_find (&iter, reply, "topologyVersion") ||
+       !BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+      bson_init (topology_version);
+      return;
+   }
+   bson_iter_document (&iter, &len, &bytes);
+   bson_init_static (topology_version, bytes, len);
+}
+
+
+/* "Clears" the connection pool by incrementing the generation.
+ *
+ * Pooled clients with open connections will discover the invalidation
+ * the next time they fetch a stream to the server.
+ *
+ * Caller must lock topology->mutex. */
+void
+_mongoc_topology_clear_connection_pool (mongoc_topology_t *topology,
+                                        uint32_t server_id,
+                                        const bson_oid_t *service_id)
+{
+   mongoc_server_description_t *sd;
+   bson_error_t error;
+
+   BSON_ASSERT (service_id);
+
+   sd = mongoc_topology_description_server_by_id (
+      &topology->description, server_id, &error);
+   if (!sd) {
+      /* Server removed, ignore and ignore error. */
+      return;
+   }
+
+   TRACE ("clearing pool for server: %s", sd->host.host_and_port);
+
+   mongoc_generation_map_increment (sd->generation_map, service_id);
+}
+
+
+/* Handle an error from an app connection.
+ *
+ * This can be a network error or "not primary" / "node is recovering" error.
+ * Caller must lock topology->mutex.
+ * service_id is only applicable if connected to a load balanced deployment.
+ * Pass kZeroServiceID as service_id for connections that have no
+ * associated service ID.
+ * Returns true if pool was cleared.
+ */
+bool
+_mongoc_topology_handle_app_error (mongoc_topology_t *topology,
+                                   uint32_t server_id,
+                                   bool handshake_complete,
+                                   _mongoc_sdam_app_error_type_t type,
+                                   const bson_t *reply,
+                                   const bson_error_t *why,
+                                   uint32_t max_wire_version,
+                                   uint32_t generation,
+                                   const bson_oid_t *service_id)
+{
+   bson_error_t server_selection_error;
+   mongoc_server_description_t *sd;
+   bool pool_cleared;
+
+   pool_cleared = false;
+   sd = mongoc_topology_description_server_by_id (
+      &topology->description, server_id, &server_selection_error);
+   if (!sd) {
+      /* The server was already removed from the topology. Ignore error. */
+      return false;
+   }
+
+   /* When establishing a new connection in load balanced mode, drivers MUST NOT
+    * perform SDAM error handling for any errors that occur before the MongoDB
+    * Handshake. */
+   if (topology->description.type == MONGOC_TOPOLOGY_LOAD_BALANCED &&
+       !handshake_complete) {
+      return false;
+   }
+
+   if (generation < _mongoc_topology_get_connection_pool_generation (
+                       topology, server_id, service_id)) {
+      /* This is a stale connection. Ignore. */
+      return false;
+   }
+
+   if (type == MONGOC_SDAM_APP_ERROR_NETWORK) {
+      /* Mark server as unknown. */
+      mongoc_topology_description_invalidate_server (
+         &topology->description, server_id, why);
+      _mongoc_topology_clear_connection_pool (topology, server_id, service_id);
+      pool_cleared = true;
+      if (!topology->single_threaded) {
+         _mongoc_topology_background_monitoring_cancel_check (topology,
+                                                              server_id);
+      }
+   } else if (type == MONGOC_SDAM_APP_ERROR_TIMEOUT) {
+      if (handshake_complete) {
+         /* Timeout errors after handshake are ok, do nothing. */
+         return false;
+      }
+      /* Mark server as unknown. */
+      mongoc_topology_description_invalidate_server (
+         &topology->description, server_id, why);
+      _mongoc_topology_clear_connection_pool (topology, server_id, service_id);
+      pool_cleared = true;
+      if (!topology->single_threaded) {
+         _mongoc_topology_background_monitoring_cancel_check (topology,
+                                                              server_id);
+      }
+   } else if (type == MONGOC_SDAM_APP_ERROR_COMMAND) {
+      bson_error_t cmd_error;
+      bson_t incoming_topology_version;
+
+      if (_mongoc_cmd_check_ok_no_wce (
+             reply, MONGOC_ERROR_API_VERSION_2, &cmd_error)) {
+         /* No error. */
+         return false;
+      }
+
+      if (!_mongoc_error_is_state_change (&cmd_error)) {
+         /* Not a "not primary" or "node is recovering" error. */
+         return false;
+      }
+
+      /* Check if the error is "stale", i.e. the topologyVersion refers to an
+       * older
+       * version of the server than we have stored in the topology description.
+       */
+      _find_topology_version (reply, &incoming_topology_version);
+      if (mongoc_server_description_topology_version_cmp (
+             &sd->topology_version, &incoming_topology_version) >= 0) {
+         /* The server description is greater or equal, ignore the error. */
+         bson_destroy (&incoming_topology_version);
+         return false;
+      }
+      /* Overwrite the topology version. */
+      mongoc_server_description_set_topology_version (
+         sd, &incoming_topology_version);
+      bson_destroy (&incoming_topology_version);
+
+      /* SDAM: When handling a "not primary" or "node is recovering" error, the
+       * client MUST clear the server's connection pool if and only if the error
+       * is "node is shutting down" or the error originated from server version
+       * < 4.2.
+       */
+      if (max_wire_version <= WIRE_VERSION_4_0 ||
+          _mongoc_error_is_shutdown (&cmd_error)) {
+         _mongoc_topology_clear_connection_pool (topology, server_id, service_id);
+         pool_cleared = true;
+      }
+
+      /* SDAM: When the client sees a "not primary" or "node is recovering"
+       * error and the error's topologyVersion is strictly greater than the
+       * current ServerDescription's topologyVersion it MUST replace the
+       * server's description with a ServerDescription of type Unknown. */
+      mongoc_topology_description_invalidate_server (
+         &topology->description, server_id, &cmd_error);
+
+      if (topology->single_threaded) {
+         /* SDAM: For single-threaded clients, in the case of a "not primary" or
+          * "node is shutting down" error, the client MUST mark the topology as
+          * "stale"
+          */
+         if (_mongoc_error_is_not_primary (&cmd_error)) {
+            topology->stale = true;
+         }
+      } else {
+         /* SDAM Spec: "Multi-threaded and asynchronous clients MUST request an
+          * immediate check of the server."
+          * Instead of requesting a check of the one server, request a scan
+          * to all servers (to find the new primary).
+          */
+         _mongoc_topology_request_scan (topology);
+      }
+   }
+   return pool_cleared;
+}
+
+/* Called from application threads
+ * Caller must hold topology lock.
+ * Locks topology description mutex to copy out server description errors.
+ * For single-threaded monitoring, the topology scanner may include errors for
+ * servers that were removed from the topology.
+ */
+static void
+_topology_collect_errors (mongoc_topology_t *topology, bson_error_t *error_out)
+{
+   mongoc_topology_description_t *topology_description;
+   mongoc_server_description_t *server_description;
+   bson_string_t *error_message;
+   int i;
+
+   topology_description = &topology->description;
+   memset (error_out, 0, sizeof (bson_error_t));
+   error_message = bson_string_new ("");
+
+   for (i = 0; i < topology_description->servers->items_len; i++) {
+      bson_error_t *error;
+
+      server_description = topology_description->servers->items[i].item;
+      error = &server_description->error;
+      if (error->code) {
+         if (error_message->len > 0) {
+            bson_string_append_c (error_message, ' ');
+         }
+         bson_string_append_printf (
+            error_message, "[%s]", server_description->error.message);
+         /* The last error's code and domain wins. */
+         error_out->code = error->code;
+         error_out->domain = error->domain;
+      }
+   }
+
+   bson_strncpy ((char *) &error_out->message,
+                 error_message->str,
+                 sizeof (error_out->message));
+   bson_string_free (error_message, true);
+}
+
+void
+_mongoc_topology_set_rr_resolver (mongoc_topology_t *topology,
+                                  _mongoc_rr_resolver_fn rr_resolver)
+{
+   MONGOC_DEBUG_ASSERT (COMMON_PREFIX (mutex_is_locked) (&topology->mutex));
+   topology->rr_resolver = rr_resolver;
+}
+
+void
+_mongoc_topology_set_srv_polling_rescan_interval_ms (
+   mongoc_topology_t *topology, int64_t val)
+{
+   MONGOC_DEBUG_ASSERT (COMMON_PREFIX (mutex_is_locked) (&topology->mutex));
+   topology->srv_polling_rescan_interval_ms = val;
+}
+
+uint32_t
+_mongoc_topology_get_connection_pool_generation (mongoc_topology_t *topology,
+                                                 uint32_t server_id,
+                                                 const bson_oid_t *service_id)
+{
+   mongoc_server_description_t *sd;
+   bson_error_t error;
+
+   BSON_ASSERT (service_id);
+
+   sd = mongoc_topology_description_server_by_id (
+      &topology->description, server_id, &error);
+   if (!sd) {
+      /* Server removed, ignore and ignore error. */
+      return 0;
+   }
+
+   return mongoc_generation_map_get (sd->generation_map, service_id);
 }

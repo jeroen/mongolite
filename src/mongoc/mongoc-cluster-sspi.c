@@ -150,7 +150,7 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
 {
    mongoc_cmd_parts_t parts;
    mongoc_sspi_client_state_t *state;
-   SEC_CHAR buf[4096] = {0};
+   SEC_CHAR* buf = NULL;
    bson_iter_t iter;
    uint32_t buflen;
    bson_t reply;
@@ -174,7 +174,8 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
 
    for (step = 0;; step++) {
       mongoc_cmd_parts_init (
-         &parts, cluster->client, "$external", MONGOC_QUERY_SLAVE_OK, &cmd);
+         &parts, cluster->client, "$external", MONGOC_QUERY_SECONDARY_OK, &cmd);
+      parts.prohibit_lsid = true;
       bson_init (&cmd);
 
       if (res == MONGOC_SSPI_AUTH_GSS_CONTINUE) {
@@ -222,7 +223,7 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
       }
 
       server_stream = _mongoc_cluster_create_server_stream (
-         cluster->client->topology, sd->id, stream, error);
+         cluster->client->topology, sd, stream, error);
 
       if (!server_stream ||
           !mongoc_cmd_parts_assemble (&parts, server_stream, error)) {
@@ -265,24 +266,17 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
 
 
       tmpstr = bson_iter_utf8 (&iter, &buflen);
-
-      if (buflen > sizeof buf) {
-         bson_set_error (error,
-                         MONGOC_ERROR_CLIENT,
-                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                         "SASL reply from MongoDB is too large.");
-
-         bson_destroy (&reply);
-         goto failure;
-      }
-
+      bson_free (buf);
+      buf = bson_malloc (sizeof (SEC_CHAR) * (buflen + 1));
       memcpy (buf, tmpstr, buflen);
+      buf[buflen] = (SEC_CHAR) 0;
 
       bson_destroy (&reply);
    }
 
    ret = true;
 failure:
+   bson_free (buf);
    bson_free (state);
    return ret;
 }
