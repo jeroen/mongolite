@@ -1,5 +1,4 @@
 PKG_CPPFLAGS=-I. -Icommon \
-	-DMONGOC_ENABLE_SSL_SECURE_CHANNEL -DMONGOC_ENABLE_CRYPTO_CNG \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION @cflags@
 
 LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
