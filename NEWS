@@ -1,6 +1,8 @@
 2.4.0
  - Update vendored mongo-c-driver to v1.19.2
  - Windows: switch to windows native TLS, drop OpenSSL.
+ - Disable OCSP checking because it hangs on some platforms.
+ - Identify detailed R client information in the handshake #225
 
 2.3.1
  - Windows: update to openssl 1.1.1k
