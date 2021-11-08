@@ -1,5 +1,6 @@
 2.4.1
  - Windows: fix warning 'Setting tlsDisableOCSPEndpointCheck has no effect'
+ - Fix bug that would prevent non-tls connections
 
 2.4.0
  - Update vendored mongo-c-driver to v1.19.2
