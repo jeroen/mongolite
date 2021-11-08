@@ -1,12 +1,11 @@
-#!/usr/bin/env	bash
-# Anticonf (tm) script by Jeroen Ooms (2020)
+# Anticonf (tm) script by Jeroen Ooms (2021)
 # This script will query 'pkg-config' for the required cflags and ldflags.
 # If pkg-config is unavailable or does not find the library, try setting
 # INCLUDE_DIR and LIB_DIR manually via e.g:
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
 
 # Special case: On MacOS we now use the native crypto instead of openssl
-if [[ "$OSTYPE" == "darwin"* ]] && [[ -z "$MONGOLITE_USE_OPENSSL" ]]; then
+if [ `uname` = "Darwin" ] && [ -z "$MONGOLITE_USE_OPENSSL" ]; then
   echo "Using native crypto for MacOS, don't need OpenSSL"
   cat src/osx/Makevars > src/Makevars
   exit 0
@@ -21,8 +20,8 @@ PKG_BREW_NAME="openssl@1.1"
 PKG_TEST_FILE="src/tests/dependencies.c"
 SASL_LIBS="-lsasl2"
 
-# Hack for solaris
-if [ $(uname) = "SunOS" ]; then
+# Special case for solaris
+if [ `uname` = "SunOS" ]; then
   SASL_LIBS="-lsasl"
 fi
 
@@ -32,8 +31,8 @@ PKG_LIBS="-lssl -lcrypto $SASL_LIBS"
 # Use pkg-config if openssl 1.0 is available
 pkg-config ${PKG_CONFIG_NAME} --atleast-version=1.0.2
 if [ $? -eq 0 ]; then
-  PKGCONFIG_CFLAGS="$(pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME})"
-  PKGCONFIG_LIBS="$(pkg-config --libs ${PKG_CONFIG_NAME})"
+  PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
+  PKGCONFIG_LIBS=`pkg-config --libs ${PKG_CONFIG_NAME}`
 fi
 
 # Note that cflags may be empty in case of success
@@ -45,37 +44,42 @@ elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
   echo "Found pkg-config cflags and libs!"
   PKG_CFLAGS="${PKGCONFIG_CFLAGS}"
   PKG_LIBS="${SASL_LIBS} ${PKGCONFIG_LIBS}"
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  if [ $(command -v brew) ]; then
-    BREWDIR=$(brew --prefix)
+elif [ `uname` = "Darwin" ]; then
+  test ! "$CI" && brew --version 2>/dev/null
+  if [ $? -eq 0 ]; then
+    BREWDIR=`brew --prefix`
     PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
     PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib -lssl -lcrypto"
   else
-    curl -sfL "https://autobrew.github.io/scripts/openssl" > $TMPDIR/autobrew
-    source $TMPDIR/autobrew
+    curl -sfL "https://autobrew.github.io/scripts/openssl" > autobrew
+    . autobrew
   fi
   PKG_LIBS="$PKG_LIBS $SASL_LIBS"
 fi
 
 # Apple has deprecated SASL but there is no alternative yet
 # NB: now unused because we use osx-Makevars
-if [[ "$OSTYPE" == "darwin"* ]]; then
+if [ `uname` = "Darwin" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -Wno-deprecated-declarations"
 fi
 
-# Linux, MacOS and Solaris use libresolv
-if [[ "$OSTYPE" != *"bsd"* ]]; then
-  PKG_LIBS="$PKG_LIBS -lresolv"
-fi
+# All platforms use libresolv, except BSD
+case "`uname`" in
+  *BSD*)
+    ;;
+  *)
+    PKG_LIBS="$PKG_LIBS -lresolv"
+    ;;
+esac
 
 # For debugging
 echo "Using PKG_CFLAGS=$PKG_CFLAGS"
 echo "Using PKG_LIBS=$PKG_LIBS"
 
 # Find compiler
-CC=$(${R_HOME}/bin/R CMD config CC)
-CFLAGS=$(${R_HOME}/bin/R CMD config CFLAGS)
-CPPFLAGS=$(${R_HOME}/bin/R CMD config CPPFLAGS)
+CC=`${R_HOME}/bin/R CMD config CC`
+CFLAGS=`${R_HOME}/bin/R CMD config CFLAGS`
+CPPFLAGS=`${R_HOME}/bin/R CMD config CPPFLAGS`
 
 # Test configuration
 ${CC} ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} -E ${PKG_TEST_FILE} >/dev/null 2>configure.log
@@ -98,8 +102,8 @@ fi
 
 # Feature test for 'sasl_client_done'
 cd src
-${CC} ./tests/has_sasl_client_done.c ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} ${PKG_LIBS} >/dev/null 2>&1 && HAS_SASL_CLIENT_DONE=1;
-if [ $HAS_SASL_CLIENT_DONE ]; then
+${CC} ./tests/has_sasl_client_done.c ${CPPFLAGS} ${PKG_CFLAGS} ${CFLAGS} ${PKG_LIBS} >/dev/null 2>&1
+if [ $? -eq 0 ]; then
   echo "SASL has sasl_client_done."
   PKG_CFLAGS="$PKG_CFLAGS -DMONGOC_HAVE_SASL_CLIENT_DONE"
 else
@@ -107,12 +111,15 @@ else
 fi
 
 # Use optimization unless UBSAN is enabled
-if [[ $CC == *"undefined"* ]]; then
-  echo "Found UBSAN. Not using extra alignment."
-else
-  echo "Compiling with extra alignment."
-  PKG_CFLAGS="$PKG_CFLAGS -DBSON_EXTRA_ALIGN"
-fi
+case "$CC" in
+  *undefined*)
+    echo "Found UBSAN. Not using extra alignment."
+    ;;
+  *)
+    echo "Compiling with extra alignment."
+    PKG_CFLAGS="$PKG_CFLAGS -DBSON_EXTRA_ALIGN"
+    ;;
+esac
 
 # Write to Makevars
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" Makevars.in > Makevars
