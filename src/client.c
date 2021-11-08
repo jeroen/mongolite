@@ -9,8 +9,13 @@ SEXP R_default_ssl_options(){
   SET_VECTOR_ELT(out, 1, safe_string(opt->ca_file));
   SET_VECTOR_ELT(out, 2, safe_string(opt->ca_dir));
   SET_VECTOR_ELT(out, 3, safe_string(opt->crl_file));
-  SET_VECTOR_ELT(out, 4, Rf_ScalarLogical(opt->weak_cert_validation));
+#if defined(__sun)
+  SET_VECTOR_ELT(out, 4, Rf_ScalarLogical(1));
+  SET_VECTOR_ELT(out, 5, Rf_ScalarLogical(1));
+#else
+  SET_VECTOR_ELT(out, 4, Rf_ScalarLogical(opt->allow_invalid_hostname));
   SET_VECTOR_ELT(out, 5, Rf_ScalarLogical(opt->weak_cert_validation));
+#endif
   UNPROTECT(1);
   return out;
 }
