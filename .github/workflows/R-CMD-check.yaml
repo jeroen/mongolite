@@ -22,7 +22,7 @@ jobs:
           - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
           - {os: ubuntu-latest,   r: 'oldrel-1'}
-          - {os: ubuntu-18.04,   r: 'oldrel-4'}
+          - {os: ubuntu-18.04,    r: 'oldrel-4'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -31,17 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Start MongoDB
-        if: runner.os == 'Linux'
-        uses: supercharge/mongodb-github-action@1.6.0
-        with:
-          mongodb-version: '4.4'
-
-      - name: Install MongoDB on Homebrew MongoDB
-        if: runner.os == 'macOS'
-        run: |
-          brew tap mongodb/brew
-          brew install mongodb-community@5.0
+      - uses: r-lib/actions/setup-pandoc@v1
 
       - uses: r-lib/actions/setup-r@v1
         with:
@@ -55,13 +45,11 @@ jobs:
 
       - uses: r-lib/actions/check-r-package@v1
         if: runner.os != 'macos'
-        with:
-          args: '--no-manual --run-dontrun --as-cran'
 
       - uses: r-lib/actions/check-r-package@v1
         if: runner.os == 'macos'
         with:
-          args: '--no-manual --run-dontrun'
+          args: '"--no-manual" "--run-dontrun"'
 
       - name: Show testthat output
         if: always()
