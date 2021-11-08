@@ -38,7 +38,7 @@ jobs:
         uses: supercharge/mongodb-github-action@1.6.0
         if: runner.os == 'linux'
         with:
-          mongodb-version: '4.4'
+          mongodb-version: '4.0'
 
       - uses: r-lib/actions/setup-r@v1
         with:
