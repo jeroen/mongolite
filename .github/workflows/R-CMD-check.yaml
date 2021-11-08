@@ -34,11 +34,8 @@ jobs:
       - if: runner.os == 'macos'
         run: brew services start mongodb-community
 
-      - name: Run MongoDB on Linux
-        uses: supercharge/mongodb-github-action@1.6.0
-        if: runner.os == 'linux'
-        with:
-          mongodb-version: '4.0'
+      - if: runner.os == 'linux'
+        run: sudo docker run -d -p 27017:27017 mongo:latest
 
       - uses: r-lib/actions/setup-r@v1
         with:
