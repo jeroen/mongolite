@@ -45,11 +45,13 @@ jobs:
 
       - uses: r-lib/actions/check-r-package@v1
         if: runner.os != 'macos'
+        with:
+          args: '"--no-manual --run-dontrun --as-cran"'
 
       - uses: r-lib/actions/check-r-package@v1
         if: runner.os == 'macos'
         with:
-          args: '"--no-manual"'
+          args: '"--no-manual --run-dontrun"'
 
       - name: Show testthat output
         if: always()
