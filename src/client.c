@@ -20,15 +20,16 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
 
   bson_error_t err;
   mongoc_uri_t *uri = mongoc_uri_new_with_error (Rf_translateCharUTF8(STRING_ELT(uri_string, 0)), &err);
-#if defined(__sun)
+  if (!uri)
+    Rf_error("failed to parse URI: %s (%s)", uri_string, err.message);
+
   /* openssl is too old on Solaris, skip cert validation */
-  mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSINSECURE, true);
-#endif
+  #if defined(__sun)
+    mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSINSECURE, true);
+  #endif
 
   /* The ocsp client causes a threading hang on some systems, disabling for now */
   mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSDISABLEOCSPENDPOINTCHECK, true);
-  if (!uri)
-    Rf_error("failed to parse URI: %s (%s)", uri_string, err.message);
 
   mongoc_client_t *client = mongoc_client_new_from_uri (uri);
   if(!client)
