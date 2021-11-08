@@ -34,10 +34,11 @@ jobs:
       - if: runner.os == 'macos'
         run: brew services start mongodb-community
 
-      - if: runner.os == 'linux'
-        run: |
-          sudo systemctl start  mongod.service
-          sudo systemctl status mongod
+      - name: Run MongoDB on Linux
+        uses: supercharge/mongodb-github-action@1.6.0
+        if: runner.os == 'linux'
+        with:
+          mongodb-version: '4.4'
 
       - uses: r-lib/actions/setup-r@v1
         with:
