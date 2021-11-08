@@ -49,7 +49,7 @@ jobs:
         with:
           args: 'c("--as-cran","--no-manual","--run-dontrun")'
         env:
-          - START_MONGO_TEST_CONTAINER=1
+          - START_MONGO_TEST_CONTAINER: true
 
       - uses: r-lib/actions/check-r-package@v1
         if: runner.os == 'macos'

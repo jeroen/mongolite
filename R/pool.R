@@ -28,7 +28,6 @@ get_weakref <- function(x){
 
 .onLoad <- function(libname, pkgname) {
   if(grepl('linux', R.Version()$platform, fixed = TRUE) && nchar(Sys.getenv('START_MONGO_TEST_CONTAINER'))){
-    system('sudo docker run -d -p 27017:27017 mongo:latest')
-    Sys.sleep(3)
+    system('sudo systemctl start mongod')
   }
 }
