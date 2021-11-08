@@ -34,6 +34,9 @@ jobs:
       - if: runner.os == 'macos'
         run: brew services start mongodb-community
 
+      - if: runner.os == 'linux'
+        run: sudo systemctl restart mongod
+
       - uses: r-lib/actions/setup-r@v1
         with:
           r-version: ${{ matrix.config.r }}
@@ -48,8 +51,6 @@ jobs:
         if: runner.os != 'macos'
         with:
           args: 'c("--as-cran","--no-manual","--run-dontrun")'
-        env:
-          START_MONGO_TEST_CONTAINER: true
 
       - uses: r-lib/actions/check-r-package@v1
         if: runner.os == 'macos'

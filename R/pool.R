@@ -25,9 +25,3 @@ make_weakref <- function(x){
 get_weakref <- function(x){
   .Call(R_get_weakref, x)
 }
-
-.onLoad <- function(libname, pkgname) {
-  if(grepl('linux', R.Version()$platform, fixed = TRUE) && nchar(Sys.getenv('START_MONGO_TEST_CONTAINER'))){
-    system('sudo systemctl start mongod')
-  }
-}
