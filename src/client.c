@@ -24,6 +24,9 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
   /* openssl is too old on Solaris, skip cert validation */
   mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSINSECURE, true);
 #endif
+
+  /* The ocsp client causes a threading hang on some systems, disabling for now */
+  mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSDISABLEOCSPENDPOINTCHECK, true);
   if (!uri)
     Rf_error("failed to parse URI: %s (%s)", uri_string, err.message);
 
