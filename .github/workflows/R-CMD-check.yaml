@@ -49,7 +49,7 @@ jobs:
       - uses: r-lib/actions/check-r-package@v1
         if: runner.os == 'macos'
         with:
-          args: '"--no-manual" "--run-dontrun"'
+          args: 'c("--no-manual","--run-dontrun")'
 
       - name: Show testthat output
         if: always()
