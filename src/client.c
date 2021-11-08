@@ -28,8 +28,10 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
     mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSINSECURE, true);
   #endif
 
-  /* The ocsp client causes a threading hang on some systems, disabling for now */
-  mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSDISABLEOCSPENDPOINTCHECK, true);
+    /* The ocsp client causes a threading hang on some systems, disabling for now */
+#ifdef MONGOC_ENABLE_SSL_OPENSSL
+    mongoc_uri_set_option_as_bool (uri, MONGOC_URI_TLSDISABLEOCSPENDPOINTCHECK, true);
+#endif
 
   mongoc_client_t *client = mongoc_client_new_from_uri (uri);
   if(!client)
