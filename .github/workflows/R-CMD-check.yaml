@@ -36,7 +36,7 @@ jobs:
 
       - if: runner.os == 'linux'
         run: |
-          sudo systemctl start mongod
+          sudo systemctl start  mongod.service
           sudo systemctl status mongod
 
       - uses: r-lib/actions/setup-r@v1
