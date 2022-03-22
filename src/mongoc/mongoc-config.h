@@ -18,6 +18,18 @@
 #ifndef MONGOC_CONFIG_H
 #define MONGOC_CONFIG_H
 
+#define MONGOC_TRACE 0
+
+enum {
+        /**
+         * @brief Compile-time constant determining whether the mongoc library was
+         * compiled with tracing enabled.
+         *
+         * Can be controlled with the 'ENABLE_TRACING" configure-time boolean option
+         */
+        MONGOC_TRACE_ENABLED = MONGOC_TRACE
+};
+
 /* R packages should be portable */
 #define MONGOC_CC ""
 #define MONGOC_USER_SET_CFLAGS ""
@@ -207,6 +219,15 @@
 
 #if MONGOC_HAVE_SS_FAMILY != 1
 #  undef MONGOC_HAVE_SS_FAMILY
+#endif
+
+/*
+ * Set if building with AWS IAM support.
+ */
+#define MONGOC_ENABLE_MONGODB_AWS_AUTH 0
+
+#if MONGOC_ENABLE_MONGODB_AWS_AUTH != 1
+#  undef MONGOC_ENABLE_MONGODB_AWS_AUTH
 #endif
 
 #endif /* MONGOC_CONFIG_H */

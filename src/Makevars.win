@@ -45,7 +45,8 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-client-side-encryption.o mongoc/mongoc-cursor-change-stream.o mongoc/mongoc-change-stream.o \
 	mongoc/mongoc-cluster-aws.o mongoc/mongoc-generation-map.o mongoc/mongoc-timeout.o \
 	mongoc/mongoc-server-monitor.o mongoc/mongoc-topology-background-monitoring.o common/common-thread.o \
-	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-ocsp-cache.o
+	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-ocsp-cache.o \
+	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o
 
 STATLIB = mongoc/libstatmongoc.a
 
