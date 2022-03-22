@@ -44,7 +44,9 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 
 PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -lz -lsasl2 -lresolv -framework Security
 STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
-PKG_CFLAGS=-Wno-deprecated-declarations
+
+# mongo-c-driver uses some legacy apis: https://jira.mongodb.org/browse/CDRIVER-2722
+PKG_CFLAGS=-mmacosx-version-min=10.8
 
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
