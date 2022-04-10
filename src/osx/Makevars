@@ -1,8 +1,9 @@
 # Special config for native MacOS SSL (Secure Transport) instead of OpenSSL
-PKG_CPPFLAGS=-I. -Icommon \
+PKG_CPPFLAGS=-I. -Icommon -Ikms \
 	-DBSON_COMPILATION -DBSON_EXTRA_ALIGN \
 	-DMONGOC_COMPILATION -DMONGOC_HAVE_SASL_CLIENT_DONE \
-	-DMONGOC_ENABLE_SSL_SECURE_TRANSPORT -DMONGOC_ENABLE_CRYPTO_COMMON_CRYPTO
+	-DMONGOC_ENABLE_SSL_SECURE_TRANSPORT -DMONGOC_ENABLE_CRYPTO_COMMON_CRYPTO \
+	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_COMMON_CRYPTO
 
 LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
@@ -40,10 +41,15 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-client-side-encryption.o mongoc/mongoc-cursor-change-stream.o mongoc/mongoc-change-stream.o \
 	mongoc/mongoc-cluster-aws.o mongoc/mongoc-generation-map.o mongoc/mongoc-timeout.o \
 	mongoc/mongoc-server-monitor.o mongoc/mongoc-topology-background-monitoring.o common/common-thread.o \
-	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o
+	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o
 
-PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -lz -lsasl2 -lresolv -framework Security
-STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
+LIBKMS=kms/hexlify.o kms/kms_crypto_apple.o kms/kms_kv_list.o kms/kms_request.o \
+	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \
+	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o	\
+	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o
+
+PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -Lkms -lstatkms -lz -lsasl2 -lresolv -framework Security
+STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a kms/libstatkms.a
 
 # mongo-c-driver uses some legacy apis: https://jira.mongodb.org/browse/CDRIVER-2722
 PKG_CFLAGS=-mmacosx-version-min=10.8
@@ -54,9 +60,10 @@ all: clean
 
 $(SHLIB): $(STATLIB)
 
-$(STATLIB): $(LIBBSON) $(LIBMONGOC)
+$(STATLIB): $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
 	$(AR) rcs bson/libstatbson.a $(LIBBSON)
 	$(AR) rcs mongoc/libstatmongoc.a $(LIBMONGOC)
+	$(AR) rcs kms/libstatkms.a $(LIBKMS)
 
 clean:
-	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)
+	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS) $(OBJECTS)
