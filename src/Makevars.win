@@ -1,7 +1,8 @@
 PKG_CPPFLAGS = \
-	-I. -Icommon \
+	-I. -Icommon -Ikms \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
 	-DMONGOC_ENABLE_SSL_SECURE_CHANNEL -DMONGOC_ENABLE_CRYPTO_CNG \
+	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_CNG \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
 
 PKG_LIBS = \
@@ -48,6 +49,11 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-ocsp-cache.o \
 	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o
 
+LIBKMS=kms/hexlify.o kms/kms_crypto_windows.o kms/kms_kv_list.o kms/kms_request.o \
+	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \
+	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o	\
+	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o
+
 STATLIB = mongoc/libstatmongoc.a
 
 # For development only
@@ -58,12 +64,12 @@ all: $(SHLIB)
 
 $(SHLIB): $(STATLIB)
 
-$(STATLIB): $(LIBBSON) $(LIBMONGOC)
+$(STATLIB): $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
 
 winlibs:
 	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
 
 clean:
-	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)
+	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS) $(LIBKMS)
 
 .PHONY: all clean

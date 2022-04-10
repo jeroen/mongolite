@@ -224,7 +224,7 @@ enum {
 /*
  * Set if building with AWS IAM support.
  */
-#define MONGOC_ENABLE_MONGODB_AWS_AUTH 0
+#define MONGOC_ENABLE_MONGODB_AWS_AUTH 1
 
 #if MONGOC_ENABLE_MONGODB_AWS_AUTH != 1
 #  undef MONGOC_ENABLE_MONGODB_AWS_AUTH

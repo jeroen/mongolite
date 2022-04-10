@@ -1,4 +1,5 @@
-PKG_CPPFLAGS=-I. -Icommon \
+PKG_CPPFLAGS=-I. -Icommon -Ikms \
+	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_LIBCRYPTO \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION @cflags@
 
 LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
@@ -40,8 +41,13 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-ocsp-cache.o \
 	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o
 
-PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson @libs@ -lz
-STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a
+LIBKMS=kms/hexlify.o kms/kms_crypto_windows.o kms/kms_kv_list.o kms/kms_request.o \
+	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \
+	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o \
+	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o
+
+PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -Lkms -lstatkms @libs@ -lz
+STATLIB = mongoc/libstatmongoc.a bson/libstatbson.a kms/libstatkms.a
 
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
@@ -50,9 +56,10 @@ all: clean
 
 $(SHLIB): $(STATLIB)
 
-$(STATLIB): $(LIBBSON) $(LIBMONGOC)
+$(STATLIB): $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
 	$(AR) rcs bson/libstatbson.a $(LIBBSON)
 	$(AR) rcs mongoc/libstatmongoc.a $(LIBMONGOC)
+	$(AR) rcs kms/libstatkms.a $(LIBKMS)
 
 clean:
-	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS)
+	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS) $(OBJECTS)
