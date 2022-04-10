@@ -43,7 +43,7 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 
 LIBKMS=kms/hexlify.o kms/kms_crypto_windows.o kms/kms_kv_list.o kms/kms_request.o \
 	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \
-	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o kms/kms_crypto_none.o	\
+	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o \
 	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o
 
 PKG_LIBS=-Lmongoc -lstatmongoc -Lbson -lstatbson -Lkms -lstatkms @libs@ -lz
