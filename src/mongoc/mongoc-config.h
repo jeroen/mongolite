@@ -230,4 +230,10 @@ enum {
 #  undef MONGOC_ENABLE_MONGODB_AWS_AUTH
 #endif
 
+/* Available everywhere except for alpine-musl */
+#if defined(__linux__) && !defined(__GLIBC__)
+#undef MONGOC_HAVE_RES_NSEARCH
+#undef MONGOC_HAVE_RES_NCLOSE
+#endif
+
 #endif /* MONGOC_CONFIG_H */
