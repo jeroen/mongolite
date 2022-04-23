@@ -18,42 +18,29 @@
 #ifndef MONGOC_CONFIG_H
 #define MONGOC_CONFIG_H
 
+#define MONGOC_TRACE 0
+
+enum {
+        /**
+         * @brief Compile-time constant determining whether the mongoc library was
+         * compiled with tracing enabled.
+         *
+         * Can be controlled with the 'ENABLE_TRACING" configure-time boolean option
+         */
+        MONGOC_TRACE_ENABLED = MONGOC_TRACE
+};
+
 /* R packages should be portable */
 #define MONGOC_CC ""
 #define MONGOC_USER_SET_CFLAGS ""
 #define MONGOC_USER_SET_LDFLAGS ""
 
 /*
- * MONGOC_ENABLE_SSL_SECURE_CHANNEL is set from configure to determine if we are
- * compiled with Native SSL support on Windows
- */
-#define MONGOC_ENABLE_SSL_SECURE_CHANNEL 0
-
-#if MONGOC_ENABLE_SSL_SECURE_CHANNEL != 1
-#  undef MONGOC_ENABLE_SSL_SECURE_CHANNEL
-#endif
-
-
-/*
- * MONGOC_ENABLE_CRYPTO_CNG is set from configure to determine if we are
- * compiled with Native Crypto support on Windows
- */
-#define MONGOC_ENABLE_CRYPTO_CNG 0
-
-#if MONGOC_ENABLE_CRYPTO_CNG != 1
-#  undef MONGOC_ENABLE_CRYPTO_CNG
-#endif
-
-
-/*
  * MONGOC_ENABLE_SSL_OPENSSL is set from configure to determine if we are
  * compiled with OpenSSL support.
  */
-#ifndef MONGOC_ENABLE_SSL_SECURE_TRANSPORT
+#if !defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT) && !defined(MONGOC_ENABLE_SSL_SECURE_CHANNEL)
 #define MONGOC_ENABLE_SSL_OPENSSL 1
-#endif
-
-#ifndef MONGOC_ENABLE_CRYPTO_COMMON_CRYPTO
 #define MONGOC_ENABLE_CRYPTO_LIBCRYPTO 1
 #endif
 
@@ -168,6 +155,16 @@
 #  undef MONGOC_HAVE_DNSAPI
 #endif
 
+/*
+ * MONGOC_HAVE_RES_NSEARCH is set from configure to determine if we
+ * have thread-safe res_nsearch().
+ */
+#define MONGOC_HAVE_RES_NSEARCH 1
+
+#if MONGOC_HAVE_RES_NSEARCH != 1
+#  undef MONGOC_HAVE_RES_NSEARCH
+#endif
+
 
 /*
  * MONGOC_HAVE_RES_SEARCH is set from configure to determine if we
@@ -177,6 +174,14 @@
 
 #if !defined (__FreeBSD__) && !defined (__OpenBSD__) && !defined(_WIN32)
 #define MONGOC_HAVE_RES_SEARCH 1
+#endif
+
+
+#if defined (__FreeBSD__) || defined (__OpenBSD__) || defined(__APPLE__)
+#define MONGOC_HAVE_RES_NDESTROY 1
+//#elif defined(__linux__)
+#else
+#define MONGOC_HAVE_RES_NCLOSE 1
 #endif
 
 #if MONGOC_HAVE_RES_SEARCH != 1
@@ -204,6 +209,31 @@
 
 #if MONGOC_ENABLE_COMPRESSION_ZLIB != 1
 #  undef MONGOC_ENABLE_COMPRESSION_ZLIB
+#endif
+
+/*
+ * Set if struct sockaddr_storage has __ss_family (instead of ss_family)
+ */
+
+#define MONGOC_HAVE_SS_FAMILY 1
+
+#if MONGOC_HAVE_SS_FAMILY != 1
+#  undef MONGOC_HAVE_SS_FAMILY
+#endif
+
+/*
+ * Set if building with AWS IAM support.
+ */
+#define MONGOC_ENABLE_MONGODB_AWS_AUTH 1
+
+#if MONGOC_ENABLE_MONGODB_AWS_AUTH != 1
+#  undef MONGOC_ENABLE_MONGODB_AWS_AUTH
+#endif
+
+/* Available everywhere except for alpine-musl */
+#if defined(__linux__) && !defined(__GLIBC__)
+#undef MONGOC_HAVE_RES_NSEARCH
+#undef MONGOC_HAVE_RES_NCLOSE
 #endif
 
 #endif /* MONGOC_CONFIG_H */

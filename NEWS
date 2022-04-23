@@ -1,3 +1,22 @@
+2.6.1
+ - Fix build of new kms module on Alpine linux
+
+2.6.0
+ - Add kms-message module to support aws authentication
+
+2.5.0
+ - Update vendored mongo-c-driver to v1.21.1
+
+2.4.1
+ - Windows: fix warning 'Setting tlsDisableOCSPEndpointCheck has no effect'
+ - Fix bug that would prevent non-tls connections
+
+2.4.0
+ - Update vendored mongo-c-driver to v1.19.2
+ - Windows: switch to windows native TLS, drop OpenSSL.
+ - Disable OCSP checking because it hangs on some platforms.
+ - Identify detailed R client information in the handshake #225
+
 2.3.1
  - Windows: update to openssl 1.1.1k
 

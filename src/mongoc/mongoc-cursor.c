@@ -164,8 +164,9 @@ _mongoc_set_cursor_ns (mongoc_cursor_t *cursor, const char *ns, uint32_t nslen)
 {
    const char *dot;
 
-   bson_strncpy (cursor->ns, ns, sizeof cursor->ns);
-   cursor->nslen = BSON_MIN (nslen, sizeof cursor->ns);
+   bson_free (cursor->ns);
+   cursor->ns = bson_strndup (ns, nslen);
+   cursor->nslen = nslen;
    dot = strstr (cursor->ns, ".");
 
    if (dot) {
@@ -250,6 +251,7 @@ _mongoc_cursor_new_with_opts (mongoc_client_t *client,
    cursor->client = client;
    cursor->state = UNPRIMED;
    cursor->client_generation = client->generation;
+   cursor->is_aggr_with_write_stage = false;
 
    bson_init (&cursor->opts);
    bson_init (&cursor->error_doc);
@@ -442,19 +444,19 @@ _translate_query_opt (const char *query_field, const char **cmd_field, int *len)
 
 
 /* set up a new opt bson from older ways of specifying options.
- * slave_ok may be NULL.
+ * secondary_ok may be NULL.
  * error may be NULL.
  */
 void
 _mongoc_cursor_flags_to_opts (mongoc_query_flags_t qflags,
                               bson_t *opts, /* IN/OUT */
-                              bool *slave_ok /* OUT */)
+                              bool *secondary_ok /* OUT */)
 {
    ENTRY;
    BSON_ASSERT (opts);
 
-   if (slave_ok) {
-      *slave_ok = !!(qflags & MONGOC_QUERY_SLAVE_OK);
+   if (secondary_ok) {
+      *secondary_ok = !!(qflags & MONGOC_QUERY_SECONDARY_OK);
    }
 
    if (qflags & MONGOC_QUERY_TAILABLE_CURSOR) {
@@ -587,7 +589,7 @@ done:
 void
 mongoc_cursor_destroy (mongoc_cursor_t *cursor)
 {
-   char db[MONGOC_NAMESPACE_MAX];
+   char *db;
    ENTRY;
 
    if (!cursor) {
@@ -605,13 +607,13 @@ mongoc_cursor_destroy (mongoc_cursor_t *cursor)
       cursor->client->in_exhaust = false;
       if (cursor->state != DONE) {
          /* The only way to stop an exhaust cursor is to kill the connection
-            */
-         mongoc_cluster_disconnect_node (
-            &cursor->client->cluster, cursor->server_id, false, NULL);
+          */
+         mongoc_cluster_disconnect_node (&cursor->client->cluster,
+                                         cursor->server_id);
       }
    } else if (cursor->client_generation == cursor->client->generation) {
       if (cursor->cursor_id) {
-         bson_strncpy (db, cursor->ns, cursor->dblen + 1);
+         db = bson_strndup (cursor->ns, cursor->dblen);
 
          _mongoc_client_kill_cursor (cursor->client,
                                      cursor->server_id,
@@ -620,6 +622,7 @@ mongoc_cursor_destroy (mongoc_cursor_t *cursor)
                                      db,
                                      cursor->ns + cursor->dblen + 1,
                                      cursor->client_session);
+         bson_free (db);
       }
    }
 
@@ -633,6 +636,7 @@ mongoc_cursor_destroy (mongoc_cursor_t *cursor)
 
    bson_destroy (&cursor->opts);
    bson_destroy (&cursor->error_doc);
+   bson_free (cursor->ns);
    bson_free (cursor);
 
    mongoc_counter_cursors_active_dec ();
@@ -651,6 +655,8 @@ _mongoc_cursor_fetch_stream (mongoc_cursor_t *cursor)
    ENTRY;
 
    if (cursor->server_id) {
+      /* We already did server selection once before. Reuse the prior
+       * selection to create a new stream on the same server. */
       server_stream =
          mongoc_cluster_stream_for_server (&cursor->client->cluster,
                                            cursor->server_id,
@@ -658,15 +664,26 @@ _mongoc_cursor_fetch_stream (mongoc_cursor_t *cursor)
                                            cursor->client_session,
                                            &reply,
                                            &cursor->error);
+      if (server_stream) {
+         /* Also restore whether primary read preference was forced by server
+          * selection */
+         server_stream->must_use_primary = cursor->must_use_primary;
+      }
    } else {
-      server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
-                                                       cursor->read_prefs,
-                                                       cursor->client_session,
-                                                       &reply,
-                                                       &cursor->error);
+      server_stream =
+         mongoc_cluster_stream_for_reads (&cursor->client->cluster,
+                                          cursor->read_prefs,
+                                          cursor->client_session,
+                                          &reply,
+                                          cursor->is_aggr_with_write_stage,
+                                          &cursor->error);
 
       if (server_stream) {
+         /* Remember the selected server_id and whether primary read mode was
+          * forced so that we can re-create an equivalent server_stream at a
+          * later time */
          cursor->server_id = server_stream->sd->id;
+         cursor->must_use_primary = server_stream->must_use_primary;
       }
    }
 
@@ -688,7 +705,7 @@ _mongoc_cursor_monitor_command (mongoc_cursor_t *cursor,
 {
    mongoc_client_t *client;
    mongoc_apm_command_started_t event;
-   char db[MONGOC_NAMESPACE_MAX];
+   char *db;
 
    ENTRY;
 
@@ -698,7 +715,7 @@ _mongoc_cursor_monitor_command (mongoc_cursor_t *cursor,
       RETURN (true);
    }
 
-   bson_strncpy (db, cursor->ns, cursor->dblen + 1);
+   db = bson_strndup (cursor->ns, cursor->dblen);
 
    mongoc_apm_command_started_init (&event,
                                     cmd,
@@ -708,10 +725,13 @@ _mongoc_cursor_monitor_command (mongoc_cursor_t *cursor,
                                     cursor->operation_id,
                                     &server_stream->sd->host,
                                     server_stream->sd->id,
+                                    &server_stream->sd->service_id,
+                                    NULL,
                                     client->apm_context);
 
    client->apm_callbacks.started (&event);
    mongoc_apm_command_started_cleanup (&event);
+   bson_free (db);
 
    RETURN (true);
 }
@@ -787,6 +807,8 @@ _mongoc_cursor_monitor_succeeded (mongoc_cursor_t *cursor,
                                       cursor->operation_id,
                                       &stream->sd->host,
                                       stream->sd->id,
+                                      &stream->sd->service_id,
+                                      false,
                                       client->apm_context);
 
    client->apm_callbacks.succeeded (&event);
@@ -831,6 +853,8 @@ _mongoc_cursor_monitor_failed (mongoc_cursor_t *cursor,
                                    cursor->operation_id,
                                    &stream->sd->host,
                                    stream->sd->id,
+                                   &stream->sd->service_id,
+                                   false,
                                    client->apm_context);
 
    client->apm_callbacks.failed (&event);
@@ -893,13 +917,13 @@ _mongoc_cursor_opts_to_flags (mongoc_cursor_t *cursor,
       }
    }
 
-   if (cursor->slave_ok) {
-      *flags |= MONGOC_QUERY_SLAVE_OK;
+   if (cursor->secondary_ok) {
+      *flags |= MONGOC_QUERY_SECONDARY_OK;
    } else if (cursor->server_id &&
               (stream->topology_type == MONGOC_TOPOLOGY_RS_WITH_PRIMARY ||
                stream->topology_type == MONGOC_TOPOLOGY_RS_NO_PRIMARY) &&
               stream->sd->type != MONGOC_SERVER_RS_PRIMARY) {
-      *flags |= MONGOC_QUERY_SLAVE_OK;
+      *flags |= MONGOC_QUERY_SECONDARY_OK;
    }
 
    return true;
@@ -918,7 +942,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
    const char *cmd_name;
    bool is_primary;
    mongoc_read_prefs_t *prefs = NULL;
-   char db[MONGOC_NAMESPACE_MAX];
+   char *db = NULL;
    mongoc_session_opt_t *session_opts;
    bool ret = false;
    bool is_retryable = true;
@@ -953,6 +977,11 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
          _mongoc_bson_init_if_set (reply);
          GOTO (done);
       }
+      if (_mongoc_cursor_get_opt_bool (cursor, MONGOC_CURSOR_EXHAUST)) {
+         MONGOC_WARNING (
+            "exhaust cursors not supported with OP_MSG, using normal "
+            "cursor instead");
+      }
    }
 
    if (parts.assembled.session) {
@@ -986,7 +1015,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
       GOTO (done);
    }
 
-   bson_strncpy (db, cursor->ns, cursor->dblen + 1);
+   db = bson_strndup (cursor->ns, cursor->dblen);
    parts.assembled.db_name = db;
 
    if (!_mongoc_cursor_opts_to_flags (
@@ -995,10 +1024,19 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
       GOTO (done);
    }
 
+   /* Exhaust cursors with OP_MSG not yet supported; fallback to normal cursor.
+    * user_query_flags is unused in OP_MSG, so this technically has no effect,
+    * but is done anyways to ensure the query flags match handling of options.
+    */
+   if (parts.user_query_flags & MONGOC_QUERY_EXHAUST) {
+      parts.user_query_flags ^= MONGOC_QUERY_EXHAUST;
+   }
+
    /* we might use mongoc_cursor_set_hint to target a secondary but have no
     * read preference, so the secondary rejects the read. same if we have a
     * direct connection to a secondary (topology type "single"). with
-    * OP_QUERY we handle this by setting slaveOk. here we use $readPreference.
+    * OP_QUERY we handle this by setting secondaryOk. here we use
+    * $readPreference.
     */
    cmd_name = _mongoc_get_command_name (command);
    is_primary =
@@ -1006,7 +1044,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
 
    if (strcmp (cmd_name, "getMore") != 0 &&
        server_stream->sd->max_wire_version >= WIRE_VERSION_OP_MSG &&
-       is_primary && parts.user_query_flags & MONGOC_QUERY_SLAVE_OK) {
+       is_primary && parts.user_query_flags & MONGOC_QUERY_SECONDARY_OK) {
       parts.read_prefs = prefs =
          mongoc_read_prefs_new (MONGOC_READ_PRIMARY_PREFERRED);
    } else {
@@ -1059,11 +1097,16 @@ retry:
 
       mongoc_server_stream_cleanup (server_stream);
 
-      server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
-                                                       cursor->read_prefs,
-                                                       cursor->client_session,
-                                                       reply,
-                                                       &cursor->error);
+      BSON_ASSERT (!cursor->is_aggr_with_write_stage &&
+                   "Cannot attempt a retry on an aggregate operation that "
+                   "contains write stages");
+      server_stream =
+         mongoc_cluster_stream_for_reads (&cursor->client->cluster,
+                                          cursor->read_prefs,
+                                          cursor->client_session,
+                                          reply,
+                                          /* Not aggregate-with-write */ false,
+                                          &cursor->error);
 
       if (server_stream &&
           server_stream->sd->max_wire_version >= WIRE_VERSION_RETRY_READS) {
@@ -1095,6 +1138,7 @@ done:
    mongoc_server_stream_cleanup (server_stream);
    mongoc_cmd_parts_cleanup (&parts);
    mongoc_read_prefs_destroy (prefs);
+   bson_free (db);
 
    return ret;
 }
@@ -1310,7 +1354,8 @@ mongoc_cursor_more (mongoc_cursor_t *cursor)
 void
 mongoc_cursor_get_host (mongoc_cursor_t *cursor, mongoc_host_list_t *host)
 {
-   mongoc_server_description_t *description;
+   mongoc_server_description_t const *description;
+   mc_shared_tpld td;
 
    BSON_ASSERT (cursor);
    BSON_ASSERT (host);
@@ -1322,15 +1367,15 @@ mongoc_cursor_get_host (mongoc_cursor_t *cursor, mongoc_host_list_t *host)
       return;
    }
 
-   description = mongoc_topology_server_by_id (
-      cursor->client->topology, cursor->server_id, &cursor->error);
+   td = mc_tpld_take_ref (cursor->client->topology);
+   description = mongoc_topology_description_server_by_id_const (
+      td.ptr, cursor->server_id, &cursor->error);
+   mc_tpld_drop_ref (&td);
    if (!description) {
       return;
    }
 
    *host = description->host;
-
-   mongoc_server_description_destroy (description);
 
    EXIT;
 }
@@ -1369,7 +1414,7 @@ mongoc_cursor_clone (const mongoc_cursor_t *cursor)
    bson_copy_to (&cursor->opts, &_clone->opts);
    bson_init (&_clone->error_doc);
 
-   bson_strncpy (_clone->ns, cursor->ns, sizeof _clone->ns);
+   _clone->ns = bson_strdup (cursor->ns);
 
    /* copy the context functions by default. */
    memcpy (&_clone->impl, &cursor->impl, sizeof (cursor->impl));

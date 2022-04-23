@@ -35,6 +35,9 @@ BSON_BEGIN_DECLS
 #define HANDSHAKE_OS_ARCHITECTURE_MAX 32
 #define HANDSHAKE_DRIVER_NAME_MAX 64
 #define HANDSHAKE_DRIVER_VERSION_MAX 32
+
+#define HANDSHAKE_CMD_LEGACY_HELLO "isMaster"
+#define HANDSHAKE_RESPONSE_LEGACY_HELLO "ismaster"
 /* platform has no fixed max size. It can just occupy the remaining
  * available space in the document. */
 
@@ -74,6 +77,7 @@ typedef enum {
    MONGOC_MD_FLAG_TRACE,
    MONGOC_MD_FLAG_ENABLE_ICU,
    MONGOC_MD_FLAG_ENABLE_CLIENT_SIDE_ENCRYPTION,
+   MONGOC_MD_FLAG_ENABLE_MONGODB_AWS_AUTH,
    /* Add additional config flags here, above LAST_MONGOC_MD_FLAG. */
    LAST_MONGOC_MD_FLAG
 } mongoc_handshake_config_flag_bit_t;
@@ -120,11 +124,11 @@ typedef struct {
 
 void
 _mongoc_handshake_append_sasl_supported_mechs (const mongoc_uri_t *uri,
-                                               bson_t *ismaster);
+                                               bson_t *hello);
 
 void
 _mongoc_handshake_parse_sasl_supported_mechs (
-   const bson_t *ismaster,
+   const bson_t *hello,
    mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs);
 
 BSON_END_DECLS

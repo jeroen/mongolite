@@ -15,7 +15,6 @@
  */
 
 
-
 #include "mongoc.h"
 #include "mongoc-apm-private.h"
 #include "mongoc-counters-private.h"
@@ -26,6 +25,7 @@
 #include "mongoc-queue-private.h"
 #include "mongoc-thread-private.h"
 #include "mongoc-topology-private.h"
+#include "mongoc-topology-background-monitoring-private.h"
 #include "mongoc-trace-private.h"
 
 #ifdef MONGOC_ENABLE_SSL
@@ -50,6 +50,8 @@ struct _mongoc_client_pool_t {
    void *apm_context;
    int32_t error_api_version;
    bool error_api_set;
+   mongoc_server_api_t *api;
+   bool client_initialized;
 };
 
 
@@ -58,17 +60,16 @@ void
 mongoc_client_pool_set_ssl_opts (mongoc_client_pool_t *pool,
                                  const mongoc_ssl_opt_t *opts)
 {
-   BSON_ASSERT (pool);
-
    bson_mutex_lock (&pool->mutex);
 
-   _mongoc_ssl_opts_cleanup (&pool->ssl_opts);
+   _mongoc_ssl_opts_cleanup (&pool->ssl_opts,
+                             false /* don't free internal opts. */);
 
-   memset (&pool->ssl_opts, 0, sizeof pool->ssl_opts);
    pool->ssl_opts_set = false;
 
    if (opts) {
-      _mongoc_ssl_opts_copy_to (opts, &pool->ssl_opts);
+      _mongoc_ssl_opts_copy_to (
+         opts, &pool->ssl_opts, false /* don't overwrite internal opts. */);
       pool->ssl_opts_set = true;
    }
 
@@ -77,11 +78,40 @@ mongoc_client_pool_set_ssl_opts (mongoc_client_pool_t *pool,
 
    bson_mutex_unlock (&pool->mutex);
 }
+
+void
+_mongoc_client_pool_set_internal_tls_opts (
+   mongoc_client_pool_t *pool, _mongoc_internal_tls_opts_t *internal)
+{
+   bson_mutex_lock (&pool->mutex);
+   if (!pool->ssl_opts_set) {
+      bson_mutex_unlock (&pool->mutex);
+      return;
+   }
+   pool->ssl_opts.internal = bson_malloc (sizeof (_mongoc_internal_tls_opts_t));
+   memcpy (
+      pool->ssl_opts.internal, internal, sizeof (_mongoc_internal_tls_opts_t));
+   bson_mutex_unlock (&pool->mutex);
+}
 #endif
 
 
 mongoc_client_pool_t *
 mongoc_client_pool_new (const mongoc_uri_t *uri)
+{
+   mongoc_client_pool_t *pool;
+   bson_error_t error = {0};
+
+   if (!(pool = mongoc_client_pool_new_with_error (uri, &error))) {
+      MONGOC_ERROR ("%s", error.message);
+   }
+
+   return pool;
+}
+
+
+mongoc_client_pool_t *
+mongoc_client_pool_new_with_error (const mongoc_uri_t *uri, bson_error_t *error)
 {
    mongoc_topology_t *topology;
    mongoc_client_pool_t *pool;
@@ -96,21 +126,35 @@ mongoc_client_pool_new (const mongoc_uri_t *uri)
 
 #ifndef MONGOC_ENABLE_SSL
    if (mongoc_uri_get_tls (uri)) {
-      MONGOC_ERROR ("Can't create SSL client pool,"
-                    " SSL not enabled in this build.");
+      bson_set_error (error,
+                      MONGOC_ERROR_COMMAND,
+                      MONGOC_ERROR_COMMAND_INVALID_ARG,
+                      "Can't create SSL client pool, SSL not enabled in this "
+                      "build.");
       return NULL;
    }
 #endif
 
+   topology = mongoc_topology_new (uri, false);
+
+   if (!topology->valid) {
+      if (error) {
+         memcpy (error, &topology->scanner->error, sizeof (bson_error_t));
+      }
+
+      mongoc_topology_destroy (topology);
+
+      RETURN (NULL);
+   }
+
    pool = (mongoc_client_pool_t *) bson_malloc0 (sizeof *pool);
    bson_mutex_init (&pool->mutex);
+   mongoc_cond_init (&pool->cond);
    _mongoc_queue_init (&pool->queue);
    pool->uri = mongoc_uri_copy (uri);
    pool->min_pool_size = 0;
    pool->max_pool_size = 100;
    pool->size = 0;
-
-   topology = mongoc_topology_new (uri, false);
    pool->topology = topology;
    pool->error_api_version = MONGOC_ERROR_API_VERSION_LEGACY;
 
@@ -143,10 +187,12 @@ mongoc_client_pool_new (const mongoc_uri_t *uri)
 #ifdef MONGOC_ENABLE_SSL
    if (mongoc_uri_get_tls (pool->uri)) {
       mongoc_ssl_opt_t ssl_opt = {0};
+      _mongoc_internal_tls_opts_t internal_tls_opts = {0};
 
-      _mongoc_ssl_opts_from_uri (&ssl_opt, pool->uri);
+      _mongoc_ssl_opts_from_uri (&ssl_opt, &internal_tls_opts, pool->uri);
       /* sets use_ssl = true */
       mongoc_client_pool_set_ssl_opts (pool, &ssl_opt);
+      _mongoc_client_pool_set_internal_tls_opts (pool, &internal_tls_opts);
    }
 #endif
    mongoc_counter_client_pools_active_inc ();
@@ -166,7 +212,7 @@ mongoc_client_pool_destroy (mongoc_client_pool_t *pool)
       EXIT;
    }
 
-   if (pool->topology->session_pool) {
+   if (!mongoc_server_session_pool_is_empty (pool->topology->session_pool)) {
       client = mongoc_client_pool_pop (pool);
       _mongoc_client_end_sessions (client);
       mongoc_client_pool_push (pool, client);
@@ -183,8 +229,10 @@ mongoc_client_pool_destroy (mongoc_client_pool_t *pool)
    bson_mutex_destroy (&pool->mutex);
    mongoc_cond_destroy (&pool->cond);
 
+   mongoc_server_api_destroy (pool->api);
+
 #ifdef MONGOC_ENABLE_SSL
-   _mongoc_ssl_opts_cleanup (&pool->ssl_opts);
+   _mongoc_ssl_opts_cleanup (&pool->ssl_opts, true);
 #endif
 
    bson_free (pool);
@@ -204,9 +252,8 @@ mongoc_client_pool_destroy (mongoc_client_pool_t *pool)
 static void
 _start_scanner_if_needed (mongoc_client_pool_t *pool)
 {
-   if (!_mongoc_topology_start_background_scanner (pool->topology)) {
-      MONGOC_ERROR ("Background scanner did not start!");
-      abort ();
+   if (!pool->topology->single_threaded) {
+      _mongoc_topology_background_monitoring_start (pool->topology);
    }
 }
 
@@ -219,9 +266,13 @@ _initialize_new_client (mongoc_client_pool_t *pool, mongoc_client_t *client)
       pool->topology->scanner->initiator,
       pool->topology->scanner->initiator_context);
 
+   pool->client_initialized = true;
+   client->is_pooled = true;
    client->error_api_version = pool->error_api_version;
    _mongoc_client_set_apm_callbacks_private (
       client, &pool->apm_callbacks, pool->apm_context);
+
+   client->api = mongoc_server_api_copy (pool->api);
 
 #ifdef MONGOC_ENABLE_SSL
    if (pool->ssl_opts_set) {
@@ -234,26 +285,51 @@ mongoc_client_t *
 mongoc_client_pool_pop (mongoc_client_pool_t *pool)
 {
    mongoc_client_t *client;
+   int32_t wait_queue_timeout_ms;
+   int64_t expire_at_ms = -1;
+   int64_t now_ms;
+   int r;
 
    ENTRY;
 
    BSON_ASSERT (pool);
 
+   wait_queue_timeout_ms = mongoc_uri_get_option_as_int32 (
+      pool->uri, MONGOC_URI_WAITQUEUETIMEOUTMS, -1);
+   if (wait_queue_timeout_ms > 0) {
+      expire_at_ms =
+         (bson_get_monotonic_time () / 1000) + wait_queue_timeout_ms;
+   }
    bson_mutex_lock (&pool->mutex);
 
 again:
    if (!(client = (mongoc_client_t *) _mongoc_queue_pop_head (&pool->queue))) {
       if (pool->size < pool->max_pool_size) {
-         client = _mongoc_client_new_from_uri (pool->topology);
+         client = _mongoc_client_new_from_topology (pool->topology);
+         BSON_ASSERT (client);
          _initialize_new_client (pool, client);
          pool->size++;
       } else {
-         mongoc_cond_wait (&pool->cond, &pool->mutex);
+         if (wait_queue_timeout_ms > 0) {
+            now_ms = bson_get_monotonic_time () / 1000;
+            if (now_ms < expire_at_ms) {
+               r = mongoc_cond_timedwait (
+                  &pool->cond, &pool->mutex, expire_at_ms - now_ms);
+               if (mongo_cond_ret_is_timedout (r)) {
+                  GOTO (done);
+               }
+            } else {
+               GOTO (done);
+            }
+         } else {
+            mongoc_cond_wait (&pool->cond, &pool->mutex);
+         }
          GOTO (again);
       }
    }
 
    _start_scanner_if_needed (pool);
+done:
    bson_mutex_unlock (&pool->mutex);
 
    RETURN (client);
@@ -273,7 +349,8 @@ mongoc_client_pool_try_pop (mongoc_client_pool_t *pool)
 
    if (!(client = (mongoc_client_t *) _mongoc_queue_pop_head (&pool->queue))) {
       if (pool->size < pool->max_pool_size) {
-         client = _mongoc_client_new_from_uri (pool->topology);
+         client = _mongoc_client_new_from_topology (pool->topology);
+         BSON_ASSERT (client);
          _initialize_new_client (pool, client);
          pool->size++;
       }
@@ -396,30 +473,30 @@ mongoc_client_pool_set_apm_callbacks (mongoc_client_pool_t *pool,
                                       mongoc_apm_callbacks_t *callbacks,
                                       void *context)
 {
-   mongoc_topology_t *topology;
-
-   topology = pool->topology;
+   mongoc_topology_t *const topology = BSON_ASSERT_PTR_INLINE (pool)->topology;
+   mc_tpld_modification tdmod;
 
    if (pool->apm_callbacks_set) {
       MONGOC_ERROR ("Can only set callbacks once");
       return false;
    }
 
-   bson_mutex_lock (&topology->mutex);
+   tdmod = mc_tpld_modify_begin (topology);
 
    if (callbacks) {
-      memcpy (&topology->description.apm_callbacks,
+      memcpy (&tdmod.new_td->apm_callbacks,
               callbacks,
               sizeof (mongoc_apm_callbacks_t));
       memcpy (&pool->apm_callbacks, callbacks, sizeof (mongoc_apm_callbacks_t));
    }
 
-   mongoc_topology_set_apm_callbacks (topology, callbacks, context);
-   topology->description.apm_context = context;
+   mongoc_topology_set_apm_callbacks (
+      topology, tdmod.new_td, callbacks, context);
+   tdmod.new_td->apm_context = context;
    pool->apm_context = context;
    pool->apm_callbacks_set = true;
 
-   bson_mutex_unlock (&topology->mutex);
+   mc_tpld_modify_commit (tdmod);
 
    return true;
 }
@@ -463,4 +540,35 @@ mongoc_client_pool_enable_auto_encryption (mongoc_client_pool_t *pool,
 {
    return _mongoc_cse_client_pool_enable_auto_encryption (
       pool->topology, opts, error);
+}
+
+bool
+mongoc_client_pool_set_server_api (mongoc_client_pool_t *pool,
+                                   const mongoc_server_api_t *api,
+                                   bson_error_t *error)
+{
+   BSON_ASSERT_PARAM (pool);
+   BSON_ASSERT_PARAM (api);
+
+   if (pool->api) {
+      bson_set_error (error,
+                      MONGOC_ERROR_POOL,
+                      MONGOC_ERROR_POOL_API_ALREADY_SET,
+                      "Cannot set server api more than once per pool");
+      return false;
+   }
+
+   if (pool->client_initialized) {
+      bson_set_error (error,
+                      MONGOC_ERROR_POOL,
+                      MONGOC_ERROR_POOL_API_TOO_LATE,
+                      "Cannot set server api after a client has been created");
+      return false;
+   }
+
+   pool->api = mongoc_server_api_copy (api);
+
+   _mongoc_topology_scanner_set_server_api (pool->topology->scanner, api);
+
+   return true;
 }

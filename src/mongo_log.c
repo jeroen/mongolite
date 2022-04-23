@@ -1,5 +1,6 @@
 #include <R_ext/Rdynload.h>
 #include <mongolite.h>
+#include <Rversion.h>
 
 //default
 mongoc_log_level_t max_log_level = MONGOC_LOG_LEVEL_INFO;
@@ -32,10 +33,20 @@ void mongolite_log_handler (mongoc_log_level_t event, const char *log_domain, co
 
 void R_init_mongolite(DllInfo *info) {
   static mongoc_log_func_t logfun = mongolite_log_handler;
+  char *r_version = "";
   mongoc_init();
+
+  SEXP agent = Rf_GetOption1(Rf_install("HTTPUserAgent"));
+  if (Rf_isString(agent) && Rf_length(agent)) {
+    r_version = bson_strdup_printf ("%s ", CHAR(STRING_ELT(agent, 0)));
+  } else {
+    r_version = bson_strdup_printf ("R=%s.%s ", R_MAJOR, R_MINOR);
+  }
+  mongoc_handshake_data_append ("mongolite", "", r_version);
   mongoc_log_set_handler(logfun, NULL);
   R_registerRoutines(info, NULL, NULL, NULL, NULL);
   R_useDynamicSymbols(info, TRUE);
+  bson_free (r_version);
 }
 
 void R_unload_mongolite(DllInfo *info) {
