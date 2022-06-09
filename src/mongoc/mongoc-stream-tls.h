@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_STREAM_TLS_H
 #define MONGOC_STREAM_TLS_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-macros.h"
-#include "mongoc/mongoc-ssl.h"
-#include "mongoc/mongoc-stream.h"
+#include "mongoc-macros.h"
+#include "mongoc-ssl.h"
+#include "mongoc-stream.h"
 
 
 BSON_BEGIN_DECLS
@@ -51,11 +51,11 @@ MONGOC_EXPORT (mongoc_stream_t *)
 mongoc_stream_tls_new_with_hostname (mongoc_stream_t *base_stream,
                                      const char *host,
                                      mongoc_ssl_opt_t *opt,
-                                     int client);
+                                     int client) BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (mongoc_stream_t *)
 mongoc_stream_tls_new (mongoc_stream_t *base_stream,
                        mongoc_ssl_opt_t *opt,
-                       int client)
+                       int client) BSON_GNUC_WARN_UNUSED_RESULT
    BSON_GNUC_DEPRECATED_FOR (mongoc_stream_tls_new_with_hostname);
 
 

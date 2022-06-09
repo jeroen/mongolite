@@ -15,13 +15,15 @@
  */
 
 #include <bson/bson.h>
-#include "mongoc/mongoc-change-stream-private.h"
-#include "mongoc/mongoc-collection-private.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-client-session-private.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-database-private.h"
-#include "mongoc/mongoc-error.h"
+#include "mongoc-cluster-private.h"
+#include "mongoc-change-stream-private.h"
+#include "mongoc-collection-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-client-session-private.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-database-private.h"
+#include "mongoc-error.h"
+#include "mongoc-error-private.h"
 
 #define CHANGE_STREAM_ERR(_str)         \
    bson_set_error (&stream->err,        \
@@ -32,7 +34,7 @@
 /* the caller knows either a client or server error has occurred.
  * `reply` contains the server reply or an empty document. */
 static bool
-_is_resumable_error (const bson_t *reply)
+_is_resumable_error (mongoc_change_stream_t *stream, const bson_t *reply)
 {
    bson_error_t error = {0};
 
@@ -46,26 +48,50 @@ _is_resumable_error (const bson_t *reply)
       return true;
    }
 
-   /* Change Streams Spec resumable criteria: "a server error response with an
-    * error message containing the substring 'not master' or 'node is
-    * recovering' */
-   if (strstr (error.message, "not master") ||
-       strstr (error.message, "node is recovering")) {
+   if (error.code == MONGOC_SERVER_ERR_CURSOR_NOT_FOUND) {
       return true;
    }
 
-   /* Change Streams Spec resumable criteria: "any server error response from a
-    * getMore command excluding those containing the following error codes" */
+   if (stream->max_wire_version >= WIRE_VERSION_4_4) {
+      return mongoc_error_has_label (reply, "ResumableChangeStreamError");
+   }
+
    switch (error.code) {
-   case 11601:                      /* Interrupted */
-   case 136:                        /* CappedPositionLost */
-   case 237:                        /* CursorKilled */
-   case MONGOC_ERROR_QUERY_FAILURE: /* error code omitted */
-      return false;
-   default:
+   case MONGOC_SERVER_ERR_HOSTUNREACHABLE:
+   case MONGOC_SERVER_ERR_HOSTNOTFOUND:
+   case MONGOC_SERVER_ERR_NETWORKTIMEOUT:
+   case MONGOC_SERVER_ERR_SHUTDOWNINPROGRESS:
+   case MONGOC_SERVER_ERR_PRIMARYSTEPPEDDOWN:
+   case MONGOC_SERVER_ERR_EXCEEDEDTIMELIMIT:
+   case MONGOC_SERVER_ERR_SOCKETEXCEPTION:
+   case MONGOC_SERVER_ERR_NOTPRIMARY:
+   case MONGOC_SERVER_ERR_INTERRUPTEDATSHUTDOWN:
+   case MONGOC_SERVER_ERR_INTERRUPTEDDUETOREPLSTATECHANGE:
+   case MONGOC_SERVER_ERR_NOTPRIMARYNOSECONDARYOK:
+   case MONGOC_SERVER_ERR_NOTPRIMARYORSECONDARY:
+   case MONGOC_SERVER_ERR_STALESHARDVERSION:
+   case MONGOC_SERVER_ERR_STALEEPOCH:
+   case MONGOC_SERVER_ERR_STALECONFIG:
+   case MONGOC_SERVER_ERR_RETRYCHANGESTREAM:
+   case MONGOC_SERVER_ERR_FAILEDTOSATISFYREADPREFERENCE:
       return true;
+   default:
+      return false;
    }
 }
+
+
+static void
+_set_resume_token (mongoc_change_stream_t *stream, const bson_t *resume_token)
+{
+   BSON_ASSERT (stream);
+   BSON_ASSERT (resume_token);
+
+   bson_destroy (&stream->resume_token);
+   bson_copy_to (resume_token, &stream->resume_token);
+}
+
+
 /* construct the aggregate command in cmd. looks like one of the following:
  * for a collection change stream:
  *   { aggregate: collname, pipeline: [], cursor: { batchSize: x } }
@@ -84,7 +110,6 @@ _make_command (mongoc_change_stream_t *stream, bson_t *command)
    bson_t pipeline;
    bson_t cursor_doc;
 
-   bson_init (command);
    if (stream->change_stream_type == MONGOC_CHANGE_STREAM_COLLECTION) {
       bson_append_utf8 (
          command, "aggregate", 9, stream->coll, (int) strlen (stream->coll));
@@ -99,16 +124,58 @@ _make_command (mongoc_change_stream_t *stream, bson_t *command)
    bson_append_document_begin (
       &change_stream_stage, "$changeStream", 13, &change_stream_doc);
    bson_concat (&change_stream_doc, stream->full_document);
-   if (!bson_empty (&stream->resume_token)) {
-      bson_concat (&change_stream_doc, &stream->resume_token);
-   }
-   /* Change streams spec: "startAtOperationTime and resumeAfter are mutually
-    * exclusive; if both startAtOperationTime and resumeAfter are set, the
-    * server will return an error. Drivers MUST NOT throw a custom error, and
-    * MUST defer to the server error." */
-   if (!_mongoc_timestamp_empty (&stream->operation_time)) {
-      _mongoc_timestamp_append (
-         &stream->operation_time, &change_stream_doc, "startAtOperationTime");
+
+   if (stream->resumed) {
+      /* Change stream spec: Resume Process */
+      /* If there is a cached resumeToken: */
+      if (!bson_empty (&stream->resume_token)) {
+         /* If the ChangeStream was started with startAfter
+            and has yet to return a result document: */
+         if (!bson_empty (&stream->opts.startAfter) &&
+             !stream->has_returned_results) {
+            /* The driver MUST set startAfter to the cached resumeToken */
+            BSON_APPEND_DOCUMENT (
+               &change_stream_doc, "startAfter", &stream->resume_token);
+         } else {
+            /* The driver MUST set resumeAfter to the cached resumeToken */
+            BSON_APPEND_DOCUMENT (
+               &change_stream_doc, "resumeAfter", &stream->resume_token);
+         }
+      } else if (!_mongoc_timestamp_empty (&stream->operation_time) &&
+                 stream->max_wire_version >= WIRE_VERSION_4_0) {
+         /* Else if there is no cached resumeToken and the ChangeStream
+            has a saved operation time and the max wire version is >= 7,
+            the driver MUST set startAtOperationTime */
+         _mongoc_timestamp_append (&stream->operation_time,
+                                   &change_stream_doc,
+                                   "startAtOperationTime");
+      }
+   } else {
+      /* Change streams spec: "startAtOperationTime, resumeAfter, and startAfter
+       * are all mutually exclusive; if any two are set, the server will return
+       * an error. Drivers MUST NOT throw a custom error, and MUST defer to the
+       * server error." */
+      if (!bson_empty (&stream->opts.resumeAfter)) {
+         BSON_APPEND_DOCUMENT (
+            &change_stream_doc, "resumeAfter", &stream->opts.resumeAfter);
+
+         /* Update the cached resume token */
+         _set_resume_token (stream, &stream->opts.resumeAfter);
+      }
+
+      if (!bson_empty (&stream->opts.startAfter)) {
+         BSON_APPEND_DOCUMENT (
+            &change_stream_doc, "startAfter", &stream->opts.startAfter);
+
+         /* Update the cached resume token (take precedence over resumeAfter) */
+         _set_resume_token (stream, &stream->opts.startAfter);
+      }
+
+      if (!_mongoc_timestamp_empty (&stream->operation_time)) {
+         _mongoc_timestamp_append (&stream->operation_time,
+                                   &change_stream_doc,
+                                   "startAtOperationTime");
+      }
    }
 
    if (stream->change_stream_type == MONGOC_CHANGE_STREAM_CLIENT) {
@@ -169,24 +236,12 @@ _make_cursor (mongoc_change_stream_t *stream)
    bson_t reply;
    bson_t getmore_opts = BSON_INITIALIZER;
    bson_iter_t iter;
-   mongoc_server_description_t *sd;
-   uint32_t server_id;
-   int32_t max_wire_version = -1;
+   mongoc_server_stream_t *server_stream;
 
    BSON_ASSERT (stream);
    BSON_ASSERT (!stream->cursor);
-   _make_command (stream, &command);
+   bson_init (&command);
    bson_copy_to (&(stream->opts.extra), &command_opts);
-   sd = mongoc_client_select_server (
-      stream->client, false /* for_writes */, stream->read_prefs, &stream->err);
-   if (!sd) {
-      goto cleanup;
-   }
-   server_id = mongoc_server_description_id (sd);
-   bson_append_int32 (&command_opts, "serverId", 8, server_id);
-   bson_append_int32 (&getmore_opts, "serverId", 8, server_id);
-   max_wire_version = sd->max_wire_version;
-   mongoc_server_description_destroy (sd);
 
    if (bson_iter_init_find (&iter, &command_opts, "sessionId")) {
       if (!_mongoc_client_session_from_iter (
@@ -204,8 +259,9 @@ _make_cursor (mongoc_change_stream_t *stream)
       /* Create an implicit session. This session lsid must be the same for the
        * agg command and the subsequent getMores. Thus, this implicit session is
        * passed as if it were an explicit session to
-       * collection_read_command_with_opts and cursor_new_from_reply, but it is
-       * still implicit and its lifetime is owned by this change_stream_t. */
+       * mongoc_client_read_command_with_opts and
+       * _mongoc_cursor_change_stream_new, but it is still implicit and its
+       * lifetime is owned by this change_stream_t. */
       mongoc_session_opt_t *session_opts;
       session_opts = mongoc_session_opts_new ();
       mongoc_session_opts_set_causal_consistency (session_opts, false);
@@ -223,9 +279,29 @@ _make_cursor (mongoc_change_stream_t *stream)
       goto cleanup;
    }
 
+   server_stream =
+      mongoc_cluster_stream_for_reads (&stream->client->cluster,
+                                       stream->read_prefs,
+                                       cs,
+                                       &reply,
+                                       /* Not aggregate-with-write */ false,
+                                       &stream->err);
+   if (!server_stream) {
+      bson_destroy (&stream->err_doc);
+      bson_copy_to (&reply, &stream->err_doc);
+      bson_destroy (&reply);
+      goto cleanup;
+   }
+   bson_append_int32 (&command_opts, "serverId", 8, server_stream->sd->id);
+   bson_append_int32 (&getmore_opts, "serverId", 8, server_stream->sd->id);
+   stream->max_wire_version = server_stream->sd->max_wire_version;
+   mongoc_server_stream_cleanup (server_stream);
+
    if (stream->read_concern && !bson_has_field (&command_opts, "readConcern")) {
       mongoc_read_concern_append (stream->read_concern, &command_opts);
    }
+
+   _make_command (stream, &command);
 
    /* even though serverId has already been set, still pass the read prefs.
     * they are necessary for OP_MSG if sending to a secondary. */
@@ -264,20 +340,38 @@ _make_cursor (mongoc_change_stream_t *stream)
                          stream->batch_size);
    }
 
-   /* Change streams spec: "If neither startAtOperationTime nor resumeAfter are
-    * specified, and the max wire version is >= 7, and the initial aggregate
-    * command does not return a resumeToken (indicating no results), the
-    * ChangeStream MUST save the operationTime from the initial aggregate
-    * command when it returns." */
-   if (bson_empty (&stream->resume_token) &&
+   /* steals reply. */
+   stream->cursor =
+      _mongoc_cursor_change_stream_new (stream->client, &reply, &getmore_opts);
+
+   if (mongoc_cursor_error (stream->cursor, NULL)) {
+      goto cleanup;
+   }
+
+   /* Change stream spec: "When aggregate or getMore returns: If an empty batch
+    * was returned and a postBatchResumeToken was included, cache it." */
+   if (_mongoc_cursor_change_stream_end_of_batch (stream->cursor) &&
+       _mongoc_cursor_change_stream_has_post_batch_resume_token (
+          stream->cursor)) {
+      _set_resume_token (
+         stream,
+         _mongoc_cursor_change_stream_get_post_batch_resume_token (
+            stream->cursor));
+   }
+
+   /* Change stream spec: startAtOperationTime */
+   if (bson_empty (&stream->opts.resumeAfter) &&
+       bson_empty (&stream->opts.startAfter) &&
        _mongoc_timestamp_empty (&stream->operation_time) &&
-       max_wire_version >= 7 &&
-       bson_iter_init_find (&iter, &reply, "operationTime")) {
+       stream->max_wire_version >= WIRE_VERSION_4_0 &&
+       bson_empty (&stream->resume_token) &&
+       bson_iter_init_find (
+          &iter,
+          _mongoc_cursor_change_stream_get_reply (stream->cursor),
+          "operationTime") &&
+       BSON_ITER_HOLDS_TIMESTAMP (&iter)) {
       _mongoc_timestamp_set_from_bson (&stream->operation_time, &iter);
    }
-   /* steals reply. */
-   stream->cursor = mongoc_cursor_new_from_command_reply_with_opts (
-      stream->client, &reply, &getmore_opts);
 
 cleanup:
    bson_destroy (&command);
@@ -316,13 +410,8 @@ _change_stream_init (mongoc_change_stream_t *stream,
 
    stream->full_document = BCON_NEW ("fullDocument", stream->opts.fullDocument);
 
-   if (!bson_empty (&(stream->opts.resumeAfter))) {
-      bson_append_document (
-         &stream->resume_token, "resumeAfter", 11, &(stream->opts.resumeAfter));
-   }
-
    _mongoc_timestamp_set (&stream->operation_time,
-                          &(stream->opts.startAtOperationTime));
+                          &stream->opts.startAtOperationTime);
 
    stream->batch_size = stream->opts.batchSize;
    stream->max_await_time_ms = stream->opts.maxAwaitTimeMS;
@@ -365,8 +454,8 @@ _mongoc_change_stream_new_from_collection (const mongoc_collection_t *coll,
 
    stream =
       (mongoc_change_stream_t *) bson_malloc0 (sizeof (mongoc_change_stream_t));
-   bson_strncpy (stream->db, coll->db, sizeof (stream->db));
-   bson_strncpy (stream->coll, coll->collection, sizeof (stream->coll));
+   stream->db = bson_strdup (coll->db);
+   stream->coll = bson_strdup (coll->collection);
    stream->read_prefs = mongoc_read_prefs_copy (coll->read_prefs);
    stream->read_concern = mongoc_read_concern_copy (coll->read_concern);
    stream->client = coll->client;
@@ -385,8 +474,8 @@ _mongoc_change_stream_new_from_database (const mongoc_database_t *db,
 
    stream =
       (mongoc_change_stream_t *) bson_malloc0 (sizeof (mongoc_change_stream_t));
-   bson_strncpy (stream->db, db->name, sizeof (stream->db));
-   stream->coll[0] = '\0';
+   stream->db = bson_strdup (db->name);
+   stream->coll = NULL;
    stream->read_prefs = mongoc_read_prefs_copy (db->read_prefs);
    stream->read_concern = mongoc_read_concern_copy (db->read_concern);
    stream->client = db->client;
@@ -405,8 +494,8 @@ _mongoc_change_stream_new_from_client (mongoc_client_t *client,
 
    stream =
       (mongoc_change_stream_t *) bson_malloc0 (sizeof (mongoc_change_stream_t));
-   bson_strncpy (stream->db, "admin", sizeof (stream->db));
-   stream->coll[0] = '\0';
+   stream->db = bson_strdup ("admin");
+   stream->coll = NULL;
    stream->read_prefs = mongoc_read_prefs_copy (client->read_prefs);
    stream->read_concern = mongoc_read_concern_copy (client->read_concern);
    stream->client = client;
@@ -415,10 +504,25 @@ _mongoc_change_stream_new_from_client (mongoc_client_t *client,
    return stream;
 }
 
+
+const bson_t *
+mongoc_change_stream_get_resume_token (mongoc_change_stream_t *stream)
+{
+   if (!bson_empty (&stream->resume_token)) {
+      return &stream->resume_token;
+   }
+
+   return NULL;
+}
+
+
 bool
 mongoc_change_stream_next (mongoc_change_stream_t *stream, const bson_t **bson)
 {
    bson_iter_t iter;
+   bson_t doc_resume_token;
+   uint32_t len;
+   const uint8_t *data;
    bool ret = false;
 
    BSON_ASSERT (stream);
@@ -439,21 +543,25 @@ mongoc_change_stream_next (mongoc_change_stream_t *stream, const bson_t **bson)
          goto end;
       }
 
-      resumable = _is_resumable_error (err_doc);
-      if (resumable) {
+      resumable = _is_resumable_error (stream, err_doc);
+      while (resumable) {
          /* recreate the cursor. */
          mongoc_cursor_destroy (stream->cursor);
          stream->cursor = NULL;
+         stream->resumed = true;
          if (!_make_cursor (stream)) {
             goto end;
          }
-         if (!mongoc_cursor_next (stream->cursor, bson)) {
-            resumable =
-               !mongoc_cursor_error_document (stream->cursor, &err, &err_doc);
-            if (resumable) {
-               /* empty batch. */
-               goto end;
-            }
+         if (mongoc_cursor_next (stream->cursor, bson)) {
+            break;
+         }
+         if (!mongoc_cursor_error_document (stream->cursor, &err, &err_doc)) {
+            goto end;
+         }
+         if (err_doc) {
+            resumable = _is_resumable_error (stream, err_doc);
+         } else {
+            resumable = false;
          }
       }
 
@@ -467,7 +575,10 @@ mongoc_change_stream_next (mongoc_change_stream_t *stream, const bson_t **bson)
 
    /* we have received documents, either from the first call to next or after a
     * resume. */
-   if (!bson_iter_init_find (&iter, *bson, "_id")) {
+   stream->has_returned_results = true;
+
+   if (!bson_iter_init_find (&iter, *bson, "_id") ||
+       !BSON_ITER_HOLDS_DOCUMENT (&iter)) {
       bson_set_error (&stream->err,
                       MONGOC_ERROR_CURSOR,
                       MONGOC_ERROR_CHANGE_STREAM_NO_RESUME_TOKEN,
@@ -477,14 +588,27 @@ mongoc_change_stream_next (mongoc_change_stream_t *stream, const bson_t **bson)
    }
 
    /* copy the resume token. */
-   bson_reinit (&stream->resume_token);
-   BSON_APPEND_VALUE (
-      &stream->resume_token, "resumeAfter", bson_iter_value (&iter));
+   bson_iter_document (&iter, &len, &data);
+   BSON_ASSERT (bson_init_static (&doc_resume_token, data, len));
+   _set_resume_token (stream, &doc_resume_token);
+
    /* clear out the operation time, since we no longer need it to resume. */
    _mongoc_timestamp_clear (&stream->operation_time);
    ret = true;
 
 end:
+   /* Change stream spec: Updating the Cached Resume Token */
+   if (stream->cursor && !mongoc_cursor_error (stream->cursor, NULL) &&
+       _mongoc_cursor_change_stream_end_of_batch (stream->cursor) &&
+       _mongoc_cursor_change_stream_has_post_batch_resume_token (
+          stream->cursor)) {
+      _set_resume_token (
+         stream,
+         _mongoc_cursor_change_stream_get_post_batch_resume_token (
+            stream->cursor));
+   }
+
+
    /* Driver Sessions Spec: "When an implicit session is associated with a
     * cursor for use with getMore operations, the session MUST be returned to
     * the pool immediately following a getMore operation that indicates that the
@@ -539,5 +663,7 @@ mongoc_change_stream_destroy (mongoc_change_stream_t *stream)
    mongoc_read_prefs_destroy (stream->read_prefs);
    mongoc_read_concern_destroy (stream->read_concern);
 
+   bson_free (stream->db);
+   bson_free (stream->coll);
    bson_free (stream);
 }

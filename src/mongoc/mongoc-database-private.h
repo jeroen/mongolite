@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_DATABASE_PRIVATE_H
 #define MONGOC_DATABASE_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-read-prefs.h"
-#include "mongoc/mongoc-read-concern.h"
-#include "mongoc/mongoc-write-concern.h"
+#include "mongoc-client.h"
+#include "mongoc-read-prefs.h"
+#include "mongoc-read-concern.h"
+#include "mongoc-write-concern.h"
 
 BSON_BEGIN_DECLS
 
 
 struct _mongoc_database_t {
    mongoc_client_t *client;
-   char name[128];
+   char *name;
    mongoc_read_prefs_t *read_prefs;
    mongoc_read_concern_t *read_concern;
    mongoc_write_concern_t *write_concern;

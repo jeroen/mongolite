@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "bson/bson-prelude.h"
+#include "bson-prelude.h"
 
 
 #ifndef BSON_JSON_H
 #define BSON_JSON_H
 
 
-#include "bson/bson.h"
+#include "bson.h"
 
 
 BSON_BEGIN_DECLS
@@ -35,6 +35,32 @@ typedef enum {
    BSON_JSON_ERROR_READ_INVALID_PARAM,
    BSON_JSON_ERROR_READ_CB_FAILURE,
 } bson_json_error_code_t;
+
+
+/**
+ * BSON_MAX_LEN_UNLIMITED
+ *
+ * Denotes unlimited length limit when converting BSON to JSON.
+ */
+#define BSON_MAX_LEN_UNLIMITED -1
+
+/**
+ * bson_json_mode_t:
+ *
+ * This enumeration contains the different modes to serialize BSON into extended
+ * JSON.
+ */
+typedef enum {
+   BSON_JSON_MODE_LEGACY,
+   BSON_JSON_MODE_CANONICAL,
+   BSON_JSON_MODE_RELAXED,
+} bson_json_mode_t;
+
+
+BSON_EXPORT (bson_json_opts_t *)
+bson_json_opts_new (bson_json_mode_t mode, int32_t max_len);
+BSON_EXPORT (void)
+bson_json_opts_destroy (bson_json_opts_t *opts);
 
 
 typedef ssize_t (*bson_json_reader_cb) (void *handle,

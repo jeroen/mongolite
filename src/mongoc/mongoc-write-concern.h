@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_WRITE_CONCERN_H
 #define MONGOC_WRITE_CONCERN_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-macros.h"
+#include "mongoc-macros.h"
 
 BSON_BEGIN_DECLS
 
@@ -37,9 +37,10 @@ typedef struct _mongoc_write_concern_t mongoc_write_concern_t;
 
 
 MONGOC_EXPORT (mongoc_write_concern_t *)
-mongoc_write_concern_new (void);
+mongoc_write_concern_new (void) BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (mongoc_write_concern_t *)
-mongoc_write_concern_copy (const mongoc_write_concern_t *write_concern);
+mongoc_write_concern_copy (const mongoc_write_concern_t *write_concern)
+   BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (void)
 mongoc_write_concern_destroy (mongoc_write_concern_t *write_concern);
 MONGOC_EXPORT (bool)
@@ -67,9 +68,15 @@ mongoc_write_concern_set_wtag (mongoc_write_concern_t *write_concern,
                                const char *tag);
 MONGOC_EXPORT (int32_t)
 mongoc_write_concern_get_wtimeout (const mongoc_write_concern_t *write_concern);
+MONGOC_EXPORT (int64_t)
+mongoc_write_concern_get_wtimeout_int64 (
+   const mongoc_write_concern_t *write_concern);
 MONGOC_EXPORT (void)
 mongoc_write_concern_set_wtimeout (mongoc_write_concern_t *write_concern,
                                    int32_t wtimeout_msec);
+MONGOC_EXPORT (void)
+mongoc_write_concern_set_wtimeout_int64 (mongoc_write_concern_t *write_concern,
+                                         int64_t wtimeout_msec);
 MONGOC_EXPORT (bool)
 mongoc_write_concern_get_wmajority (
    const mongoc_write_concern_t *write_concern);

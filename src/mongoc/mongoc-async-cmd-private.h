@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_ASYNC_CMD_PRIVATE_H
 #define MONGOC_ASYNC_CMD_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-async-private.h"
-#include "mongoc/mongoc-array-private.h"
-#include "mongoc/mongoc-buffer-private.h"
-#include "mongoc/mongoc-rpc-private.h"
-#include "mongoc/mongoc-stream.h"
+#include "mongoc-client.h"
+#include "mongoc-async-private.h"
+#include "mongoc-array-private.h"
+#include "mongoc-buffer-private.h"
+#include "mongoc-rpc-private.h"
+#include "mongoc-stream.h"
 
 BSON_BEGIN_DECLS
 
@@ -66,7 +66,7 @@ typedef struct _mongoc_async_cmd {
    mongoc_rpc_t rpc;
    bson_t reply;
    bool reply_needs_cleanup;
-   char ns[MONGOC_NAMESPACE_MAX];
+   char *ns;
    struct addrinfo *dns_result;
 
    struct _mongoc_async_cmd *next;

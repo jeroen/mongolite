@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "bson/bson-prelude.h"
+#include "bson-prelude.h"
 
 
 #ifndef BSON_ENDIAN_H
@@ -25,9 +25,9 @@
 #include <sys/byteorder.h>
 #endif
 
-#include "bson/bson-config.h"
-#include "bson/bson-macros.h"
-#include "bson/bson-compat.h"
+#include "bson-config.h"
+#include "bson-macros.h"
+#include "bson-compat.h"
 
 
 BSON_BEGIN_DECLS
@@ -133,7 +133,7 @@ BSON_BEGIN_DECLS
 static BSON_INLINE uint16_t
 __bson_uint16_swap_slow (uint16_t v) /* IN */
 {
-   return ((v & 0x00FF) << 8) | ((v & 0xFF00) >> 8);
+   return (uint16_t) ((v & 0x00FF) << 8) | (uint16_t) ((v & 0xFF00) >> 8);
 }
 
 

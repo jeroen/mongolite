@@ -20,21 +20,23 @@
 
 #include <string.h>
 
+#include "bson/bson.h"
+
 #include "common-md5-private.h"
-#include "mongoc/mongoc-util-private.h"
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-client-session-private.h"
-#include "mongoc/mongoc-trace-private.h"
+#include "common-thread-private.h"
+#include "mongoc-rand-private.h"
+#include "mongoc-util-private.h"
+#include "mongoc-client.h"
+#include "mongoc-client-session-private.h"
+#include "mongoc-trace-private.h"
 
 const bson_validate_flags_t _mongoc_default_insert_vflags =
    BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
-   BSON_VALIDATE_EMPTY_KEYS | BSON_VALIDATE_DOT_KEYS |
-   BSON_VALIDATE_DOLLAR_KEYS;
+   BSON_VALIDATE_EMPTY_KEYS;
 
 const bson_validate_flags_t _mongoc_default_replace_vflags =
    BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
-   BSON_VALIDATE_EMPTY_KEYS | BSON_VALIDATE_DOT_KEYS |
-   BSON_VALIDATE_DOLLAR_KEYS;
+   BSON_VALIDATE_EMPTY_KEYS;
 
 const bson_validate_flags_t _mongoc_default_update_vflags =
    BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
@@ -50,7 +52,7 @@ _mongoc_rand_simple (unsigned int *seed)
 
    err = rand_s (&ret);
    if (0 != err) {
-      MONGOC_ERROR ("rand_s failed: %");
+      MONGOC_ERROR ("rand_s failed: %s", strerror (err));
    }
 
    return (int) ret;
@@ -68,9 +70,10 @@ _mongoc_hex_md5 (const char *input)
    char digest_str[33];
    int i;
 
-   _bson_md5_init (&md5);
-   _bson_md5_append (&md5, (const uint8_t *) input, (uint32_t) strlen (input));
-   _bson_md5_finish (&md5, digest);
+   COMMON_PREFIX (_bson_md5_init (&md5));
+   COMMON_PREFIX (_bson_md5_append (
+      &md5, (const uint8_t *) input, (uint32_t) strlen (input)));
+   COMMON_PREFIX (_bson_md5_finish (&md5, digest));
 
    for (i = 0; i < sizeof digest; i++) {
       bson_snprintf (&digest_str[i * 2], 3, "%02x", digest[i]);
@@ -99,6 +102,17 @@ _mongoc_usleep (int64_t usec)
    BSON_ASSERT (usec >= 0);
    usleep ((useconds_t) usec);
 #endif
+}
+
+int64_t
+_mongoc_get_real_time_ms (void)
+{
+   struct timeval tv;
+   const bool rc = bson_gettimeofday (&tv);
+   if (rc != 0) {
+      return -1;
+   }
+   return tv.tv_sec * (int64_t) 1000 + tv.tv_usec / (int64_t) 1000;
 }
 
 
@@ -174,8 +188,8 @@ _mongoc_lookup_bool (const bson_t *bson, const char *key, bool default_value)
    return bson_iter_as_bool (&child);
 }
 
-void
-_mongoc_get_db_name (const char *ns, char *db /* OUT */)
+char *
+_mongoc_get_db_name (const char *ns)
 {
    size_t dblen;
    const char *dot;
@@ -185,10 +199,10 @@ _mongoc_get_db_name (const char *ns, char *db /* OUT */)
    dot = strstr (ns, ".");
 
    if (dot) {
-      dblen = BSON_MIN (dot - ns + 1, MONGOC_NAMESPACE_MAX);
-      bson_strncpy (db, ns, dblen);
+      dblen = dot - ns;
+      return bson_strndup (ns, dblen);
    } else {
-      bson_strncpy (db, ns, MONGOC_NAMESPACE_MAX);
+      return bson_strdup (ns);
    }
 }
 
@@ -248,6 +262,50 @@ _mongoc_bson_type_to_str (bson_type_t t)
       return "MINKEY";
    case BSON_TYPE_DECIMAL128:
       return "DECIMAL128";
+   default:
+      return "Unknown";
+   }
+}
+
+
+/* Refer to:
+ * https://github.com/mongodb/specifications/blob/master/source/wireversion-featurelist.rst
+ * and:
+ * https://github.com/mongodb/mongo/blob/master/src/mongo/db/wire_version.h#L57
+ */
+const char *
+_mongoc_wire_version_to_server_version (int32_t version)
+{
+   switch (version) {
+   case 1:
+   case 2:
+      return "2.6";
+   case 3:
+      return "3.0";
+   case 4:
+      return "3.2";
+   case 5:
+      return "3.4";
+   case 6:
+      return "3.6";
+   case 7:
+      return "4.0";
+   case 8:
+      return "4.2";
+   case 9:
+      return "4.4";
+   case 10:
+      return "4.7";
+   case 11:
+      return "4.8";
+   case 12:
+      return "4.9";
+   case 13:
+      return "5.0";
+   case 14:
+      return "5.1";
+   case 15:
+      return "5.2";
    default:
       return "Unknown";
    }
@@ -323,6 +381,8 @@ _mongoc_validate_replace (const bson_t *doc,
                           bson_error_t *error)
 {
    bson_error_t validate_err;
+   bson_iter_t iter;
+   const char *key;
 
    if (vflags == BSON_VALIDATE_NONE) {
       return true;
@@ -335,6 +395,27 @@ _mongoc_validate_replace (const bson_t *doc,
                       "invalid argument for replace: %s",
                       validate_err.message);
       return false;
+   }
+
+   if (!bson_iter_init (&iter, doc)) {
+      bson_set_error (error,
+                      MONGOC_ERROR_BSON,
+                      MONGOC_ERROR_BSON_INVALID,
+                      "replace document is corrupt");
+      return false;
+   }
+
+   while (bson_iter_next (&iter)) {
+      key = bson_iter_key (&iter);
+      if (key[0] == '$') {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Invalid key '%s': replace prohibits $ operators",
+                         key);
+
+         return false;
+      }
    }
 
    return true;
@@ -363,6 +444,10 @@ _mongoc_validate_update (const bson_t *update,
       return false;
    }
 
+   if (_mongoc_document_is_pipeline (update)) {
+      return true;
+   }
+
    if (!bson_iter_init (&iter, update)) {
       bson_set_error (error,
                       MONGOC_ERROR_BSON,
@@ -377,7 +462,8 @@ _mongoc_validate_update (const bson_t *update,
          bson_set_error (error,
                          MONGOC_ERROR_COMMAND,
                          MONGOC_ERROR_COMMAND_INVALID_ARG,
-                         "Invalid key '%s': update only works with $ operators",
+                         "Invalid key '%s': update only works with $ operators"
+                         " and pipelines",
                          key);
 
          return false;
@@ -521,3 +607,259 @@ _mongoc_bson_init_with_transient_txn_error (const mongoc_client_session_t *cs,
       bson_append_array_end (reply, &labels);
    }
 }
+
+bool
+_mongoc_document_is_pipeline (const bson_t *document)
+{
+   bson_iter_t iter;
+   bson_iter_t child;
+   const char *key;
+   int i = 0;
+   char *i_str;
+
+   if (!bson_iter_init (&iter, document)) {
+      return false;
+   }
+
+   while (bson_iter_next (&iter)) {
+      key = bson_iter_key (&iter);
+      i_str = bson_strdup_printf ("%d", i++);
+
+      if (strcmp (key, i_str)) {
+         bson_free (i_str);
+         return false;
+      }
+
+      bson_free (i_str);
+
+      if (BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+         if (!bson_iter_recurse (&iter, &child)) {
+            return false;
+         }
+         if (!bson_iter_next (&child)) {
+            return false;
+         }
+         key = bson_iter_key (&child);
+         if (key[0] != '$') {
+            return false;
+         }
+      } else {
+         return false;
+      }
+   }
+
+   /* should return false when the document is empty */
+   return i != 0;
+}
+
+char *
+_mongoc_getenv (const char *name)
+{
+#ifdef _MSC_VER
+   char buf[2048];
+   size_t buflen;
+
+   if ((0 == getenv_s (&buflen, buf, sizeof buf, name)) && buflen) {
+      return bson_strdup (buf);
+   } else {
+      return NULL;
+   }
+#else
+
+   if (getenv (name) && strlen (getenv (name))) {
+      return bson_strdup (getenv (name));
+   } else {
+      return NULL;
+   }
+
+#endif
+}
+
+/* Nearly Divisionless (Algorithm 5): https://arxiv.org/abs/1805.10941 */
+static uint32_t
+_mongoc_rand_nduid32 (uint32_t s, uint32_t (*rand32) (void))
+{
+   const uint64_t limit = UINT32_MAX; /* 2^L */
+   uint64_t x, m, l;
+
+   x = rand32 ();
+   m = x * s;
+   l = m % limit;
+
+   if (l < s) {
+      const uint64_t t = (limit - s) % s;
+
+      while (l < t) {
+         x = rand32 ();
+         m = x * s;
+         l = m % limit;
+      }
+   }
+
+   return (uint32_t) (m / limit);
+}
+
+/* Java Algorithm (Algorithm 4): https://arxiv.org/abs/1805.10941
+ * The 64-bit version of the nearly divisionless algorithm requires 128-bit
+ * integer arithmetic. Instead of trying to deal with cross-platform support for
+ * `__int128`, fallback to using the Java algorithm for 64-bit instead. */
+static uint64_t
+_mongoc_rand_java64 (uint64_t s, uint64_t (*rand64) (void))
+{
+   const uint64_t limit = UINT64_MAX; /* 2^L */
+   uint64_t x, r;
+
+   x = rand64 ();
+   r = x % s;
+
+   while ((x - r) > (limit - s)) {
+      x = rand64 ();
+      r = x % s;
+   }
+
+   return r;
+}
+
+#if defined(MONGOC_ENABLE_CRYPTO)
+
+uint32_t
+_mongoc_crypto_rand_uint32_t (void)
+{
+   uint32_t res;
+
+   (void) _mongoc_rand_bytes ((uint8_t *) &res, sizeof (res));
+
+   return res;
+}
+
+uint64_t
+_mongoc_crypto_rand_uint64_t (void)
+{
+   uint64_t res;
+
+   (void) _mongoc_rand_bytes ((uint8_t *) &res, sizeof (res));
+
+   return res;
+}
+
+size_t
+_mongoc_crypto_rand_size_t (void)
+{
+   size_t res;
+
+   (void) _mongoc_rand_bytes ((uint8_t *) &res, sizeof (res));
+
+   return res;
+}
+
+#endif /* defined(MONGOC_ENABLE_CRYPTO) */
+
+static BSON_ONCE_FUN (_mongoc_simple_rand_init)
+{
+   struct timeval tv;
+   unsigned int seed = 0;
+
+   bson_gettimeofday (&tv);
+
+   seed ^= (unsigned int) tv.tv_sec;
+   seed ^= (unsigned int) tv.tv_usec;
+
+   srand (seed);
+
+   BSON_ONCE_RETURN;
+}
+
+static bson_once_t _mongoc_simple_rand_init_once = BSON_ONCE_INIT;
+
+uint32_t
+_mongoc_simple_rand_uint32_t (void)
+{
+   bson_once (&_mongoc_simple_rand_init_once, _mongoc_simple_rand_init);
+
+   /* Ensure *all* bits are random, as RAND_MAX is only required to be at least
+    * 32767 (2^15). */
+   return (((uint32_t) rand () & 0x7FFFu) << 0u) |
+          (((uint32_t) rand () & 0x7FFFu) << 15u) |
+          (((uint32_t) rand () & 0x0003u) << 30u);
+}
+
+uint64_t
+_mongoc_simple_rand_uint64_t (void)
+{
+   bson_once (&_mongoc_simple_rand_init_once, _mongoc_simple_rand_init);
+
+   /* Ensure *all* bits are random, as RAND_MAX is only required to be at least
+    * 32767 (2^15). */
+   return (((uint64_t) rand () & 0x7FFFu) << 0u) |
+          (((uint64_t) rand () & 0x7FFFu) << 15u) |
+          (((uint64_t) rand () & 0x7FFFu) << 30u) |
+          (((uint64_t) rand () & 0x7FFFu) << 45u) |
+          (((uint64_t) rand () & 0x0003u) << 60u);
+}
+
+uint32_t
+_mongoc_rand_uint32_t (uint32_t min, uint32_t max, uint32_t (*rand) (void))
+{
+   BSON_ASSERT (min <= max);
+   BSON_ASSERT (min != 0u || max != UINT32_MAX);
+
+   return _mongoc_rand_nduid32 (max - min + 1u, rand) + min;
+}
+
+uint64_t
+_mongoc_rand_uint64_t (uint64_t min, uint64_t max, uint64_t (*rand) (void))
+{
+   BSON_ASSERT (min <= max);
+   BSON_ASSERT (min != 0u || max != UINT64_MAX);
+
+   return _mongoc_rand_java64 (max - min + 1u, rand) + min;
+}
+
+#if SIZE_MAX == UINT64_MAX
+
+BSON_STATIC_ASSERT2 (_mongoc_simple_rand_size_t,
+                     sizeof (size_t) == sizeof (uint64_t));
+
+size_t
+_mongoc_simple_rand_size_t (void)
+{
+   return (size_t) _mongoc_simple_rand_uint64_t ();
+}
+
+size_t
+_mongoc_rand_size_t (size_t min, size_t max, size_t (*rand) (void))
+{
+   BSON_ASSERT (min <= max);
+   BSON_ASSERT (min != 0u || max != UINT64_MAX);
+
+   return _mongoc_rand_java64 (max - min + 1u, (uint64_t (*) (void)) rand) +
+          min;
+}
+
+#elif SIZE_MAX == UINT32_MAX
+
+BSON_STATIC_ASSERT2 (_mongoc_simple_rand_size_t,
+                     sizeof (size_t) == sizeof (uint32_t));
+
+size_t
+_mongoc_simple_rand_size_t (void)
+{
+   return (size_t) _mongoc_simple_rand_uint32_t ();
+}
+
+size_t
+_mongoc_rand_size_t (size_t min, size_t max, size_t (*rand) (void))
+{
+   BSON_ASSERT (min <= max);
+   BSON_ASSERT (min != 0u || max != UINT32_MAX);
+
+   return _mongoc_rand_nduid32 (max - min + 1u, (uint32_t (*) (void)) rand) +
+          min;
+}
+
+#else
+
+#error \
+   "Implementation of _mongoc_simple_rand_size_t() requires size_t be exactly 32-bit or 64-bit"
+
+#endif

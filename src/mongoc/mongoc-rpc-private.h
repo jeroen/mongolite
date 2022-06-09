@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_RPC_PRIVATE_H
 #define MONGOC_RPC_PRIVATE_H
@@ -22,11 +22,11 @@
 #include <bson/bson.h>
 #include <stddef.h>
 
-#include "mongoc/mongoc-array-private.h"
-#include "mongoc/mongoc-cmd-private.h"
-#include "mongoc/mongoc-iovec.h"
-#include "mongoc/mongoc-write-concern.h"
-#include "mongoc/mongoc-flags.h"
+#include "mongoc-array-private.h"
+#include "mongoc-cmd-private.h"
+#include "mongoc-iovec.h"
+#include "mongoc-write-concern.h"
+#include "mongoc-flags.h"
 /* forward declaration */
 struct _mongoc_cluster_t;
 
@@ -175,6 +175,11 @@ _mongoc_rpc_compress (struct _mongoc_cluster_t *cluster,
                       int32_t compressor_id,
                       mongoc_rpc_t *rpc_le,
                       bson_error_t *error);
+
+bool
+_mongoc_rpc_decompress_if_necessary (mongoc_rpc_t *rpc,
+                                     mongoc_buffer_t *buffer,
+                                     bson_error_t *error);
 
 BSON_END_DECLS
 

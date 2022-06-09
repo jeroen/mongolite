@@ -19,10 +19,10 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "bson/bson-decimal128.h"
-#include "bson/bson-types.h"
-#include "bson/bson-macros.h"
-#include "bson/bson-string.h"
+#include "bson-decimal128.h"
+#include "bson-types.h"
+#include "bson-macros.h"
+#include "bson-string.h"
 
 
 #define BSON_DECIMAL128_EXPONENT_MAX 6111
@@ -709,8 +709,6 @@ bson_decimal128_from_string_w_len (const char *string,     /* IN */
    }
 
    /* Encode significand */
-   significand_high = 0,   /* The high 17 digits of the significand */
-      significand_low = 0; /* The low 17 digits of the significand */
 
    if (significant_digits == 0) { /* read a zero */
       significand_high = 0;

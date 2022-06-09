@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_SECURE_CHANNEL_PRIVATE_H
 #define MONGOC_SECURE_CHANNEL_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-ssl.h"
-#include "mongoc/mongoc-stream-tls.h"
-#include "mongoc/mongoc-stream-tls-secure-channel-private.h"
+#include "mongoc-ssl.h"
+#include "mongoc-stream-tls.h"
+#include "mongoc-stream-tls-secure-channel-private.h"
 
 #define SECURITY_WIN32
 #include <security.h>
@@ -74,13 +74,16 @@ mongoc_secure_channel_realloc_buf (size_t *size,
 
 bool
 mongoc_secure_channel_handshake_step_1 (mongoc_stream_tls_t *tls,
-                                        char *hostname);
+                                        char *hostname,
+                                        bson_error_t *error);
 bool
 mongoc_secure_channel_handshake_step_2 (mongoc_stream_tls_t *tls,
-                                        char *hostname);
+                                        char *hostname,
+                                        bson_error_t *error);
 bool
 mongoc_secure_channel_handshake_step_3 (mongoc_stream_tls_t *tls,
-                                        char *hostname);
+                                        char *hostname,
+                                        bson_error_t *error);
 
 
 BSON_END_DECLS

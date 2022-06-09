@@ -17,12 +17,12 @@
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-async-private.h"
-#include "mongoc/mongoc-async-cmd-private.h"
-#include "mongoc/utlist.h"
-#include "mongoc/mongoc.h"
-#include "mongoc/mongoc-socket-private.h"
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-async-private.h"
+#include "mongoc-async-cmd-private.h"
+#include "utlist.h"
+#include "mongoc.h"
+#include "mongoc-socket-private.h"
+#include "mongoc-util-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "async"
@@ -72,7 +72,7 @@ mongoc_async_run (mongoc_async_t *async)
    }
 
    while (async->ncmds) {
-      /* ncmds grows if we discover a replica & start calling ismaster on it */
+      /* ncmds grows if we discover a replica & start calling hello on it */
       if (poll_size < async->ncmds) {
          poller = (mongoc_stream_poll_t *) bson_realloc (
             poller, sizeof (*poller) * async->ncmds);

@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_CURSOR_PRIVATE_H
 #define MONGOC_CURSOR_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-buffer-private.h"
-#include "mongoc/mongoc-rpc-private.h"
-#include "mongoc/mongoc-server-stream-private.h"
+#include "mongoc-client.h"
+#include "mongoc-buffer-private.h"
+#include "mongoc-rpc-private.h"
+#include "mongoc-server-stream-private.h"
+#include "mongoc-cluster-private.h"
 
 
 BSON_BEGIN_DECLS
@@ -120,7 +121,7 @@ struct _mongoc_cursor_t {
    uint32_t client_generation;
 
    uint32_t server_id;
-   bool slave_ok;
+   bool secondary_ok;
 
    mongoc_cursor_state_t state;
    bool in_exhaust;
@@ -131,12 +132,22 @@ struct _mongoc_cursor_t {
    mongoc_read_prefs_t *read_prefs;
    mongoc_write_concern_t *write_concern;
 
+   /** If the cursor was created for an operation that might have overridden the
+    * user's read preferences' read mode, then server selection forced the
+    * cursor to use a read preference mode of 'primary' server. Whether this
+    * force occurred is stored here: */
+   bool must_use_primary;
+
+   /** Whether this cursor corresponds to an aggregate command that contains a
+    * writing-stage */
+   bool is_aggr_with_write_stage;
+
    bool explicit_session;
    mongoc_client_session_t *client_session;
 
    uint32_t count;
 
-   char ns[140];
+   char *ns;
    uint32_t nslen;
    uint32_t dblen;
 
@@ -160,7 +171,7 @@ _mongoc_cursor_get_opt_bool (const mongoc_cursor_t *cursor, const char *option);
 void
 _mongoc_cursor_flags_to_opts (mongoc_query_flags_t qflags,
                               bson_t *opts,
-                              bool *slave_ok);
+                              bool *secondary_ok);
 bool
 _mongoc_cursor_translate_dollar_query_opts (const bson_t *query,
                                             bson_t *opts,
@@ -176,7 +187,8 @@ bool
 _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
                             const bson_t *command,
                             const bson_t *opts,
-                            bson_t *reply);
+                            bson_t *reply,
+                            bool retry_prohibited);
 bool
 _mongoc_cursor_more (mongoc_cursor_t *cursor);
 
@@ -299,6 +311,25 @@ _mongoc_cursor_array_new (mongoc_client_t *client,
                           const bson_t *cmd,
                           const bson_t *opts,
                           const char *field_name);
+
+mongoc_cursor_t *
+_mongoc_cursor_change_stream_new (mongoc_client_t *client,
+                                  bson_t *reply,
+                                  const bson_t *opts);
+
+bool
+_mongoc_cursor_change_stream_end_of_batch (mongoc_cursor_t *cursor);
+
+const bson_t *
+_mongoc_cursor_change_stream_get_post_batch_resume_token (
+   mongoc_cursor_t *cursor);
+
+bool
+_mongoc_cursor_change_stream_has_post_batch_resume_token (
+   mongoc_cursor_t *cursor);
+
+const bson_t *
+_mongoc_cursor_change_stream_get_reply (mongoc_cursor_t *cursor);
 
 BSON_END_DECLS
 

@@ -1,0 +1,53 @@
+# Workflow derived from https://github.com/r-lib/actions/tree/master/examples
+# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+on:
+  push:
+  pull_request:
+
+name: R-CMD-check
+
+jobs:
+  R-CMD-check:
+    runs-on: ${{ matrix.config.os }}
+
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+
+    strategy:
+      fail-fast: false
+#      max-parallel: 2 #try to avoid races due to concurrent db access
+      matrix:
+        config:
+          - {os: macOS-latest,   r: 'release'}
+          - {os: windows-latest, r: '3.6'}
+          - {os: windows-latest, r: '4.1'}
+          - {os: windows-latest, r: 'devel'}
+          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
+          - {os: ubuntu-latest,   r: 'release'}
+          - {os: ubuntu-18.04,    r: 'oldrel-4'}
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - if: runner.os == 'macos'
+        run: brew services start mongodb-community
+
+      - if: runner.os == 'linux'
+        run: sudo systemctl restart mongod
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: rcmdcheck
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          args: 'c("--no-manual","--run-dontrun","--as-cran")'

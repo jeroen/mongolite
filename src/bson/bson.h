@@ -20,33 +20,33 @@
 
 #define BSON_INSIDE
 
-#include "bson/bson-compat.h"
+#include "bson-compat.h"
 
 #include <string.h>
 #include <time.h>
 
-#include "bson/bson-macros.h"
-#include "bson/bson-config.h"
-#include "bson/bson-atomic.h"
-#include "bson/bson-context.h"
-#include "bson/bson-clock.h"
-#include "bson/bson-decimal128.h"
-#include "bson/bson-error.h"
-#include "bson/bson-iter.h"
-#include "bson/bson-json.h"
-#include "bson/bson-keys.h"
-#include "bson/bson-md5.h"
-#include "bson/bson-memory.h"
-#include "bson/bson-oid.h"
-#include "bson/bson-reader.h"
-#include "bson/bson-string.h"
-#include "bson/bson-types.h"
-#include "bson/bson-utf8.h"
-#include "bson/bson-value.h"
-#include "bson/bson-version.h"
-#include "bson/bson-version-functions.h"
-#include "bson/bson-writer.h"
-#include "bson/bcon.h"
+#include "bson-macros.h"
+#include "bson-config.h"
+#include "bson-atomic.h"
+#include "bson-context.h"
+#include "bson-clock.h"
+#include "bson-decimal128.h"
+#include "bson-error.h"
+#include "bson-iter.h"
+#include "bson-json.h"
+#include "bson-keys.h"
+#include "bson-md5.h"
+#include "bson-memory.h"
+#include "bson-oid.h"
+#include "bson-reader.h"
+#include "bson-string.h"
+#include "bson-types.h"
+#include "bson-utf8.h"
+#include "bson-value.h"
+#include "bson-version.h"
+#include "bson-version-functions.h"
+#include "bson-writer.h"
+#include "bcon.h"
 
 #undef BSON_INSIDE
 
@@ -450,7 +450,7 @@ BSON_EXPORT (int)
 bson_compare (const bson_t *bson, const bson_t *other);
 
 /*
- * bson_compare:
+ * bson_equal:
  * @bson: A bson_t.
  * @other: A bson_t.
  *
@@ -490,6 +490,31 @@ BSON_EXPORT (bool)
 bson_validate_with_error (const bson_t *bson,
                           bson_validate_flags_t flags,
                           bson_error_t *error);
+
+
+/**
+ * bson_as_json_with_opts:
+ * @bson: A bson_t.
+ * @length: A location for the string length, or NULL.
+ * @opts: A bson_t_json_opts_t defining options for the conversion
+ *
+ * Creates a new string containing @bson in the selected JSON format,
+ * conforming to the MongoDB Extended JSON Spec:
+ *
+ * github.com/mongodb/specifications/blob/master/source/extended-json.rst
+ *
+ * The caller is responsible for freeing the resulting string. If @length is
+ * non-NULL, then the length of the resulting string will be placed in @length.
+ *
+ * See http://docs.mongodb.org/manual/reference/mongodb-extended-json/ for
+ * more information on extended JSON.
+ *
+ * Returns: A newly allocated string that should be freed with bson_free().
+ */
+BSON_EXPORT (char *)
+bson_as_json_with_opts (const bson_t *bson,
+                        size_t *length,
+                        const bson_json_opts_t *opts);
 
 
 /**

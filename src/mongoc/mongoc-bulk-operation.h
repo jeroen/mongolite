@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 
 #ifndef MONGOC_BULK_OPERATION_H
@@ -23,8 +23,8 @@
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-macros.h"
-#include "mongoc/mongoc-write-concern.h"
+#include "mongoc-macros.h"
+#include "mongoc-write-concern.h"
 
 /* ordered, bypass_document_validation, has_collation, multi */
 #define MONGOC_BULK_WRITE_FLAGS_INIT \
@@ -123,7 +123,7 @@ mongoc_bulk_operation_set_bypass_document_validation (
  * collections.
  */
 MONGOC_EXPORT (mongoc_bulk_operation_t *)
-mongoc_bulk_operation_new (bool ordered);
+mongoc_bulk_operation_new (bool ordered) BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (void)
 mongoc_bulk_operation_set_write_concern (
    mongoc_bulk_operation_t *bulk, const mongoc_write_concern_t *write_concern);

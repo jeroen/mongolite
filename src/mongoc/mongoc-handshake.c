@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2016-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,17 +24,17 @@
 #include <windows.h>
 #endif
 
-#include "mongoc/mongoc-linux-distro-scanner-private.h"
-#include "mongoc/mongoc-handshake.h"
-#include "mongoc/mongoc-handshake-compiler-private.h"
-#include "mongoc/mongoc-handshake-os-private.h"
-#include "mongoc/mongoc-handshake-private.h"
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-version.h"
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-linux-distro-scanner-private.h"
+#include "mongoc-handshake.h"
+#include "mongoc-handshake-compiler-private.h"
+#include "mongoc-handshake-os-private.h"
+#include "mongoc-handshake-private.h"
+#include "mongoc-client.h"
+#include "mongoc-client-private.h"
+#include "mongoc-error.h"
+#include "mongoc-log.h"
+#include "mongoc-version.h"
+#include "mongoc-util-private.h"
 
 /*
  * Global handshake data instance. Initialized at startup from mongoc_init
@@ -182,12 +182,20 @@ _mongoc_handshake_get_config_hex_string (void)
    _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_SHM_COUNTERS);
 #endif
 
-#ifdef MONGOC_TRACE
-   _set_bit (bf, byte_count, MONGOC_MD_FLAG_TRACE);
-#endif
+   if (MONGOC_TRACE_ENABLED) {
+      _set_bit (bf, byte_count, MONGOC_MD_FLAG_TRACE);
+   }
 
 #ifdef MONGOC_ENABLE_ICU
    _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_ICU);
+#endif
+
+#ifdef MONGOC_ENABLE_CLIENT_SIDE_ENCRYPTION
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_CLIENT_SIDE_ENCRYPTION);
+#endif
+
+#ifdef MONGOC_ENABLE_MONGODB_AWS_AUTH
+   _set_bit (bf, byte_count, MONGOC_MD_FLAG_ENABLE_MONGODB_AWS_AUTH);
 #endif
 
    str = bson_string_new ("0x");
@@ -364,6 +372,16 @@ static void
 _set_platform_string (mongoc_handshake_t *handshake)
 {
    bson_string_t *str;
+
+   str = bson_string_new ("");
+
+   handshake->platform = bson_string_free (str, false);
+}
+
+static void
+_set_compiler_info (mongoc_handshake_t *handshake)
+{
+   bson_string_t *str;
    char *config_str;
 
    str = bson_string_new ("");
@@ -385,6 +403,15 @@ _set_platform_string (mongoc_handshake_t *handshake)
 #ifdef MONGOC_COMPILER_VERSION
    bson_string_append_printf (str, " %s", MONGOC_COMPILER_VERSION);
 #endif
+   handshake->compiler_info = bson_string_free (str, false);
+}
+
+static void
+_set_flags (mongoc_handshake_t *handshake)
+{
+   bson_string_t *str;
+
+   str = bson_string_new ("");
 
    if (strlen (MONGOC_EVALUATE_STR (MONGOC_USER_SET_CFLAGS)) > 0) {
       bson_string_append_printf (
@@ -396,13 +423,15 @@ _set_platform_string (mongoc_handshake_t *handshake)
          str, " LDFLAGS=%s", MONGOC_EVALUATE_STR (MONGOC_USER_SET_LDFLAGS));
    }
 
-   handshake->platform = bson_string_free (str, false);
+   handshake->flags = bson_string_free (str, false);
 }
 
 static void
 _free_platform_string (mongoc_handshake_t *handshake)
 {
    bson_free (handshake->platform);
+   bson_free (handshake->compiler_info);
+   bson_free (handshake->flags);
 }
 
 void
@@ -411,6 +440,8 @@ _mongoc_handshake_init (void)
    _get_system_info (_mongoc_handshake_get ());
    _get_driver_info (_mongoc_handshake_get ());
    _set_platform_string (_mongoc_handshake_get ());
+   _set_compiler_info (_mongoc_handshake_get ());
+   _set_flags (_mongoc_handshake_get ());
 
    _mongoc_handshake_get ()->frozen = false;
    bson_mutex_init (&gHandshakeLock);
@@ -431,6 +462,10 @@ _append_platform_field (bson_t *doc, const char *platform)
 {
    int max_platform_str_size;
 
+   char *compiler_info = _mongoc_handshake_get ()->compiler_info;
+   char *flags = _mongoc_handshake_get ()->flags;
+   bson_string_t *combined_platform = bson_string_new (platform);
+
    /* Compute space left for platform field */
    max_platform_str_size =
       HANDSHAKE_MAX_SIZE - ((int) doc->len +
@@ -438,28 +473,45 @@ _append_platform_field (bson_t *doc, const char *platform)
                             1 +
 
                             /* key size */
-                            (int) strlen (HANDSHAKE_PLATFORM_FIELD) +
-                            1 +
+                            (int) strlen (HANDSHAKE_PLATFORM_FIELD) + 1 +
 
                             /* 4 bytes for length of string */
                             4);
 
    if (max_platform_str_size <= 0) {
+      bson_string_free (combined_platform, true);
       return;
    }
 
-   max_platform_str_size =
-      BSON_MIN (max_platform_str_size, (int) strlen (platform) + 1);
-   bson_append_utf8 (
-      doc, HANDSHAKE_PLATFORM_FIELD, -1, platform, max_platform_str_size - 1);
+   /* We opt to drop compiler info and flags if they can't fit, while the
+    * platform information is truncated
+    * Try to drop flags first, and if there is still not enough space also drop
+    * compiler info */
+   if (max_platform_str_size >
+       combined_platform->len + strlen (compiler_info) + 1) {
+      bson_string_append (combined_platform, compiler_info);
+   }
+   if (max_platform_str_size > combined_platform->len + strlen (flags) + 1) {
+      bson_string_append (combined_platform, flags);
+   }
 
+   /* We use the flags_index field to check if the CLAGS/LDFLAGS need to be
+    * truncated, and if so we drop them altogether */
+   bson_append_utf8 (
+      doc,
+      HANDSHAKE_PLATFORM_FIELD,
+      -1,
+      combined_platform->str,
+      BSON_MIN (max_platform_str_size - 1, combined_platform->len));
+
+   bson_string_free (combined_platform, true);
    BSON_ASSERT (doc->len <= HANDSHAKE_MAX_SIZE);
 }
 
 /*
  * Return true if we build the document, and it's not too big
  * false if there's no way to prevent the doc from being too big. In this
- * case, the caller shouldn't include it with isMaster
+ * case, the caller shouldn't include it with hello
  */
 bool
 _mongoc_handshake_build_doc_with_application (bson_t *doc, const char *appname)
@@ -520,7 +572,6 @@ _mongoc_handshake_freeze (void)
 /*
  * free (*s) and make *s point to *s concated with suffix.
  * If *s is NULL it's treated like it's an empty string.
- * If suffix is NULL, nothing happens.
  */
 static void
 _append_and_truncate (char **s, const char *suffix, int max_len)
@@ -530,13 +581,10 @@ _append_and_truncate (char **s, const char *suffix, int max_len)
    const int delim_len = (int) strlen (" / ");
    int space_for_suffix;
 
-   BSON_ASSERT (s);
+   BSON_ASSERT_PARAM (s);
+   BSON_ASSERT_PARAM (suffix);
 
    prefix = old_str ? old_str : "";
-
-   if (!suffix) {
-      return;
-   }
 
    space_for_suffix = max_len - (int) strlen (prefix) - delim_len;
 
@@ -554,7 +602,7 @@ _append_and_truncate (char **s, const char *suffix, int max_len)
 
 /*
  * Set some values in our global handshake struct. These values will be sent
- * to the server as part of the initial connection handshake (isMaster).
+ * to the server as part of the initial connection handshake (hello).
  * If this function is called more than once, or after we've connected to a
  * mongod, then it will do nothing and return false. It will return true if it
  * successfully sets the values.
@@ -566,6 +614,8 @@ mongoc_handshake_data_append (const char *driver_name,
                               const char *driver_version,
                               const char *platform)
 {
+   int platform_space;
+
    bson_mutex_lock (&gHandshakeLock);
 
    if (_mongoc_handshake_get ()->frozen) {
@@ -573,21 +623,41 @@ mongoc_handshake_data_append (const char *driver_name,
       return false;
    }
 
-   _append_and_truncate (&_mongoc_handshake_get ()->driver_name,
-                         driver_name,
-                         HANDSHAKE_DRIVER_NAME_MAX);
-
-   _append_and_truncate (&_mongoc_handshake_get ()->driver_version,
-                         driver_version,
-                         HANDSHAKE_DRIVER_VERSION_MAX);
+   BSON_ASSERT (_mongoc_handshake_get ()->platform);
 
    /* allow practically any size for "platform", we'll trim it down in
     * _mongoc_handshake_build_doc_with_application */
-   _append_and_truncate (
-      &_mongoc_handshake_get ()->platform, platform, HANDSHAKE_MAX_SIZE);
+   platform_space =
+      HANDSHAKE_MAX_SIZE - (int) strlen (_mongoc_handshake_get ()->platform);
+
+   if (platform) {
+      /* we check for an empty string as a special case to avoid an unnecessary
+       * delimiter being added in front of the string by _append_and_truncate */
+      if (_mongoc_handshake_get ()->platform[0] == '\0') {
+         bson_free (_mongoc_handshake_get ()->platform);
+         _mongoc_handshake_get ()->platform =
+            bson_strdup_printf ("%.*s", platform_space, platform);
+      } else {
+         _append_and_truncate (
+            &_mongoc_handshake_get ()->platform, platform, HANDSHAKE_MAX_SIZE);
+      }
+   }
+
+   if (driver_name) {
+      _append_and_truncate (&_mongoc_handshake_get ()->driver_name,
+                            driver_name,
+                            HANDSHAKE_DRIVER_NAME_MAX);
+   }
+
+   if (driver_version) {
+      _append_and_truncate (&_mongoc_handshake_get ()->driver_version,
+                            driver_version,
+                            HANDSHAKE_DRIVER_VERSION_MAX);
+   }
 
    _mongoc_handshake_freeze ();
    bson_mutex_unlock (&gHandshakeLock);
+
    return true;
 }
 
@@ -618,12 +688,12 @@ _mongoc_handshake_append_sasl_supported_mechs (const mongoc_uri_t *uri,
 
 void
 _mongoc_handshake_parse_sasl_supported_mechs (
-   const bson_t *ismaster,
+   const bson_t *hello,
    mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs)
 {
    bson_iter_t iter;
    memset (sasl_supported_mechs, 0, sizeof (*sasl_supported_mechs));
-   if (bson_iter_init_find (&iter, ismaster, "saslSupportedMechs")) {
+   if (bson_iter_init_find (&iter, hello, "saslSupportedMechs")) {
       bson_iter_t array_iter;
       if (BSON_ITER_HOLDS_ARRAY (&iter) &&
           bson_iter_recurse (&iter, &array_iter)) {

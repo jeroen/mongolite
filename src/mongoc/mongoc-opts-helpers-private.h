@@ -1,7 +1,25 @@
+/*
+ * Copyright 2019-present MongoDB, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "mongoc-prelude.h"
+
 #include <bson/bson.h>
-#include "mongoc/mongoc-client-session-private.h"
-#include "mongoc/mongoc-collection-private.h"
-#include "mongoc/mongoc-write-command-private.h"
+#include "mongoc-client-session-private.h"
+#include "mongoc-collection-private.h"
+#include "mongoc-write-command-private.h"
 
 #ifndef LIBMONGOC_MONGOC_OPTS_HELPERS_H
 #define LIBMONGOC_MONGOC_OPTS_HELPERS_H
@@ -115,5 +133,11 @@ _mongoc_convert_read_concern (mongoc_client_t *client,
                               const bson_iter_t *iter,
                               mongoc_read_concern_t **rc,
                               bson_error_t *error);
+
+bool
+_mongoc_convert_hint (mongoc_client_t *client,
+                      const bson_iter_t *iter,
+                      bson_value_t *value,
+                      bson_error_t *error);
 
 #endif

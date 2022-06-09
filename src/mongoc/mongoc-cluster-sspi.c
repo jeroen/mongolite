@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-config.h"
+#include "mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SASL_SSPI
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-cluster-sspi-private.h"
-#include "mongoc/mongoc-cluster-sasl-private.h"
-#include "mongoc/mongoc-sasl-private.h"
-#include "mongoc/mongoc-sspi-private.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-cluster-sspi-private.h"
+#include "mongoc-cluster-sasl-private.h"
+#include "mongoc-sasl-private.h"
+#include "mongoc-sspi-private.h"
+#include "mongoc-error.h"
+#include "mongoc-util-private.h"
 
 
 static mongoc_sspi_client_state_t *
@@ -150,7 +150,7 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
 {
    mongoc_cmd_parts_t parts;
    mongoc_sspi_client_state_t *state;
-   SEC_CHAR buf[4096] = {0};
+   SEC_CHAR *buf = NULL;
    bson_iter_t iter;
    uint32_t buflen;
    bson_t reply;
@@ -160,6 +160,8 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
    int res = MONGOC_SSPI_AUTH_GSS_CONTINUE;
    int step;
    mongoc_server_stream_t *server_stream;
+   bool ret = false;
+   mc_shared_tpld td = MC_SHARED_TPLD_NULL;
 
    state = _mongoc_cluster_sspi_new (cluster->uri, stream, sd->host.host);
 
@@ -173,7 +175,8 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
 
    for (step = 0;; step++) {
       mongoc_cmd_parts_init (
-         &parts, cluster->client, "$external", MONGOC_QUERY_SLAVE_OK, &cmd);
+         &parts, cluster->client, "$external", MONGOC_QUERY_SECONDARY_OK, &cmd);
+      parts.prohibit_lsid = true;
       bson_init (&cmd);
 
       if (res == MONGOC_SSPI_AUTH_GSS_CONTINUE) {
@@ -200,7 +203,7 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
 
          mongoc_cmd_parts_cleanup (&parts);
          bson_destroy (&cmd);
-         break;
+         goto failure;
       }
 
       if (step == 0) {
@@ -220,14 +223,14 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
          }
       }
 
-      server_stream = _mongoc_cluster_create_server_stream (
-         cluster->client->topology, sd->id, stream, error);
+      mc_tpld_renew_ref (&td, cluster->client->topology);
+      server_stream = _mongoc_cluster_create_server_stream (td.ptr, sd, stream);
 
       if (!mongoc_cmd_parts_assemble (&parts, server_stream, error)) {
          mongoc_server_stream_cleanup (server_stream);
          mongoc_cmd_parts_cleanup (&parts);
          bson_destroy (&cmd);
-         break;
+         goto failure;
       }
 
       if (!mongoc_cluster_run_command_private (
@@ -236,7 +239,7 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
          mongoc_cmd_parts_cleanup (&parts);
          bson_destroy (&cmd);
          bson_destroy (&reply);
-         break;
+         goto failure;
       }
 
       mongoc_server_stream_cleanup (server_stream);
@@ -258,36 +261,25 @@ _mongoc_cluster_auth_node_sspi (mongoc_cluster_t *cluster,
                          MONGOC_ERROR_CLIENT,
                          MONGOC_ERROR_CLIENT_AUTHENTICATE,
                          "Received invalid SASL reply from MongoDB server.");
-         break;
+         goto failure;
       }
 
 
       tmpstr = bson_iter_utf8 (&iter, &buflen);
-
-      if (buflen > sizeof buf) {
-         bson_set_error (error,
-                         MONGOC_ERROR_CLIENT,
-                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                         "SASL reply from MongoDB is too large.");
-
-         bson_destroy (&reply);
-         break;
-      }
-
+      bson_free (buf);
+      buf = bson_malloc (sizeof (SEC_CHAR) * (buflen + 1));
       memcpy (buf, tmpstr, buflen);
+      buf[buflen] = (SEC_CHAR) 0;
 
       bson_destroy (&reply);
    }
 
-   bson_free (state);
-
+   ret = true;
 failure:
-
-   if (error->domain) {
-      return false;
-   }
-
-   return true;
+   mc_tpld_drop_ref (&td);
+   bson_free (buf);
+   bson_free (state);
+   return ret;
 }
 
 #endif

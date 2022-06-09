@@ -4,14 +4,18 @@
 \alias{gridfs}
 \title{GridFS API}
 \usage{
-gridfs(db = "test", url = "mongodb://localhost", prefix = "fs",
-  options = ssl_options())
+gridfs(
+  db = "test",
+  url = "mongodb://localhost",
+  prefix = "fs",
+  options = ssl_options()
+)
 }
 \arguments{
 \item{db}{name of database}
 
 \item{url}{address of the mongodb server in mongo connection string
-\href{http://docs.mongodb.org/manual/reference/connection-string}{URI format}}
+\href{https://docs.mongodb.com/manual/reference/connection-string}{URI format}}
 
 \item{prefix}{string to prefix the collection name}
 
@@ -72,7 +76,7 @@ files <- c(input, file.path(tempdir(), c('logo1.jpg', 'logo2.jpg')))
 hashes <- tools::md5sum(files)
 stopifnot(length(unique(hashes)) == 1)
 
-\donttest{
+\dontrun{
 # Insert Binary Data
 fs <- gridfs()
 buf <- serialize(nycflights13::flights, NULL)

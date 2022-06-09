@@ -17,22 +17,30 @@
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-config.h"
-#include "mongoc/mongoc-counters-private.h"
-#include "mongoc/mongoc-init.h"
+#include "mongoc-config.h"
+#include "mongoc-counters-private.h"
+#include "mongoc-init.h"
 
-#include "mongoc/mongoc-handshake-private.h"
+#include "mongoc-handshake-private.h"
 
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
-#include "mongoc/mongoc-openssl-private.h"
+#include "mongoc-openssl-private.h"
 #elif defined(MONGOC_ENABLE_SSL_LIBRESSL)
 #include "tls.h"
 #endif
-#include "mongoc/mongoc-thread-private.h"
+#include "mongoc-thread-private.h"
 #include "common-b64-private.h"
 #if defined(MONGOC_ENABLE_CRYPTO_CNG)
-#include "mongoc/mongoc-crypto-private.h"
-#include "mongoc/mongoc-crypto-cng-private.h"
+#include "mongoc-crypto-private.h"
+#include "mongoc-crypto-cng-private.h"
+#endif
+
+#ifdef MONGOC_ENABLE_MONGODB_AWS_AUTH
+#include "kms_message/kms_message.h"
+#endif
+
+#ifdef MONGOC_ENABLE_OCSP_OPENSSL
+#include "mongoc-ocsp-cache-private.h"
 #endif
 
 #ifndef MONGOC_NO_AUTOMATIC_GLOBALS
@@ -131,6 +139,14 @@ static BSON_ONCE_FUN (_mongoc_do_init)
 
    _mongoc_handshake_init ();
 
+#if defined(MONGOC_ENABLE_MONGODB_AWS_AUTH)
+   kms_message_init ();
+#endif
+
+#if defined(MONGOC_ENABLE_OCSP_OPENSSL)
+  _mongoc_ocsp_cache_init ();
+#endif
+
    BSON_ONCE_RETURN;
 }
 
@@ -167,6 +183,14 @@ static BSON_ONCE_FUN (_mongoc_do_cleanup)
    _mongoc_counters_cleanup ();
 
    _mongoc_handshake_cleanup ();
+
+#if defined(MONGOC_ENABLE_MONGODB_AWS_AUTH)
+   kms_message_cleanup ();
+#endif
+
+#if defined(MONGOC_ENABLE_OCSP_OPENSSL)
+   _mongoc_ocsp_cache_cleanup ();
+#endif
 
    BSON_ONCE_RETURN;
 }

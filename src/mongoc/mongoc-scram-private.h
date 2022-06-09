@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 
 #ifndef MONGOC_SCRAM_PRIVATE_H
@@ -22,7 +22,7 @@
 
 
 #include <bson/bson.h>
-#include "mongoc/mongoc-crypto-private.h"
+#include "mongoc-crypto-private.h"
 
 
 BSON_BEGIN_DECLS
@@ -50,7 +50,6 @@ typedef struct _mongoc_scram_cache_t {
 } mongoc_scram_cache_t;
 
 typedef struct _mongoc_scram_t {
-   bool done;
    int step;
    char *user;
    char *pass;

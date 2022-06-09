@@ -14,34 +14,38 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_CLIENT_PRIVATE_H
 #define MONGOC_CLIENT_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-apm-private.h"
-#include "mongoc/mongoc-buffer-private.h"
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-cluster-private.h"
-#include "mongoc/mongoc-config.h"
-#include "mongoc/mongoc-host-list.h"
-#include "mongoc/mongoc-read-prefs.h"
-#include "mongoc/mongoc-rpc-private.h"
-#include "mongoc/mongoc-opcode.h"
+#include "mongoc-apm-private.h"
+#include "mongoc-buffer-private.h"
+#include "mongoc-client.h"
+#include "mongoc-cluster-private.h"
+#include "mongoc-config.h"
+#include "mongoc-host-list.h"
+#include "mongoc-read-prefs.h"
+#include "mongoc-rpc-private.h"
+#include "mongoc-opcode.h"
 #ifdef MONGOC_ENABLE_SSL
-#include "mongoc/mongoc-ssl.h"
+#include "mongoc-ssl.h"
 #endif
-#include "mongoc/mongoc-stream.h"
-#include "mongoc/mongoc-topology-private.h"
-#include "mongoc/mongoc-write-concern.h"
+
+#include "mongoc-stream.h"
+#include "mongoc-topology-private.h"
+#include "mongoc-write-concern.h"
+#include "mongoc-crypt-private.h"
 
 BSON_BEGIN_DECLS
 
-/* protocol versions this driver can speak */
-#define WIRE_VERSION_MIN 3
-#define WIRE_VERSION_MAX 7
+/* Range of wire protocol versions this driver supports. Bumping
+ * WIRE_VERSION_MAX must be accompanied by an update to
+ * `_mongoc_wire_version_to_server_version`. */
+#define WIRE_VERSION_MIN 6  /* a.k.a. minWireVersion */
+#define WIRE_VERSION_MAX 15 /* a.k.a. maxWireVersion */
 
 /* first version that supported "find" and "getMore" commands */
 #define WIRE_VERSION_FIND_CMD 4
@@ -57,18 +61,53 @@ BSON_BEGIN_DECLS
 #define WIRE_VERSION_CMD_WRITE_CONCERN 5
 /* first version to support collation */
 #define WIRE_VERSION_COLLATION 5
+/* first version to support server-side errors for unsupported hint options */
+#define WIRE_VERSION_HINT_SERVER_SIDE_ERROR 5
 /* first version to support OP_MSG */
 #define WIRE_VERSION_OP_MSG 6
 /* first version to support array filters for "update" command */
 #define WIRE_VERSION_ARRAY_FILTERS 6
+/* first version to support retryable reads  */
+#define WIRE_VERSION_RETRY_READS 6
 /* first version to support retryable writes  */
 #define WIRE_VERSION_RETRY_WRITES 6
+/* version corresponding to server 4.0 release */
+#define WIRE_VERSION_4_0 7
+/* first version to support hint for "update" command */
+#define WIRE_VERSION_UPDATE_HINT 8
+/* version corresponding to server 4.2 release */
+#define WIRE_VERSION_4_2 8
+/* version corresponding to client side field level encryption support. */
+#define WIRE_VERSION_CSE 8
+/* first version to throw server-side errors for unsupported hint in
+ * "findAndModify" command */
+#define WIRE_VERSION_FIND_AND_MODIFY_HINT_SERVER_SIDE_ERROR 8
+/* first version to support hint for "delete" command */
+#define WIRE_VERSION_DELETE_HINT 9
+/* first version to support hint for "findAndModify" command */
+#define WIRE_VERSION_FIND_AND_MODIFY_HINT 9
+/* version corresponding to server 4.4 release */
+#define WIRE_VERSION_4_4 9
+/* version corresponding to retryable writes error label */
+#define WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL 9
+/* first version to support server hedged reads */
+#define WIRE_VERSION_HEDGED_READS 9
+/* first version to support estimatedDocumentCount with collStats */
+#define WIRE_VERSION_4_9 12
+/* version corresponding to server 5.0 release */
+#define WIRE_VERSION_5_0 13
+/* first version to support snapshot reads */
+#define WIRE_VERSION_SNAPSHOT_READS 13
+/* version corresponding to server 5.1 release */
+#define WIRE_VERSION_5_1 14
 
+struct _mongoc_collection_t;
 
 struct _mongoc_client_t {
    mongoc_uri_t *uri;
    mongoc_cluster_t cluster;
    bool in_exhaust;
+   bool is_pooled;
 
    mongoc_stream_initiator_t initiator;
    void *initiator_data;
@@ -89,6 +128,8 @@ struct _mongoc_client_t {
 
    int32_t error_api_version;
    bool error_api_set;
+
+   mongoc_server_api_t *api;
 
    /* mongoc_client_session_t's in use, to look up lsids and clusterTimes */
    mongoc_set_t *client_sessions;
@@ -111,16 +152,20 @@ typedef enum {
 BSON_STATIC_ASSERT2 (mongoc_cmd_rw,
                      MONGOC_CMD_RW == (MONGOC_CMD_READ | MONGOC_CMD_WRITE));
 
-typedef enum { MONGOC_RR_SRV, MONGOC_RR_TXT } mongoc_rr_type_t;
 
+/* TODO (CDRIVER-4052): Move MONGOC_RR_DEFAULT_BUFFER_SIZE and
+ * _mongoc_client_get_rr to mongoc-topology-private.h or in a separate file.
+ * There is no reason these should be in mongoc-client. */
+#define MONGOC_RR_DEFAULT_BUFFER_SIZE 1024
 bool
-_mongoc_client_get_rr (const char *service,
+_mongoc_client_get_rr (const char *hostname,
                        mongoc_rr_type_t rr_type,
-                       mongoc_uri_t *uri,
+                       mongoc_rr_data_t *rr_data,
+                       size_t initial_buffer_size,
                        bson_error_t *error);
 
 mongoc_client_t *
-_mongoc_client_new_from_uri (mongoc_topology_t *topology);
+_mongoc_client_new_from_topology (mongoc_topology_t *topology);
 
 bool
 _mongoc_client_set_apm_callbacks_private (mongoc_client_t *client,
@@ -186,6 +231,19 @@ _mongoc_client_push_server_session (mongoc_client_t *client,
                                     mongoc_server_session_t *server_session);
 void
 _mongoc_client_end_sessions (mongoc_client_t *client);
+
+mongoc_stream_t *
+mongoc_client_connect_tcp (int32_t connecttimeoutms,
+                           const mongoc_host_list_t *host,
+                           bson_error_t *error);
+
+mongoc_stream_t *
+mongoc_client_connect (bool buffered,
+                       bool use_ssl,
+                       void *ssl_opts_void,
+                       const mongoc_uri_t *uri,
+                       const mongoc_host_list_t *host,
+                       bson_error_t *error);
 BSON_END_DECLS
 
 #endif /* MONGOC_CLIENT_PRIVATE_H */

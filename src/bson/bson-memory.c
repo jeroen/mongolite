@@ -20,19 +20,15 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "bson/bson-atomic.h"
-#include "bson/bson-config.h"
-#include "bson/bson-memory.h"
+#include "bson-atomic.h"
+#include "bson-config.h"
+#include "bson-memory.h"
 
 
 static bson_mem_vtable_t gMemVtable = {
    malloc,
    calloc,
-#ifdef BSON_HAVE_REALLOCF
-   reallocf,
-#else
    realloc,
-#endif
    free,
 };
 
@@ -299,11 +295,7 @@ bson_mem_restore_vtable (void)
    bson_mem_vtable_t vtable = {
       malloc,
       calloc,
-#ifdef BSON_HAVE_REALLOCF
-      reallocf,
-#else
       realloc,
-#endif
       free,
    };
 

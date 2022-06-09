@@ -27,6 +27,7 @@
 /* Fix for snow leopard */
 #ifdef __APPLE__
 #define BSON_HAVE_REALLOCF 1
+#define BSON_HAVE_STRLCPY 1
 #include <Availability.h>
 #ifndef MAC_OS_X_VERSION_10_8
 #undef BSON_HAVE_STRNLEN

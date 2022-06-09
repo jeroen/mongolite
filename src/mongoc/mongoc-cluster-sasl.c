@@ -16,23 +16,25 @@
 
 /* for size_t */
 #include <bson/bson.h>
-#include "mongoc/mongoc-config.h"
+#include "mongoc-config.h"
 
-#include "mongoc/mongoc-cluster-private.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-stream-private.h"
-#include "mongoc/mongoc-stream-socket.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-cluster-private.h"
+#include "mongoc-log.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-stream-private.h"
+#include "mongoc-stream-socket.h"
+#include "mongoc-error.h"
+#include "mongoc-util-private.h"
 
 #ifdef MONGOC_ENABLE_SASL
 
 #ifdef MONGOC_ENABLE_SASL_CYRUS
-#include "mongoc/mongoc-cluster-cyrus-private.h"
+#include "mongoc-cluster-cyrus-private.h"
 #endif
 #ifdef MONGOC_ENABLE_SASL_SSPI
-#include "mongoc/mongoc-cluster-sspi-private.h"
+#include "mongoc-cluster-sspi-private.h"
+#endif
+
 #endif
 
 void
@@ -42,7 +44,7 @@ _mongoc_cluster_build_sasl_start (bson_t *cmd,
                                   uint32_t buflen)
 {
    BSON_APPEND_INT32 (cmd, "saslStart", 1);
-   BSON_APPEND_UTF8 (cmd, "mechanism", "GSSAPI");
+   BSON_APPEND_UTF8 (cmd, "mechanism", mechanism);
    bson_append_utf8 (cmd, "payload", 7, buf, buflen);
    BSON_APPEND_INT32 (cmd, "autoAuthorize", 1);
 }
@@ -68,7 +70,6 @@ _mongoc_cluster_get_conversation_id (const bson_t *reply)
 
    return 0;
 }
-#endif
 
 /*
  *--------------------------------------------------------------------------

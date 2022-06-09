@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-host-list-private.h"
+#include "mongoc-host-list-private.h"
 /* strcasecmp on windows */
-#include "mongoc/mongoc-util-private.h"
-
+#include "mongoc-util-private.h"
+#include "utlist.h"
 
 /*
  *--------------------------------------------------------------------------
@@ -53,10 +53,102 @@ _mongoc_host_list_push (const char *host,
    return h;
 }
 
+static mongoc_host_list_t *
+_mongoc_host_list_find_host_and_port (mongoc_host_list_t *hosts,
+                                      const char *host_and_port)
+{
+   mongoc_host_list_t *iter;
+   LL_FOREACH (hosts, iter)
+   {
+      BSON_ASSERT (iter);
+
+      if (strcasecmp (iter->host_and_port, host_and_port) == 0) {
+         return iter;
+      }
+   }
+
+   return NULL;
+}
+
 /*
  *--------------------------------------------------------------------------
  *
- * _mongoc_host_list_equal --
+ * _mongoc_host_list_upsert --
+ *
+ *       If new_host is not already in list, copy and add it to the end of list.
+ *       If *list == NULL, then it will be set to a new host.
+ *
+ * Returns:
+ *       Nothing.
+ *
+ *--------------------------------------------------------------------------
+ */
+void
+_mongoc_host_list_upsert (mongoc_host_list_t **list,
+                          const mongoc_host_list_t *new_host)
+{
+   mongoc_host_list_t *link = NULL;
+   mongoc_host_list_t *next_link = NULL;
+
+   BSON_ASSERT (list);
+   if (!new_host) {
+      return;
+   }
+
+   link = _mongoc_host_list_find_host_and_port (*list, new_host->host_and_port);
+
+   if (!link) {
+      link = bson_malloc0 (sizeof (mongoc_host_list_t));
+      LL_APPEND (*list, link);
+   } else {
+      /* Make sure linking is preserved when copying data into final. */
+      next_link = link->next;
+   }
+
+   memcpy (link, new_host, sizeof (mongoc_host_list_t));
+   link->next = next_link;
+}
+
+
+/* Duplicates a host list.
+ */
+mongoc_host_list_t *
+_mongoc_host_list_copy_all (const mongoc_host_list_t *src)
+{
+   mongoc_host_list_t *tail = NULL;
+   const mongoc_host_list_t *src_iter;
+   mongoc_host_list_t *head = NULL;
+
+   LL_FOREACH (src, src_iter)
+   {
+      tail = bson_malloc0 (sizeof (mongoc_host_list_t));
+      memcpy (tail, src_iter, sizeof (mongoc_host_list_t));
+
+      LL_PREPEND (head, tail);
+   }
+
+   return head;
+}
+
+int
+_mongoc_host_list_length (const mongoc_host_list_t *list)
+{
+   const mongoc_host_list_t *tmp;
+   int counter = 0;
+
+   tmp = list;
+   while (tmp) {
+      tmp = tmp->next;
+      counter++;
+   }
+
+   return counter;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_host_list_compare_one --
  *
  *       Check two hosts have the same domain (case-insensitive), port,
  *       and address family.
@@ -67,11 +159,19 @@ _mongoc_host_list_push (const char *host,
  *--------------------------------------------------------------------------
  */
 bool
-_mongoc_host_list_equal (const mongoc_host_list_t *host_a,
-                         const mongoc_host_list_t *host_b)
+_mongoc_host_list_compare_one (const mongoc_host_list_t *host_a,
+                               const mongoc_host_list_t *host_b)
 {
-   return (!strcasecmp (host_a->host_and_port, host_b->host_and_port) &&
+   return (0 == strcasecmp (host_a->host_and_port, host_b->host_and_port) &&
            host_a->family == host_b->family);
+}
+
+bool
+_mongoc_host_list_contains_one (mongoc_host_list_t *host_list,
+                                mongoc_host_list_t *host)
+{
+   return NULL !=
+          _mongoc_host_list_find_host_and_port (host_list, host->host_and_port);
 }
 
 
@@ -136,15 +236,29 @@ _mongoc_host_list_from_string_with_err (mongoc_host_list_t *link_,
       /* if present, the port should immediately follow after ] */
       sport = strchr (close_bracket, ':');
       if (sport > close_bracket + 1) {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "If present, port should immediately follow the \"]\""
+                         "in an IPv6 address");
          return false;
       }
 
       /* otherwise ] should be the last char. */
       if (!sport && *(close_bracket + 1) != '\0') {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "If port is not supplied, \"[\" should be the last"
+                         "character");
          return false;
       }
 
       if (*address != '[') {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Missing matching bracket \"[\"");
          return false;
       }
 
@@ -159,10 +273,18 @@ _mongoc_host_list_from_string_with_err (mongoc_host_list_t *link_,
    if (sport) {
       if (sport == address) {
          /* bad address like ":27017" */
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Bad address, \":\" should not be first character");
          return false;
       }
 
       if (!mongoc_parse_port (&port, sport + 1)) {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Port could not be parsed");
          return false;
       }
 
@@ -245,4 +367,27 @@ _mongoc_host_list_from_hostport_with_err (mongoc_host_list_t *link_,
 
    link_->next = NULL;
    return true;
+}
+
+void
+_mongoc_host_list_remove_host (mongoc_host_list_t **hosts,
+                               const char *host,
+                               uint16_t port)
+{
+   mongoc_host_list_t *current;
+   mongoc_host_list_t *prev = NULL;
+
+   for (current = *hosts; current; prev = current, current = current->next) {
+      if ((current->port == port) && (strcmp (current->host, host) == 0)) {
+         /* Node found, unlink. */
+         if (prev) {
+            prev->next = current->next;
+         } else {
+            /* No previous, unlinking at head. */
+            *hosts = current->next;
+         }
+         bson_free (current);
+         break;
+      }
+   }
 }

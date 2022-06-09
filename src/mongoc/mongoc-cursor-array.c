@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "mongoc/mongoc.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-client-private.h"
+#include "mongoc.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-client-private.h"
 
 typedef struct _data_array_t {
    bson_t cmd;
@@ -36,7 +36,7 @@ _prime (mongoc_cursor_t *cursor)
    /* this cursor is only used with the listDatabases command. it iterates
     * over the array in the response's "databases" field. */
    if (_mongoc_cursor_run_command (
-          cursor, &data->cmd, &cursor->opts, &data->array) &&
+          cursor, &data->cmd, &cursor->opts, &data->array, false) &&
        bson_iter_init_find (&iter, &data->array, data->field_name) &&
        BSON_ITER_HOLDS_ARRAY (&iter) &&
        bson_iter_recurse (&iter, &data->iter)) {

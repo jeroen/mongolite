@@ -22,18 +22,19 @@
 #include <time.h>
 #include <errno.h>
 
-#include "mongoc/mongoc-cursor.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-collection.h"
-#include "mongoc/mongoc-gridfs.h"
-#include "mongoc/mongoc-gridfs-private.h"
-#include "mongoc/mongoc-gridfs-file.h"
-#include "mongoc/mongoc-gridfs-file-private.h"
-#include "mongoc/mongoc-gridfs-file-page.h"
-#include "mongoc/mongoc-gridfs-file-page-private.h"
-#include "mongoc/mongoc-iovec.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-error.h"
+#include "mongoc-cursor.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-collection.h"
+#include "mongoc-gridfs.h"
+#include "mongoc-gridfs-private.h"
+#include "mongoc-gridfs-file.h"
+#include "mongoc-gridfs-file-private.h"
+#include "mongoc-gridfs-file-page.h"
+#include "mongoc-gridfs-file-page-private.h"
+#include "mongoc-iovec.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-util-private.h"
+#include "mongoc-error.h"
 
 static bool
 _mongoc_gridfs_file_refresh_page (mongoc_gridfs_file_t *file);
@@ -337,7 +338,7 @@ _mongoc_gridfs_file_new (mongoc_gridfs_t *gridfs, mongoc_gridfs_file_opt_t *opt)
    file->files_id.value_type = BSON_TYPE_OID;
    bson_oid_init (&file->files_id.value.v_oid, NULL);
 
-   file->upload_date = ((int64_t) time (NULL)) * 1000;
+   file->upload_date = _mongoc_get_real_time_ms ();
 
    if (opt->md5) {
       file->md5 = bson_strdup (opt->md5);

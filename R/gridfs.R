@@ -40,7 +40,7 @@
 #' hashes <- tools::md5sum(files)
 #' stopifnot(length(unique(hashes)) == 1)
 #'
-#' \donttest{
+#' \dontrun{
 #' # Insert Binary Data
 #' fs <- gridfs()
 #' buf <- serialize(nycflights13::flights, NULL)

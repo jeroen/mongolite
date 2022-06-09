@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_CYRUS_PRIVATE_H
 #define MONGOC_CYRUS_PRIVATE_H
 
-#include "mongoc/mongoc-uri.h"
-#include "mongoc/mongoc-cluster-private.h"
-#include "mongoc/mongoc-sasl-private.h"
+#include "mongoc-uri.h"
+#include "mongoc-cluster-private.h"
+#include "mongoc-sasl-private.h"
 #include <bson/bson.h>
 #include <sasl/sasl.h>
-#include <sasl/saslutil.h>
 
 
 BSON_BEGIN_DECLS
@@ -63,8 +62,7 @@ bool
 _mongoc_cyrus_step (mongoc_cyrus_t *sasl,
                     const uint8_t *inbuf,
                     uint32_t inbuflen,
-                    uint8_t *outbuf,
-                    uint32_t outbufmax,
+                    uint8_t **outbuf,
                     uint32_t *outbuflen,
                     bson_error_t *error);
 

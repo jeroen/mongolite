@@ -1,5 +1,39 @@
+2.6.1
+ - Fix build of new kms module on Alpine linux
+
+2.6.0
+ - Add kms-message module to support aws authentication
+
+2.5.0
+ - Update vendored mongo-c-driver to v1.21.1
+
+2.4.1
+ - Windows: fix warning 'Setting tlsDisableOCSPEndpointCheck has no effect'
+ - Fix bug that would prevent non-tls connections
+
+2.4.0
+ - Update vendored mongo-c-driver to v1.19.2
+ - Windows: switch to windows native TLS, drop OpenSSL.
+ - Disable OCSP checking because it hangs on some platforms.
+ - Identify detailed R client information in the handshake #225
+
+2.3.1
+ - Windows: update to openssl 1.1.1k
+
+2.3.0
+ - Add oid_to_timestamp utility function
+ - Fix a race condition in the connection caching pool
+ - Change donttest to dontrun for CRAN
+
+2.2.1
+ - Switch examples to mongodb cloud server.
+
+2.2
+ - Update vendored mongo-c-driver to v1.16.2
+ - Fix bug on MacOS with SSL client certs.
+
 2.1
- - Update vendored mongo-c-driver to v1.4.0
+ - Update vendored mongo-c-driver to v1.14.0
  - MacOS now defaults to OSX native secure transport SSL instead of openssl
 
 2.0.2

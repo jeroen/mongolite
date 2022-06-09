@@ -8,12 +8,13 @@ new_client <- local({
     hash <- as.character(openssl::md5(serialize(params, NULL)))
     client <- get_weakref(pool[[hash]])
     if(!length(client) || null_ptr(client)){
-      pool[[hash]] <- make_weakref(do.call(mongo_client_new, params))
+      # Make sure 'client' remains in scope after creating weakref!
+      client <- do.call(mongo_client_new, params)
+      pool[[hash]] <- make_weakref(client)
     }
-    get_weakref(pool[[hash]])
+    return(client)
   }
 })
-
 
 #' @useDynLib mongolite R_make_weakref
 make_weakref <- function(x){

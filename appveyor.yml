@@ -12,10 +12,10 @@ install:
 
 environment:
   matrix:
+    - R_VERSION: 3.6.3
+      R_CHECK_ARGS: '--no-manual --run-dontrun'
     - R_VERSION: release
-      R_CHECK_ARGS: '--no-manual --run-donttest'
-    - R_VERSION: oldrel
-      R_CHECK_ARGS: '--no-manual --run-donttest'
+      R_CHECK_ARGS: '--no-manual --run-dontrun'
 
 # Adapt as necessary starting from here
 services:

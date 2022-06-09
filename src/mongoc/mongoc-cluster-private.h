@@ -14,28 +14,29 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_CLUSTER_PRIVATE_H
 #define MONGOC_CLUSTER_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-array-private.h"
-#include "mongoc/mongoc-buffer-private.h"
-#include "mongoc/mongoc-config.h"
-#include "mongoc/mongoc-client.h"
-#include "mongoc/mongoc-list-private.h"
-#include "mongoc/mongoc-opcode.h"
-#include "mongoc/mongoc-rpc-private.h"
-#include "mongoc/mongoc-server-stream-private.h"
-#include "mongoc/mongoc-set-private.h"
-#include "mongoc/mongoc-stream.h"
-#include "mongoc/mongoc-topology-private.h"
-#include "mongoc/mongoc-topology-description-private.h"
-#include "mongoc/mongoc-write-concern.h"
-#include "mongoc/mongoc-scram-private.h"
-#include "mongoc/mongoc-cmd-private.h"
+#include "mongoc-array-private.h"
+#include "mongoc-buffer-private.h"
+#include "mongoc-config.h"
+#include "mongoc-client.h"
+#include "mongoc-list-private.h"
+#include "mongoc-opcode.h"
+#include "mongoc-rpc-private.h"
+#include "mongoc-server-stream-private.h"
+#include "mongoc-set-private.h"
+#include "mongoc-stream.h"
+#include "mongoc-topology-private.h"
+#include "mongoc-topology-description-private.h"
+#include "mongoc-write-concern.h"
+#include "mongoc-scram-private.h"
+#include "mongoc-cmd-private.h"
+#include "mongoc-crypto-private.h"
 
 BSON_BEGIN_DECLS
 
@@ -43,14 +44,9 @@ BSON_BEGIN_DECLS
 typedef struct _mongoc_cluster_node_t {
    mongoc_stream_t *stream;
    char *connection_address;
-
-   int32_t max_wire_version;
-   int32_t min_wire_version;
-   int32_t max_write_batch_size;
-   int32_t max_bson_obj_size;
-   int32_t max_msg_size;
-
-   int64_t timestamp;
+   /* handshake_sd is a server description created from the handshake on the
+    * stream. */
+   mongoc_server_description_t *handshake_sd;
 } mongoc_cluster_node_t;
 
 typedef struct _mongoc_cluster_t {
@@ -79,13 +75,7 @@ void
 mongoc_cluster_destroy (mongoc_cluster_t *cluster);
 
 void
-mongoc_cluster_disconnect (mongoc_cluster_t *cluster);
-
-void
-mongoc_cluster_disconnect_node (mongoc_cluster_t *cluster,
-                                uint32_t id,
-                                bool invalidate,
-                                const bson_error_t *why);
+mongoc_cluster_disconnect_node (mongoc_cluster_t *cluster, uint32_t id);
 
 int32_t
 mongoc_cluster_get_max_bson_obj_size (mongoc_cluster_t *cluster);
@@ -116,26 +106,69 @@ mongoc_cluster_try_recv (mongoc_cluster_t *cluster,
                          mongoc_server_stream_t *server_stream,
                          bson_error_t *error);
 
+/**
+ * @brief Obtain a server stream appropriate for read operations on the
+ * cluster.
+ *
+ * Returns a new stream (that must be freed) or NULL and sets an error via
+ * `error`.
+ *
+ * @note The returned stream must be released via
+ * `mongoc_server_stream_cleanup`.
+ *
+ * @note May add nodes and/or update the cluster's topology.
+ */
 mongoc_server_stream_t *
 mongoc_cluster_stream_for_reads (mongoc_cluster_t *cluster,
                                  const mongoc_read_prefs_t *read_prefs,
-                                 const mongoc_client_session_t *cs,
+                                 mongoc_client_session_t *cs,
                                  bson_t *reply,
+                                 bool is_aggr_with_write,
                                  bson_error_t *error);
 
+/**
+ * @brief Obtain a server stream appropriate for write operations on the
+ * cluster.
+ *
+ * Returns a new stream (that must be freed) or NULL and sets an error via
+ * `error`.
+ *
+ * @note The returned stream must be released via `mongoc_server_stream_cleanup`
+ *
+ * @note May add nodes and/or update the cluster's topology.
+ */
 mongoc_server_stream_t *
 mongoc_cluster_stream_for_writes (mongoc_cluster_t *cluster,
-                                  const mongoc_client_session_t *cs,
+                                  mongoc_client_session_t *cs,
                                   bson_t *reply,
                                   bson_error_t *error);
 
+/**
+ * @brief Obtain a server stream associated with the cluster node associated
+ * with the given server ID.
+ *
+ * Returns a new server stream (that must be freed) or NULL and sets `error`.
+ *
+ * @param server_id The ID of a server in the cluster topology.
+ * @param reconnect_ok If `true`, the server exists in the topology but is not
+ * connected, then attempt to reconnect with the server. If `false`, then only
+ * create a stream if the server is connected and ready.
+ *
+ * @note The returned stream must be released via `mongoc_server_stream_cleanup`
+ *
+ * @note May update the cluster's topology.
+ */
 mongoc_server_stream_t *
 mongoc_cluster_stream_for_server (mongoc_cluster_t *cluster,
                                   uint32_t server_id,
                                   bool reconnect_ok,
-                                  const mongoc_client_session_t *cs,
+                                  mongoc_client_session_t *cs,
                                   bson_t *reply,
                                   bson_error_t *error);
+
+bool
+mongoc_cluster_stream_valid (mongoc_cluster_t *cluster,
+                             mongoc_server_stream_t *server_stream);
 
 bool
 mongoc_cluster_run_command_monitored (mongoc_cluster_t *cluster,
@@ -172,10 +205,29 @@ int
 _mongoc_cluster_get_conversation_id (const bson_t *reply);
 
 mongoc_server_stream_t *
-_mongoc_cluster_create_server_stream (mongoc_topology_t *topology,
-                                      uint32_t server_id,
-                                      mongoc_stream_t *stream,
-                                      bson_error_t *error /* OUT */);
+_mongoc_cluster_create_server_stream (const mongoc_topology_description_t *td,
+                                      const mongoc_server_description_t *sd,
+                                      mongoc_stream_t *stream);
+
+bool
+_mongoc_cluster_get_auth_cmd_x509 (const mongoc_uri_t *uri,
+                                   const mongoc_ssl_opt_t *ssl_opts,
+                                   bson_t *cmd /* OUT */,
+                                   bson_error_t *error /* OUT */);
+
+#ifdef MONGOC_ENABLE_CRYPTO
+void
+_mongoc_cluster_init_scram (const mongoc_cluster_t *cluster,
+                            mongoc_scram_t *scram,
+                            mongoc_crypto_hash_algorithm_t algo);
+
+bool
+_mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
+                                    mongoc_scram_t *scram,
+                                    bson_t *cmd /* OUT */,
+                                    bson_error_t *error /* OUT */);
+#endif /* MONGOC_ENABLE_CRYPTO */
+
 BSON_END_DECLS
 
 

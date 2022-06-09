@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "bson/bson-prelude.h"
+#include "bson-prelude.h"
 
 
 #ifndef BSON_MACROS_H
@@ -27,7 +27,7 @@
 #include <algorithm>
 #endif
 
-#include "bson/bson-config.h"
+#include "bson-config.h"
 
 
 #if BSON_OS == 1
@@ -166,8 +166,8 @@
 #else
 #define BSON_ALIGNED_BEGIN(_N)
 #define BSON_ALIGNED_END(_N) \
-   __attribute__ (           \
-      (aligned ((_N) > BSON_ALIGN_OF_PTR ? BSON_ALIGN_OF_PTR : (_N))))
+   __attribute__ ((          \
+      aligned ((_N) > BSON_ALIGN_OF_PTR ? BSON_ALIGN_OF_PTR : (_N))))
 #endif
 #endif
 
@@ -176,7 +176,7 @@
 #define bson_str_empty0(s) (!s || !s[0])
 
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 #define BSON_FUNC __FUNCTION__
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ < 199901L
 #define BSON_FUNC __FUNCTION__
@@ -195,6 +195,48 @@
                   #test);                                  \
          abort ();                                         \
       }                                                    \
+   } while (0)
+
+/**
+ * @brief Assert the expression `Assertion`, and evaluates to `Value` on
+ * success.
+ */
+#define BSON_ASSERT_INLINE(Assertion, Value)                              \
+   ((void) ((Assertion) ? (0)                                             \
+                        : ((fprintf (stderr,                              \
+                                     "%s:%d %s(): Assertion '%s' failed", \
+                                     __FILE__,                            \
+                                     __LINE__,                            \
+                                     BSON_FUNC,                           \
+                                     #Assertion),                         \
+                            abort ()),                                    \
+                           0)),                                           \
+    Value)
+
+/**
+ * @brief Assert that the given pointer is non-NULL, while also evaluating to
+ * that pointer.
+ *
+ * Can be used to inline assertions with a pointer dereference:
+ *
+ * ```
+ * foo* f = get_foo();
+ * bar* b = BSON_ASSERT_PTR_INLINE(f)->bar_value;
+ * ```
+ */
+#define BSON_ASSERT_PTR_INLINE(Pointer) \
+   BSON_ASSERT_INLINE ((Pointer) != NULL, (Pointer))
+
+/* Used for asserting parameters to provide a more precise error message */
+#define BSON_ASSERT_PARAM(param)                                         \
+   do {                                                                  \
+      if ((BSON_UNLIKELY (param == NULL))) {                             \
+         fprintf (stderr,                                                \
+                  "The parameter: %s, in function %s, cannot be NULL\n", \
+                  #param,                                                \
+                  BSON_FUNC);                                            \
+         abort ();                                                       \
+      }                                                                  \
    } while (0)
 
 /* obsolete macros, preserved for compatibility */
@@ -281,6 +323,11 @@
 #define BSON_GNUC_DEPRECATED
 #endif
 
+#define BSON_CONCAT_IMPL(a, ...) a##__VA_ARGS__
+#define BSON_CONCAT(a, ...) BSON_CONCAT_IMPL (a, __VA_ARGS__)
+#define BSON_CONCAT3(a, b, c) BSON_CONCAT (a, BSON_CONCAT (b, c))
+#define BSON_CONCAT4(a, b, c, d) \
+   BSON_CONCAT (BSON_CONCAT (a, b), BSON_CONCAT (c, d))
 
 #if BSON_GNUC_CHECK_VERSION(4, 5)
 #define BSON_GNUC_DEPRECATED_FOR(f) \
@@ -289,5 +336,38 @@
 #define BSON_GNUC_DEPRECATED_FOR(f) BSON_GNUC_DEPRECATED
 #endif
 
+/**
+ * @brief String-ify the given argument
+ */
+#define BSON_STR(...) #__VA_ARGS__
+
+/**
+ * @brief Mark the attached declared entity as "possibly-unused."
+ *
+ * Does nothing on MSVC.
+ */
+#if defined(__GNUC__) || defined(__clang__)
+#define BSON_MAYBE_UNUSED __attribute__ ((unused))
+#else
+#define BSON_MAYBE_UNUSED /* Nothing for other compilers */
+#endif
+
+/**
+ * @brief Mark a point in the code as unreachable. If the point is reached, the
+ * program will abort with an error message.
+ *
+ * @param What A string to include in the error message if this point is ever
+ * executed.
+ */
+#define BSON_UNREACHABLE(What)                               \
+   do {                                                      \
+      fprintf (stderr,                                       \
+               "%s:%d %s(): Unreachable code reached: %s\n", \
+               __FILE__,                                     \
+               __LINE__,                                     \
+               BSON_FUNC,                                    \
+               What);                                        \
+      abort ();                                              \
+   } while (0)
 
 #endif /* BSON_MACROS_H */

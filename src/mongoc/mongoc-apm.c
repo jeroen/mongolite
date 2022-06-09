@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-util-private.h"
-#include "mongoc/mongoc-apm-private.h"
-#include "mongoc/mongoc-cmd-private.h"
+#include "mongoc-util-private.h"
+#include "mongoc-apm-private.h"
+#include "mongoc-cmd-private.h"
+#include "mongoc-handshake-private.h"
+
+static bson_oid_t kObjectIdZero = {{0}};
 
 /*
  * An Application Performance Management (APM) implementation, complying with
@@ -29,15 +32,6 @@ static void
 append_documents_from_cmd (const mongoc_cmd_t *cmd,
                            mongoc_apm_command_started_t *event)
 {
-   int32_t doc_len;
-   bson_t doc;
-   const uint8_t *pos;
-   const char *field_name;
-   bson_t bson;
-   char str[16];
-   const char *key;
-   uint32_t i;
-
    if (!cmd->payload || !cmd->payload_size) {
       return;
    }
@@ -47,26 +41,7 @@ append_documents_from_cmd (const mongoc_cmd_t *cmd,
       event->command_owned = true;
    }
 
-   /* make array from outgoing OP_MSG payload type 1 on an "insert",
-    * "update", or "delete" command. */
-   field_name = _mongoc_get_documents_field_name (cmd->command_name);
-   BSON_ASSERT (field_name);
-   BSON_ASSERT (BSON_APPEND_ARRAY_BEGIN (event->command, field_name, &bson));
-
-   pos = cmd->payload;
-   i = 0;
-   while (pos < cmd->payload + cmd->payload_size) {
-      memcpy (&doc_len, pos, sizeof (doc_len));
-      doc_len = BSON_UINT32_FROM_LE (doc_len);
-      BSON_ASSERT (bson_init_static (&doc, pos, (size_t) doc_len));
-      bson_uint32_to_string (i, &key, str, sizeof (str));
-      BSON_APPEND_DOCUMENT (&bson, key, &doc);
-
-      pos += doc_len;
-      i++;
-   }
-
-   bson_append_array_end (event->command, &bson);
+   _mongoc_cmd_append_payload_as_array (cmd, event->command);
 }
 
 
@@ -74,6 +49,24 @@ append_documents_from_cmd (const mongoc_cmd_t *cmd,
  * Private initializer / cleanup functions.
  */
 
+static void
+mongoc_apm_redact_command (bson_t *command);
+
+static void
+mongoc_apm_redact_reply (bson_t *reply);
+
+/*--------------------------------------------------------------------------
+ *
+ * mongoc_apm_command_started_init --
+ *
+ *       Initialises the command started event.
+ *
+ * Side effects:
+ *       If provided, is_redacted indicates whether the command document was
+ *       redacted to hide sensitive information.
+ *
+ *--------------------------------------------------------------------------
+ */
 void
 mongoc_apm_command_started_init (mongoc_apm_command_started_t *event,
                                  const bson_t *command,
@@ -83,6 +76,8 @@ mongoc_apm_command_started_init (mongoc_apm_command_started_t *event,
                                  int64_t operation_id,
                                  const mongoc_host_list_t *host,
                                  uint32_t server_id,
+                                 const bson_oid_t *service_id,
+                                 bool *is_redacted, /* out */
                                  void *context)
 {
    bson_iter_t iter;
@@ -115,6 +110,21 @@ mongoc_apm_command_started_init (mongoc_apm_command_started_t *event,
       event->command_owned = false;
    }
 
+   if (mongoc_apm_is_sensitive_command_message (command_name, command)) {
+      if (!event->command_owned) {
+         event->command = bson_copy (event->command);
+         event->command_owned = true;
+      }
+
+      if (is_redacted) {
+         *is_redacted = true;
+      }
+
+      mongoc_apm_redact_command (event->command);
+   } else if (is_redacted) {
+      *is_redacted = false;
+   }
+
    event->database_name = database_name;
    event->command_name = command_name;
    event->request_id = request_id;
@@ -122,13 +132,28 @@ mongoc_apm_command_started_init (mongoc_apm_command_started_t *event,
    event->host = host;
    event->server_id = server_id;
    event->context = context;
+
+   bson_oid_copy_unsafe (service_id, &event->service_id);
 }
 
 
+/*--------------------------------------------------------------------------
+ *
+ * mongoc_apm_command_started_init_with_cmd --
+ *
+ *       Initialises the command started event from a mongoc_cmd_t.
+ *
+ * Side effects:
+ *       If provided, is_redacted indicates whether the command document was
+ *       redacted to hide sensitive information.
+ *
+ *--------------------------------------------------------------------------
+ */
 void
 mongoc_apm_command_started_init_with_cmd (mongoc_apm_command_started_t *event,
                                           mongoc_cmd_t *cmd,
                                           int64_t request_id,
+                                          bool *is_redacted, /* out */
                                           void *context)
 {
    mongoc_apm_command_started_init (event,
@@ -139,6 +164,8 @@ mongoc_apm_command_started_init_with_cmd (mongoc_apm_command_started_t *event,
                                     cmd->operation_id,
                                     &cmd->server_stream->sd->host,
                                     cmd->server_stream->sd->id,
+                                    &cmd->server_stream->sd->service_id,
+                                    is_redacted,
                                     context);
 
    /* OP_MSG document sequence for insert, update, or delete? */
@@ -155,6 +182,18 @@ mongoc_apm_command_started_cleanup (mongoc_apm_command_started_t *event)
 }
 
 
+/*--------------------------------------------------------------------------
+ *
+ * mongoc_apm_command_succeeded_init --
+ *
+ *       Initialises the command succeeded event.
+ *
+ * Parameters:
+ *       @force_redaction: If true, the reply document is always redacted,
+ *       regardless of whether the command contains sensitive information.
+ *
+ *--------------------------------------------------------------------------
+ */
 void
 mongoc_apm_command_succeeded_init (mongoc_apm_command_succeeded_t *event,
                                    int64_t duration,
@@ -164,28 +203,57 @@ mongoc_apm_command_succeeded_init (mongoc_apm_command_succeeded_t *event,
                                    int64_t operation_id,
                                    const mongoc_host_list_t *host,
                                    uint32_t server_id,
+                                   const bson_oid_t *service_id,
+                                   bool force_redaction,
                                    void *context)
 {
    BSON_ASSERT (reply);
 
+   if (force_redaction ||
+       mongoc_apm_is_sensitive_command_message (command_name, reply)) {
+      event->reply = bson_copy (reply);
+      event->reply_owned = true;
+
+      mongoc_apm_redact_reply (event->reply);
+   } else {
+      /* discard "const", we promise not to modify "reply" */
+      event->reply = (bson_t *) reply;
+      event->reply_owned = false;
+   }
+
    event->duration = duration;
-   event->reply = reply;
    event->command_name = command_name;
    event->request_id = request_id;
    event->operation_id = operation_id;
    event->host = host;
    event->server_id = server_id;
    event->context = context;
+
+   bson_oid_copy_unsafe (service_id, &event->service_id);
 }
 
 
 void
 mongoc_apm_command_succeeded_cleanup (mongoc_apm_command_succeeded_t *event)
 {
-   /* no-op */
+   if (event->reply_owned) {
+      bson_destroy (event->reply);
+   }
 }
 
 
+/*--------------------------------------------------------------------------
+ *
+ * mongoc_apm_command_failed_init --
+ *
+ *       Initialises the command failed event.
+ *
+ * Parameters:
+ *       @force_redaction: If true, the reply document is always redacted,
+ *       regardless of whether the command contains sensitive information.
+ *
+ *--------------------------------------------------------------------------
+ */
 void
 mongoc_apm_command_failed_init (mongoc_apm_command_failed_t *event,
                                 int64_t duration,
@@ -196,26 +264,43 @@ mongoc_apm_command_failed_init (mongoc_apm_command_failed_t *event,
                                 int64_t operation_id,
                                 const mongoc_host_list_t *host,
                                 uint32_t server_id,
+                                const bson_oid_t *service_id,
+                                bool force_redaction,
                                 void *context)
 {
    BSON_ASSERT (reply);
 
+   if (force_redaction ||
+       mongoc_apm_is_sensitive_command_message (command_name, reply)) {
+      event->reply = bson_copy (reply);
+      event->reply_owned = true;
+
+      mongoc_apm_redact_reply (event->reply);
+   } else {
+      /* discard "const", we promise not to modify "reply" */
+      event->reply = (bson_t *) reply;
+      event->reply_owned = false;
+   }
+
    event->duration = duration;
    event->command_name = command_name;
    event->error = error;
-   event->reply = reply;
    event->request_id = request_id;
    event->operation_id = operation_id;
    event->host = host;
    event->server_id = server_id;
    event->context = context;
+
+   bson_oid_copy_unsafe (service_id, &event->service_id);
 }
 
 
 void
 mongoc_apm_command_failed_cleanup (mongoc_apm_command_failed_t *event)
 {
-   /* no-op */
+   if (event->reply_owned) {
+      bson_destroy (event->reply);
+   }
 }
 
 
@@ -277,6 +362,19 @@ mongoc_apm_command_started_get_server_id (
    const mongoc_apm_command_started_t *event)
 {
    return event->server_id;
+}
+
+
+const bson_oid_t *
+mongoc_apm_command_started_get_service_id (
+   const mongoc_apm_command_started_t *event)
+{
+   if (0 == bson_oid_compare (&event->service_id, &kObjectIdZero)) {
+      /* serviceId is unset. */
+      return NULL;
+   }
+
+   return &event->service_id;
 }
 
 
@@ -343,6 +441,19 @@ mongoc_apm_command_succeeded_get_server_id (
    const mongoc_apm_command_succeeded_t *event)
 {
    return event->server_id;
+}
+
+
+const bson_oid_t *
+mongoc_apm_command_succeeded_get_service_id (
+   const mongoc_apm_command_succeeded_t *event)
+{
+   if (0 == bson_oid_compare (&event->service_id, &kObjectIdZero)) {
+      /* serviceId is unset. */
+      return NULL;
+   }
+
+   return &event->service_id;
 }
 
 
@@ -413,6 +524,19 @@ mongoc_apm_command_failed_get_server_id (
    const mongoc_apm_command_failed_t *event)
 {
    return event->server_id;
+}
+
+
+const bson_oid_t *
+mongoc_apm_command_failed_get_service_id (
+   const mongoc_apm_command_failed_t *event)
+{
+   if (0 == bson_oid_compare (&event->service_id, &kObjectIdZero)) {
+      /* serviceId is unset. */
+      return NULL;
+   }
+
+   return &event->service_id;
 }
 
 
@@ -598,6 +722,13 @@ mongoc_apm_server_heartbeat_started_get_context (
    return event->context;
 }
 
+bool
+mongoc_apm_server_heartbeat_started_get_awaited (
+   const mongoc_apm_server_heartbeat_started_t *event)
+{
+   return event->awaited;
+}
+
 
 /* heartbeat-succeeded event fields */
 
@@ -630,6 +761,13 @@ mongoc_apm_server_heartbeat_succeeded_get_context (
    const mongoc_apm_server_heartbeat_succeeded_t *event)
 {
    return event->context;
+}
+
+bool
+mongoc_apm_server_heartbeat_succeeded_get_awaited (
+   const mongoc_apm_server_heartbeat_succeeded_t *event)
+{
+   return event->awaited;
 }
 
 
@@ -666,6 +804,12 @@ mongoc_apm_server_heartbeat_failed_get_context (
    return event->context;
 }
 
+bool
+mongoc_apm_server_heartbeat_failed_get_awaited (
+   const mongoc_apm_server_heartbeat_failed_t *event)
+{
+   return event->awaited;
+}
 
 /*
  * registering callbacks
@@ -782,4 +926,71 @@ mongoc_apm_set_server_heartbeat_failed_cb (
    mongoc_apm_server_heartbeat_failed_cb_t cb)
 {
    callbacks->server_heartbeat_failed = cb;
+}
+
+static bool
+_mongoc_apm_is_sensitive_command_name (const char *command_name)
+{
+   return 0 == strcasecmp (command_name, "authenticate") ||
+          0 == strcasecmp (command_name, "saslStart") ||
+          0 == strcasecmp (command_name, "saslContinue") ||
+          0 == strcasecmp (command_name, "getnonce") ||
+          0 == strcasecmp (command_name, "createUser") ||
+          0 == strcasecmp (command_name, "updateUser") ||
+          0 == strcasecmp (command_name, "copydbgetnonce") ||
+          0 == strcasecmp (command_name, "copydbsaslstart") ||
+          0 == strcasecmp (command_name, "copydb");
+}
+
+static bool
+_mongoc_apm_is_sensitive_hello_message (const char *command_name,
+                                        const bson_t *body)
+{
+   const bool is_hello =
+      (0 == strcasecmp (command_name, "hello") ||
+       0 == strcasecmp (command_name, HANDSHAKE_CMD_LEGACY_HELLO));
+
+   if (!is_hello) {
+      return false;
+   }
+   if (bson_empty (body)) {
+      /* An empty message body means that it has been redacted */
+      return true;
+   } else if (bson_has_field (body, "speculativeAuthenticate")) {
+      /* "hello" messages are only sensitive if they contain
+       * 'speculativeAuthenticate' */
+      return true;
+   } else {
+      /* Other "hello" messages are okay */
+      return false;
+   }
+}
+
+bool
+mongoc_apm_is_sensitive_command_message (const char *command_name,
+                                         const bson_t *body)
+{
+   BSON_ASSERT (body);
+
+   return _mongoc_apm_is_sensitive_command_name (command_name) ||
+          _mongoc_apm_is_sensitive_hello_message (command_name, body);
+}
+
+void
+mongoc_apm_redact_command (bson_t *command)
+{
+   BSON_ASSERT (command);
+
+   /* Reinit the command to have an empty document */
+   bson_reinit (command);
+}
+
+
+void
+mongoc_apm_redact_reply (bson_t *reply)
+{
+   BSON_ASSERT (reply);
+
+   /* Reinit the reply to have an empty document */
+   bson_reinit (reply);
 }

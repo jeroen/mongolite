@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_STREAM_GRIDFS_H
 #define MONGOC_STREAM_GRIDFS_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-macros.h"
-#include "mongoc/mongoc-gridfs.h"
-#include "mongoc/mongoc-stream.h"
+#include "mongoc-macros.h"
+#include "mongoc-gridfs.h"
+#include "mongoc-stream.h"
 
 
 BSON_BEGIN_DECLS
 
 
 MONGOC_EXPORT (mongoc_stream_t *)
-mongoc_stream_gridfs_new (mongoc_gridfs_file_t *file);
+mongoc_stream_gridfs_new (mongoc_gridfs_file_t *file)
+   BSON_GNUC_WARN_UNUSED_RESULT;
 
 
 BSON_END_DECLS

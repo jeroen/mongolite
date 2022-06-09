@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+#include "mongoc-prelude.h"
+
 #ifndef MONGOC_APM_PRIVATE_H
 #define MONGOC_APM_PRIVATE_H
 
 #include <bson/bson.h>
-#include "mongoc/mongoc-apm.h"
+#include "mongoc-apm.h"
 
 BSON_BEGIN_DECLS
 
@@ -53,17 +55,20 @@ struct _mongoc_apm_command_started_t {
    int64_t operation_id;
    const mongoc_host_list_t *host;
    uint32_t server_id;
+   bson_oid_t service_id;
    void *context;
 };
 
 struct _mongoc_apm_command_succeeded_t {
    int64_t duration;
-   const bson_t *reply;
+   bson_t *reply;
+   bool reply_owned;
    const char *command_name;
    int64_t request_id;
    int64_t operation_id;
    const mongoc_host_list_t *host;
    uint32_t server_id;
+   bson_oid_t service_id;
    void *context;
 };
 
@@ -71,11 +76,13 @@ struct _mongoc_apm_command_failed_t {
    int64_t duration;
    const char *command_name;
    const bson_error_t *error;
-   const bson_t *reply;
+   bson_t *reply;
+   bool reply_owned;
    int64_t request_id;
    int64_t operation_id;
    const mongoc_host_list_t *host;
    uint32_t server_id;
+   bson_oid_t service_id;
    void *context;
 };
 
@@ -123,6 +130,7 @@ struct _mongoc_apm_topology_closed_t {
 struct _mongoc_apm_server_heartbeat_started_t {
    const mongoc_host_list_t *host;
    void *context;
+   bool awaited;
 };
 
 struct _mongoc_apm_server_heartbeat_succeeded_t {
@@ -130,6 +138,7 @@ struct _mongoc_apm_server_heartbeat_succeeded_t {
    const bson_t *reply;
    const mongoc_host_list_t *host;
    void *context;
+   bool awaited;
 };
 
 struct _mongoc_apm_server_heartbeat_failed_t {
@@ -137,6 +146,7 @@ struct _mongoc_apm_server_heartbeat_failed_t {
    const bson_error_t *error;
    const mongoc_host_list_t *host;
    void *context;
+   bool awaited;
 };
 
 void
@@ -148,12 +158,15 @@ mongoc_apm_command_started_init (mongoc_apm_command_started_t *event,
                                  int64_t operation_id,
                                  const mongoc_host_list_t *host,
                                  uint32_t server_id,
+                                 const bson_oid_t *service_id,
+                                 bool *is_redacted, /* out */
                                  void *context);
 
 void
 mongoc_apm_command_started_init_with_cmd (mongoc_apm_command_started_t *event,
                                           struct _mongoc_cmd_t *cmd,
                                           int64_t request_id,
+                                          bool *is_redacted, /* out */
                                           void *context);
 
 void
@@ -168,6 +181,8 @@ mongoc_apm_command_succeeded_init (mongoc_apm_command_succeeded_t *event,
                                    int64_t operation_id,
                                    const mongoc_host_list_t *host,
                                    uint32_t server_id,
+                                   const bson_oid_t *service_id,
+                                   bool force_redaction,
                                    void *context);
 
 void
@@ -183,10 +198,23 @@ mongoc_apm_command_failed_init (mongoc_apm_command_failed_t *event,
                                 int64_t operation_id,
                                 const mongoc_host_list_t *host,
                                 uint32_t server_id,
+                                const bson_oid_t *service_id,
+                                bool force_redaction,
                                 void *context);
 
 void
 mongoc_apm_command_failed_cleanup (mongoc_apm_command_failed_t *event);
+
+/**
+ * @brief Determine whether the given command-related message is a "sensitive
+ * command."
+ *
+ * @param command_name The name of the command being checked
+ * @param body The body of the command request, reply, or failure.
+ */
+bool
+mongoc_apm_is_sensitive_command_message (const char *command_name,
+                                         const bson_t *body);
 
 BSON_END_DECLS
 

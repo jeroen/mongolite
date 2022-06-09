@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-config.h"
+#include "mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_SECURE_CHANNEL
 
-#include "mongoc/mongoc-rand.h"
-#include "mongoc/mongoc-rand-private.h"
+#include "mongoc-rand.h"
+#include "mongoc-rand-private.h"
 
-#include "mongoc/mongoc.h"
+#include "mongoc.h"
 
 #include <windows.h>
 #include <stdio.h>
@@ -40,7 +40,7 @@ _mongoc_rand_bytes (uint8_t *buf, int num)
       status = BCryptOpenAlgorithmProvider (
          &algorithm, BCRYPT_RNG_ALGORITHM, NULL, 0);
       if (!NT_SUCCESS (status)) {
-         MONGOC_ERROR ("BCryptOpenAlgorithmProvider(): %d", status);
+         MONGOC_ERROR ("BCryptOpenAlgorithmProvider(): %ld", status);
          return 0;
       }
    }
@@ -50,7 +50,7 @@ _mongoc_rand_bytes (uint8_t *buf, int num)
       return 1;
    }
 
-   MONGOC_ERROR ("BCryptGenRandom(): %d", status);
+   MONGOC_ERROR ("BCryptGenRandom(): %ld", status);
    return 0;
 }
 

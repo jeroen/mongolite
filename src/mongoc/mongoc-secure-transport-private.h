@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_SECURE_TRANSPORT_PRIVATE_H
 #define MONGOC_SECURE_TRANSPORT_PRIVATE_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-ssl.h"
-#include "mongoc/mongoc-stream-tls-secure-transport-private.h"
+#include "mongoc-ssl.h"
+#include "mongoc-stream-tls-secure-transport-private.h"
 #include <Security/Security.h>
 
 
@@ -53,6 +53,9 @@ bool
 mongoc_secure_transport_setup_certificate (
    mongoc_stream_tls_secure_transport_t *secure_transport,
    mongoc_ssl_opt_t *opt);
+
+void
+CFReleaseSafe (CFTypeRef cf);
 
 BSON_END_DECLS
 

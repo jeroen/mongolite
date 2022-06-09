@@ -15,14 +15,15 @@
  */
 
 
-#include "mongoc/mongoc-cmd-private.h"
-#include "mongoc/mongoc-read-prefs-private.h"
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-client-private.h"
-#include "mongoc/mongoc-read-concern-private.h"
-#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc-cmd-private.h"
+#include "mongoc-read-prefs-private.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-client-private.h"
+#include "mongoc-read-concern-private.h"
+#include "mongoc-server-api-private.h"
+#include "mongoc-write-concern-private.h"
 /* For strcasecmp on Windows */
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-util-private.h"
 
 
 void
@@ -39,6 +40,7 @@ mongoc_cmd_parts_init (mongoc_cmd_parts_t *parts,
    parts->is_write_command = false;
    parts->prohibit_lsid = false;
    parts->allow_txn_number = MONGOC_CMD_PARTS_ALLOW_TXN_NUMBER_UNKNOWN;
+   parts->is_retryable_read = false;
    parts->is_retryable_write = false;
    parts->has_temp_session = false;
    parts->client = client;
@@ -83,7 +85,6 @@ mongoc_cmd_parts_set_session (mongoc_cmd_parts_t *parts,
    parts->assembled.session = cs;
 }
 
-
 /*
  *--------------------------------------------------------------------------
  *
@@ -115,6 +116,7 @@ mongoc_cmd_parts_append_opts (mongoc_cmd_parts_t *parts,
    uint32_t len;
    const uint8_t *data;
    bson_t read_concern;
+   const char *to_append;
 
    ENTRY;
 
@@ -179,11 +181,18 @@ mongoc_cmd_parts_append_opts (mongoc_cmd_parts_t *parts,
          parts->assembled.session = cs;
          continue;
       } else if (BSON_ITER_IS_KEY (iter, "serverId") ||
-                 BSON_ITER_IS_KEY (iter, "maxAwaitTimeMS")) {
+                 BSON_ITER_IS_KEY (iter, "maxAwaitTimeMS") ||
+                 BSON_ITER_IS_KEY (iter, "exhaust")) {
          continue;
       }
 
-      if (!bson_append_iter (&parts->extra, bson_iter_key (iter), -1, iter)) {
+      to_append = bson_iter_key (iter);
+      if (!bson_append_iter (&parts->extra, to_append, -1, iter)) {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Failed to append \"%s\" to create command.",
+                         to_append);
          RETURN (false);
       }
    }
@@ -399,10 +408,12 @@ _mongoc_cmd_parts_add_read_prefs (bson_t *query,
    const char *mode_str;
    const bson_t *tags;
    int64_t stale;
+   const bson_t *hedge;
 
    mode_str = _mongoc_read_mode_as_str (mongoc_read_prefs_get_mode (prefs));
    tags = mongoc_read_prefs_get_tags (prefs);
    stale = mongoc_read_prefs_get_max_staleness_seconds (prefs);
+   hedge = mongoc_read_prefs_get_hedge (prefs);
 
    bson_append_document_begin (query, "$readPreference", 15, &child);
    bson_append_utf8 (&child, "mode", 4, mode_str, -1);
@@ -412,6 +423,10 @@ _mongoc_cmd_parts_add_read_prefs (bson_t *query,
 
    if (stale != MONGOC_NO_MAX_STALENESS) {
       bson_append_int64 (&child, "maxStalenessSeconds", 19, stale);
+   }
+
+   if (!bson_empty0 (hedge)) {
+      bson_append_document (&child, "hedge", 5, hedge);
    }
 
    bson_append_document_end (query, &child);
@@ -439,6 +454,8 @@ _mongoc_cmd_parts_assemble_mongos (mongoc_cmd_parts_t *parts,
 {
    mongoc_read_mode_t mode;
    const bson_t *tags = NULL;
+   int64_t max_staleness_seconds = MONGOC_NO_MAX_STALENESS;
+   const bson_t *hedge = NULL;
    bool add_read_prefs = false;
    bson_t query;
    bson_iter_t dollar_query;
@@ -450,42 +467,55 @@ _mongoc_cmd_parts_assemble_mongos (mongoc_cmd_parts_t *parts,
 
    mode = mongoc_read_prefs_get_mode (parts->read_prefs);
    if (parts->read_prefs) {
+      max_staleness_seconds =
+         mongoc_read_prefs_get_max_staleness_seconds (parts->read_prefs);
+
       tags = mongoc_read_prefs_get_tags (parts->read_prefs);
+      hedge = mongoc_read_prefs_get_hedge (parts->read_prefs);
+   }
+
+   if (server_stream->must_use_primary) {
+      /* Server selection has overriden the read mode used to generate this
+       * server stream. This has effects on the body of the message that we send
+       * to the server */
+      mode = MONGOC_READ_PRIMARY;
    }
 
    /* Server Selection Spec says:
     *
-    * For mode 'primary', drivers MUST NOT set the slaveOK wire protocol flag
-    *   and MUST NOT use $readPreference
+    * For mode 'primary', drivers MUST NOT set the secondaryOk wire protocol
+    * flag and MUST NOT use $readPreference
     *
-    * For mode 'secondary', drivers MUST set the slaveOK wire protocol flag and
-    *   MUST also use $readPreference
+    * For mode 'secondary', drivers MUST set the secondaryOk wire protocol flag
+    * and MUST also use $readPreference
     *
-    * For mode 'primaryPreferred', drivers MUST set the slaveOK wire protocol
-    *   flag and MUST also use $readPreference
+    * For mode 'primaryPreferred', drivers MUST set the secondaryOk wire
+    * protocol flag and MUST also use $readPreference
     *
-    * For mode 'secondaryPreferred', drivers MUST set the slaveOK wire protocol
-    *   flag. If the read preference contains a non-empty tag_sets parameter,
-    *   drivers MUST use $readPreference; otherwise, drivers MUST NOT use
-    *   $readPreference
+    * For mode 'secondaryPreferred', drivers MUST set the secondaryOk wire
+    * protocol flag. If the read preference contains a non-empty tag_sets
+    * parameter, maxStalenessSeconds is a positive integer, or the hedge
+    * parameter is non-empty, drivers MUST use $readPreference; otherwise,
+    * drivers MUST NOT use $readPreference
     *
-    * For mode 'nearest', drivers MUST set the slaveOK wire protocol flag and
-    *   MUST also use $readPreference
+    * For mode 'nearest', drivers MUST set the secondaryOk wire protocol flag
+    * and MUST also use $readPreference
     */
    switch (mode) {
    case MONGOC_READ_PRIMARY:
       break;
    case MONGOC_READ_SECONDARY_PREFERRED:
-      if (!bson_empty0 (tags)) {
+      if (!bson_empty0 (tags) || max_staleness_seconds > 0 ||
+          !bson_empty0 (hedge)) {
          add_read_prefs = true;
       }
-      parts->assembled.query_flags |= MONGOC_QUERY_SLAVE_OK;
+      parts->assembled.query_flags |= MONGOC_QUERY_SECONDARY_OK;
       break;
    case MONGOC_READ_PRIMARY_PREFERRED:
    case MONGOC_READ_SECONDARY:
    case MONGOC_READ_NEAREST:
    default:
-      parts->assembled.query_flags |= MONGOC_QUERY_SLAVE_OK;
+      parts->assembled.query_flags |= MONGOC_QUERY_SECONDARY_OK;
       add_read_prefs = true;
    }
 
@@ -581,32 +611,34 @@ _mongoc_cmd_parts_assemble_mongod (mongoc_cmd_parts_t *parts,
       switch (server_stream->topology_type) {
       case MONGOC_TOPOLOGY_SINGLE:
          /* Server Selection Spec: for topology type single and server types
-          * besides mongos, "clients MUST always set the slaveOK wire
+          * besides mongos, "clients MUST always set the secondaryOk wire
           * protocol flag on reads to ensure that any server type can handle
           * the request."
           */
-         parts->assembled.query_flags |= MONGOC_QUERY_SLAVE_OK;
+         parts->assembled.query_flags |= MONGOC_QUERY_SECONDARY_OK;
          break;
 
       case MONGOC_TOPOLOGY_RS_NO_PRIMARY:
       case MONGOC_TOPOLOGY_RS_WITH_PRIMARY:
          /* Server Selection Spec: for RS topology types, "For all read
-          * preferences modes except primary, clients MUST set the slaveOK wire
-          * protocol flag to ensure that any suitable server can handle the
-          * request. Clients MUST  NOT set the slaveOK wire protocol flag if the
-          * read preference mode is primary.
+          * preferences modes except primary, clients MUST set the secondaryOk
+          * wire protocol flag to ensure that any suitable server can handle the
+          * request. Clients MUST  NOT set the secondaryOk wire protocol flag if
+          * the read preference mode is primary.
           */
          if (parts->read_prefs &&
              parts->read_prefs->mode != MONGOC_READ_PRIMARY) {
-            parts->assembled.query_flags |= MONGOC_QUERY_SLAVE_OK;
+            parts->assembled.query_flags |= MONGOC_QUERY_SECONDARY_OK;
          }
 
          break;
       case MONGOC_TOPOLOGY_SHARDED:
       case MONGOC_TOPOLOGY_UNKNOWN:
+      case MONGOC_TOPOLOGY_LOAD_BALANCED:
       case MONGOC_TOPOLOGY_DESCRIPTION_TYPES:
       default:
-         /* must not call this function w/ sharded or unknown topology type */
+         /* must not call this function w/ sharded, load balanced, or unknown
+          * topology type */
          BSON_ASSERT (false);
       }
    } /* if (!parts->is_write_command) */
@@ -720,8 +752,42 @@ _is_retryable_write (const mongoc_cmd_parts_t *parts,
       return false;
    }
 
-   if (!mongoc_uri_get_option_as_bool (
-          parts->client->uri, MONGOC_URI_RETRYWRITES, false)) {
+   if (!mongoc_uri_get_option_as_bool (parts->client->uri,
+                                       MONGOC_URI_RETRYWRITES,
+                                       MONGOC_DEFAULT_RETRYWRITES)) {
+      return false;
+   }
+
+   return true;
+}
+
+
+/* Check if the read command should support retryable behavior. */
+bool
+_is_retryable_read (const mongoc_cmd_parts_t *parts,
+                    const mongoc_server_stream_t *server_stream)
+{
+   if (!parts->is_read_command) {
+      return false;
+   }
+
+   /* Commands that go through read_write_command helpers are also write
+    * commands. Prohibit from read retry. */
+   if (parts->is_write_command) {
+      return false;
+   }
+
+   if (server_stream->sd->max_wire_version < WIRE_VERSION_RETRY_READS) {
+      return false;
+   }
+
+   if (_mongoc_client_session_in_txn (parts->assembled.session)) {
+      return false;
+   }
+
+   if (!mongoc_uri_get_option_as_bool (parts->client->uri,
+                                       MONGOC_URI_RETRYREADS,
+                                       MONGOC_DEFAULT_RETRYREADS)) {
       return false;
    }
 
@@ -751,7 +817,7 @@ _is_retryable_write (const mongoc_cmd_parts_t *parts,
 
 bool
 mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
-                           const mongoc_server_stream_t *server_stream,
+                           mongoc_server_stream_t *server_stream,
                            bson_error_t *error)
 {
    mongoc_server_description_type_t server_type;
@@ -761,6 +827,7 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
    const char *cmd_name;
    bool is_get_more;
    const mongoc_read_prefs_t *prefs_ptr;
+   mongoc_read_mode_t mode = mongoc_read_prefs_get_mode (parts->read_prefs);
    bool ret = false;
 
    ENTRY;
@@ -770,6 +837,19 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
 
    server_type = server_stream->sd->type;
    cs = parts->prohibit_lsid ? NULL : parts->assembled.session;
+
+   /* Assembling the command depends on the type of server. If the server has
+    * been invalidated, error. */
+   if (server_type == MONGOC_SERVER_UNKNOWN) {
+      if (error) {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Cannot assemble command for invalidated server: %s",
+                         server_stream->sd->error.message);
+      }
+      RETURN (false);
+   }
 
    /* must not be assembled already */
    BSON_ASSERT (!parts->assembled.command);
@@ -806,12 +886,20 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
       prefs_ptr = parts->read_prefs;
    }
 
+   mode = mongoc_read_prefs_get_mode (prefs_ptr);
+   if (server_stream->must_use_primary) {
+      /* Server selection may have overriden the read mode used to generate this
+       * server stream. This has effects on the body of the message that we send
+       * to the server */
+      mode = MONGOC_READ_PRIMARY;
+   }
+
    if (server_stream->sd->max_wire_version >= WIRE_VERSION_OP_MSG) {
       if (!bson_has_field (parts->body, "$db")) {
          BSON_APPEND_UTF8 (&parts->extra, "$db", parts->assembled.db_name);
       }
 
-      if (_mongoc_client_session_in_txn (cs)) {
+      if (cs && _mongoc_client_session_in_txn (cs)) {
          if (!IS_PREF_PRIMARY (cs->txn.opts.read_prefs) &&
              !parts->is_write_command) {
             bson_set_error (error,
@@ -820,7 +908,10 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
                             "Read preference in a transaction must be primary");
             GOTO (done);
          }
-      } else if (!IS_PREF_PRIMARY (prefs_ptr)) {
+      } else if (mode != MONGOC_READ_PRIMARY &&
+                 server_type != MONGOC_SERVER_STANDALONE) {
+         /* "Type Standalone: clients MUST NOT send the read preference to the
+          * server" */
          _mongoc_cmd_parts_add_read_prefs (&parts->extra, prefs_ptr);
       }
 
@@ -884,6 +975,11 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
          parts->is_retryable_write = true;
       }
 
+      /* Conversely, check if the command is retryable if it is a read. */
+      if (_is_retryable_read (parts, server_stream) && !is_get_more) {
+         parts->is_retryable_read = true;
+      }
+
       if (!bson_empty (&server_stream->cluster_time)) {
          cluster_time =
             _largest_cluster_time (&server_stream->cluster_time, cluster_time);
@@ -895,14 +991,35 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
             &parts->assembled_body, "$clusterTime", 12, cluster_time);
       }
 
+      /* Add versioned server api, if it is set. */
+      if (parts->client->api) {
+         _mongoc_cmd_append_server_api (&parts->assembled_body,
+                                        parts->client->api);
+      }
+
       if (!is_get_more) {
          if (cs) {
+            /* Snapshot Sessions Spec: "Snapshot reads require MongoDB 5.0+."
+             * Throw an error if snapshot is enabled and wire version is less
+             * than 13 before potentially appending "snapshot" read concern. */
+            if (mongoc_session_opts_get_snapshot (&cs->opts) &&
+                server_stream->sd->max_wire_version <
+                   WIRE_VERSION_SNAPSHOT_READS) {
+               bson_set_error (error,
+                               MONGOC_ERROR_CLIENT,
+                               MONGOC_ERROR_CLIENT_SESSION_FAILURE,
+                               "Snapshot reads require MongoDB 5.0 or later");
+               GOTO (done);
+            }
+
+            _mongoc_cmd_parts_ensure_copied (parts);
             _mongoc_client_session_append_read_concern (
                cs,
                &parts->read_concern_document,
                parts->is_read_command,
                &parts->assembled_body);
          } else if (!bson_empty (&parts->read_concern_document)) {
+            _mongoc_cmd_parts_ensure_copied (parts);
             bson_append_document (&parts->assembled_body,
                                   "readConcern",
                                   11,
@@ -910,18 +1027,23 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
          }
       }
 
+      /* if transaction is in progress do not inherit write concern */
       if (parts->assembled.is_txn_finish ||
           !_mongoc_client_session_in_txn (cs)) {
          _mongoc_cmd_parts_add_write_concern (parts);
       }
 
+      _mongoc_cmd_parts_ensure_copied (parts);
       if (!_mongoc_client_session_append_txn (
              cs, &parts->assembled_body, error)) {
          GOTO (done);
       }
 
       ret = true;
-   } else if (server_type == MONGOC_SERVER_MONGOS) {
+   } else if (server_type == MONGOC_SERVER_MONGOS ||
+              server_stream->topology_type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
+      /* TODO (CDRIVER-4117) remove the check of the topology description type.
+       */
       _mongoc_cmd_parts_assemble_mongos (parts, server_stream);
       ret = true;
    } else {
@@ -967,14 +1089,109 @@ mongoc_cmd_is_compressible (mongoc_cmd_t *cmd)
    BSON_ASSERT (cmd);
    BSON_ASSERT (cmd->command_name);
 
-   return !!strcasecmp (cmd->command_name, "ismaster") &&
+   return !!strcasecmp (cmd->command_name, "hello") &&
+          !!strcasecmp (cmd->command_name, HANDSHAKE_CMD_LEGACY_HELLO) &&
           !!strcasecmp (cmd->command_name, "authenticate") &&
           !!strcasecmp (cmd->command_name, "getnonce") &&
           !!strcasecmp (cmd->command_name, "saslstart") &&
           !!strcasecmp (cmd->command_name, "saslcontinue") &&
           !!strcasecmp (cmd->command_name, "createuser") &&
-          !!strcasecmp (cmd->command_name, "updateuser") &&
-          !!strcasecmp (cmd->command_name, "copydb") &&
-          !!strcasecmp (cmd->command_name, "copydbsaslstart") &&
-          !!strcasecmp (cmd->command_name, "copydbgetnonce");
+          !!strcasecmp (cmd->command_name, "updateuser");
+}
+
+/*--------------------------------------------------------------------------
+ *
+ * _mongoc_cmd_append_payload_as_array --
+ *    Append a write command payload as an array in a BSON document.
+ *    Used by APM and Client-Side Encryption
+ *
+ * Arguments:
+ *    cmd The mongoc_cmd_t, which may contain a payload to be appended.
+ *    out A bson_t, which will be appended to if @cmd->payload is set.
+ *
+ * Pre-conditions:
+ *    - @out is initialized.
+ *    - cmd has a payload (i.e. is a write command).
+ *
+ * Post-conditions:
+ *    - If @cmd->payload is set, then @out is appended to with the payload
+ *      field's name ("documents" if insert, "updates" if update,
+ *      "deletes" if delete) an the payload as a BSON array.
+ *
+ *--------------------------------------------------------------------------
+ */
+void
+_mongoc_cmd_append_payload_as_array (const mongoc_cmd_t *cmd, bson_t *out)
+{
+   int32_t doc_len;
+   bson_t doc;
+   const uint8_t *pos;
+   const char *field_name;
+   bson_t bson;
+   char str[16];
+   const char *key;
+   uint32_t i;
+
+   BSON_ASSERT (cmd->payload && cmd->payload_size);
+
+   /* make array from outgoing OP_MSG payload type 1 on an "insert",
+    * "update", or "delete" command. */
+   field_name = _mongoc_get_documents_field_name (cmd->command_name);
+   BSON_ASSERT (field_name);
+   BSON_ASSERT (BSON_APPEND_ARRAY_BEGIN (out, field_name, &bson));
+
+   pos = cmd->payload;
+   i = 0;
+   while (pos < cmd->payload + cmd->payload_size) {
+      memcpy (&doc_len, pos, sizeof (doc_len));
+      doc_len = BSON_UINT32_FROM_LE (doc_len);
+      BSON_ASSERT (bson_init_static (&doc, pos, (size_t) doc_len));
+      bson_uint32_to_string (i, &key, str, sizeof (str));
+      BSON_APPEND_DOCUMENT (&bson, key, &doc);
+
+      pos += doc_len;
+      i++;
+   }
+
+   bson_append_array_end (out, &bson);
+}
+
+/*--------------------------------------------------------------------------
+ *
+ * _mongoc_cmd_append_server_api --
+ *    Append versioned API fields to a mongoc_cmd_t
+ *
+ * Arguments:
+ *    cmd The mongoc_cmd_t, which will have versioned API fields added
+ *    api A mongoc_server_api_t holding server API information
+ *
+ * Pre-conditions:
+ *    - @api is initialized.
+ *    - @command_body is initialised
+ *
+ *--------------------------------------------------------------------------
+ */
+void
+_mongoc_cmd_append_server_api (bson_t *command_body,
+                               const mongoc_server_api_t *api)
+{
+   const char *string_version;
+
+   BSON_ASSERT (command_body);
+   BSON_ASSERT (api);
+
+   string_version = mongoc_server_api_version_to_string (api->version);
+
+   bson_append_utf8 (command_body, "apiVersion", -1, string_version, -1);
+
+   if (api->strict.is_set) {
+      bson_append_bool (command_body, "apiStrict", -1, api->strict.value);
+   }
+
+   if (api->deprecation_errors.is_set) {
+      bson_append_bool (command_body,
+                        "apiDeprecationErrors",
+                        -1,
+                        api->deprecation_errors.value);
+   }
 }

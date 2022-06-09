@@ -15,17 +15,17 @@
  */
 
 #include "bson/bson.h"
-#include "mongoc/mongoc.h"
-#include "mongoc/mongoc-cursor-private.h"
-#include "mongoc/mongoc-database-private.h"
-#include "mongoc/mongoc-gridfs-bucket-private.h"
-#include "mongoc/mongoc-gridfs-bucket-file-private.h"
-#include "mongoc/mongoc-opts-private.h"
-#include "mongoc/mongoc-read-concern-private.h"
-#include "mongoc/mongoc-stream-gridfs-download-private.h"
-#include "mongoc/mongoc-stream-gridfs-upload-private.h"
-#include "mongoc/mongoc-stream-private.h"
-#include "mongoc/mongoc-write-concern-private.h"
+#include "mongoc.h"
+#include "mongoc-cursor-private.h"
+#include "mongoc-database-private.h"
+#include "mongoc-gridfs-bucket-private.h"
+#include "mongoc-gridfs-bucket-file-private.h"
+#include "mongoc-opts-private.h"
+#include "mongoc-read-concern-private.h"
+#include "mongoc-stream-gridfs-download-private.h"
+#include "mongoc-stream-gridfs-upload-private.h"
+#include "mongoc-stream-private.h"
+#include "mongoc-write-concern-private.h"
 
 /*--------------------------------------------------------------------------
  *
@@ -467,8 +467,8 @@ mongoc_gridfs_bucket_find (mongoc_gridfs_bucket_t *bucket,
    BSON_ASSERT (filter);
 
    cursor =
-      mongoc_collection_find_with_opts (bucket->files, filter, NULL, NULL);
-   if (!cursor->error.code && bson_has_field (opts, "sessionId")) {
+      mongoc_collection_find_with_opts (bucket->files, filter, opts, NULL);
+   if (!cursor->error.code && opts && bson_has_field (opts, "sessionId")) {
       bson_set_error (&cursor->error,
                       MONGOC_ERROR_CURSOR,
                       MONGOC_ERROR_CURSOR_INVALID_CURSOR,

@@ -15,9 +15,9 @@
  */
 
 
-#include "mongoc/mongoc-cluster-private.h"
-#include "mongoc/mongoc-server-stream-private.h"
-#include "mongoc/mongoc-util-private.h"
+#include "mongoc-cluster-private.h"
+#include "mongoc-server-stream-private.h"
+#include "mongoc-util-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "server-stream"
@@ -37,6 +37,7 @@ mongoc_server_stream_new (const mongoc_topology_description_t *td,
    bson_copy_to (&td->cluster_time, &server_stream->cluster_time);
    server_stream->sd = sd;         /* becomes owned */
    server_stream->stream = stream; /* merely borrowed */
+   server_stream->must_use_primary = false;
 
    return server_stream;
 }

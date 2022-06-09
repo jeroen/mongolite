@@ -23,8 +23,8 @@
 #endif
 
 
-#include "bson/bson-config.h"
-#include "bson/bson-compat.h"
+#include "bson-config.h"
+#include "bson-compat.h"
 
 
 #if defined(BSON_HAVE_CLOCK_GETTIME)
@@ -32,7 +32,7 @@
 #include <sys/time.h>
 #endif
 
-#include "bson/bson-clock.h"
+#include "bson-clock.h"
 
 
 /*
@@ -146,7 +146,7 @@ bson_get_monotonic_time (void)
    int64_t nanosec = gethrtime ();
    return (nanosec / 1000UL);
 #else
-#warning "Monotonic clock is not yet supported on your platform."
+#pragma message "Monotonic clock is not yet supported on your platform."
    struct timeval tv;
 
    bson_gettimeofday (&tv);

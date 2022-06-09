@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "bson/bson-prelude.h"
+#include "bson-prelude.h"
 
 
 #ifndef BSON_COMPAT_H
@@ -31,8 +31,8 @@
 #endif
 #endif
 
-#include "bson/bson-config.h"
-#include "bson/bson-macros.h"
+#include "bson-config.h"
+#include "bson-macros.h"
 
 
 #ifdef BSON_OS_WIN32
@@ -64,7 +64,7 @@
 #endif
 
 
-#include "bson/bson-macros.h"
+#include "bson-macros.h"
 
 
 #include <errno.h>
@@ -168,6 +168,31 @@ typedef signed char bool;
 
 #if !defined(va_copy)
 #define va_copy(dst, src) ((dst) = (src))
+#endif
+
+
+#ifdef _MSC_VER
+/** Expands the arguments if compiling with MSVC, otherwise empty */
+#define BSON_IF_MSVC(...) __VA_ARGS__
+/** Expands the arguments if compiling with GCC or Clang, otherwise empty */
+#define BSON_IF_GNU_LIKE(...)
+#elif defined(__GNUC__) || defined(__clang__)
+/** Expands the arguments if compiling with MSVC, otherwise empty */
+#define BSON_IF_MSVC(...)
+/** Expands the arguments if compiling with GCC or Clang, otherwise empty */
+#define BSON_IF_GNU_LIKE(...) __VA_ARGS__
+#endif
+
+#ifdef BSON_OS_WIN32
+/** Expands the arguments if compiling for Windows, otherwise empty */
+#define BSON_IF_WINDOWS(...) __VA_ARGS__
+/** Expands the arguments if compiling for POSIX, otherwise empty */
+#define BSON_IF_POSIX(...)
+#elif defined(BSON_OS_UNIX)
+/** Expands the arguments if compiling for Windows, otherwise empty */
+#define BSON_IF_WINDOWS(...)
+/** Expands the arguments if compiling for POSIX, otherwise empty */
+#define BSON_IF_POSIX(...) __VA_ARGS__
 #endif
 
 

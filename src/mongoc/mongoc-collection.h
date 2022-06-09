@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_COLLECTION_H
 #define MONGOC_COLLECTION_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-change-stream.h"
-#include "mongoc/mongoc-macros.h"
-#include "mongoc/mongoc-bulk-operation.h"
-#include "mongoc/mongoc-flags.h"
-#include "mongoc/mongoc-cursor.h"
-#include "mongoc/mongoc-index.h"
-#include "mongoc/mongoc-read-prefs.h"
-#include "mongoc/mongoc-read-concern.h"
-#include "mongoc/mongoc-write-concern.h"
-#include "mongoc/mongoc-find-and-modify.h"
+#include "mongoc-change-stream.h"
+#include "mongoc-macros.h"
+#include "mongoc-bulk-operation.h"
+#include "mongoc-flags.h"
+#include "mongoc-cursor.h"
+#include "mongoc-index.h"
+#include "mongoc-read-prefs.h"
+#include "mongoc-read-concern.h"
+#include "mongoc-write-concern.h"
+#include "mongoc-find-and-modify.h"
 
 BSON_BEGIN_DECLS
 
@@ -47,7 +47,8 @@ mongoc_collection_aggregate (mongoc_collection_t *collection,
 MONGOC_EXPORT (void)
 mongoc_collection_destroy (mongoc_collection_t *collection);
 MONGOC_EXPORT (mongoc_collection_t *)
-mongoc_collection_copy (mongoc_collection_t *collection);
+mongoc_collection_copy (mongoc_collection_t *collection)
+   BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (mongoc_cursor_t *)
 mongoc_collection_command (mongoc_collection_t *collection,
                            mongoc_query_flags_t flags,
@@ -149,10 +150,12 @@ mongoc_collection_ensure_index (mongoc_collection_t *collection,
 MONGOC_EXPORT (mongoc_cursor_t *)
 mongoc_collection_find_indexes (mongoc_collection_t *collection,
                                 bson_error_t *error)
+   BSON_GNUC_WARN_UNUSED_RESULT
    BSON_GNUC_DEPRECATED_FOR (mongoc_collection_find_indexes_with_opts);
 MONGOC_EXPORT (mongoc_cursor_t *)
 mongoc_collection_find_indexes_with_opts (mongoc_collection_t *collection,
-                                          const bson_t *opts);
+                                          const bson_t *opts)
+   BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (mongoc_cursor_t *)
 mongoc_collection_find (mongoc_collection_t *collection,
                         mongoc_query_flags_t flags,
@@ -326,7 +329,8 @@ MONGOC_EXPORT (const bson_t *)
 mongoc_collection_get_last_error (const mongoc_collection_t *collection)
    BSON_GNUC_DEPRECATED;
 MONGOC_EXPORT (char *)
-mongoc_collection_keys_to_index_string (const bson_t *keys);
+mongoc_collection_keys_to_index_string (const bson_t *keys)
+   BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (bool)
 mongoc_collection_validate (mongoc_collection_t *collection,
                             const bson_t *options,
@@ -335,7 +339,7 @@ mongoc_collection_validate (mongoc_collection_t *collection,
 MONGOC_EXPORT (mongoc_change_stream_t *)
 mongoc_collection_watch (const mongoc_collection_t *coll,
                          const bson_t *pipeline,
-                         const bson_t *opts);
+                         const bson_t *opts) BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (int64_t)
 mongoc_collection_count_documents (mongoc_collection_t *coll,
                                    const bson_t *filter,

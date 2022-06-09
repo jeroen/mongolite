@@ -19,25 +19,27 @@
 #include <sys/syscall.h>
 #elif defined(_WIN32)
 #include <process.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
 #elif defined(__FreeBSD__)
 #include <sys/thr.h>
+#elif defined(__NetBSD__)
+#include <lwp.h>
 #else
 #include <unistd.h>
 #endif
 #include <stdarg.h>
 #include <time.h>
 
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-log-private.h"
-#include "mongoc/mongoc-thread-private.h"
+#include "mongoc-log.h"
+#include "mongoc-log-private.h"
+#include "mongoc-thread-private.h"
 
 
 static bson_once_t once = BSON_ONCE_INIT;
 static bson_mutex_t gLogMutex;
 static mongoc_log_func_t gLogFunc = mongoc_log_default_handler;
-#ifdef MONGOC_TRACE
-static bool gLogTrace = true;
-#endif
+static bool gLogTrace = MONGOC_TRACE_ENABLED;
 static void *gLogData;
 
 static BSON_ONCE_FUN (_mongoc_ensure_mutex_once)
@@ -58,6 +60,26 @@ mongoc_log_set_handler (mongoc_log_func_t log_func, void *user_data)
    bson_mutex_unlock (&gLogMutex);
 }
 
+bool
+_mongoc_log_trace_is_enabled (void)
+{
+   return gLogTrace && MONGOC_TRACE_ENABLED;
+}
+
+void
+mongoc_log_trace_enable (void)
+{
+   /* Enable trace logging if-and-only-if tracing is enabled at configure-time,
+    * otherwise tracing remains disabled.
+    */
+   gLogTrace = MONGOC_TRACE_ENABLED;
+}
+
+void
+mongoc_log_trace_disable (void)
+{
+   gLogTrace = false;
+}
 
 /* just for testing */
 void
@@ -81,10 +103,8 @@ mongoc_log (mongoc_log_level_t log_level,
    bson_once (&once, &_mongoc_ensure_mutex_once);
 
    stop_logging = !gLogFunc;
-#ifdef MONGOC_TRACE
-   stop_logging =
-      stop_logging || (log_level == MONGOC_LOG_LEVEL_TRACE && !gLogTrace);
-#endif
+   stop_logging = stop_logging || (log_level == MONGOC_LOG_LEVEL_TRACE &&
+                                   !_mongoc_log_trace_is_enabled ());
    if (stop_logging) {
       return;
    }
@@ -179,6 +199,12 @@ mongoc_log_default_handler (mongoc_log_level_t log_level,
    pid = (int) tid;
 #elif defined(__OpenBSD__)
    pid = (int) getthrid ();
+#elif defined(__NetBSD__)
+   pid = (int) _lwp_self ();
+#elif defined(__APPLE__)
+   uint64_t tid;
+   pthread_threadid_np (0, &tid);
+   pid = (int) tid;
 #else
    pid = (int) getpid ();
 #endif
@@ -193,32 +219,6 @@ mongoc_log_default_handler (mongoc_log_level_t log_level,
             message);
 }
 
-bool
-_mongoc_log_trace_is_enabled (void)
-{
-#ifdef MONGOC_TRACE
-   return gLogTrace;
-#else
-   return false;
-#endif
-}
-
-void
-mongoc_log_trace_enable (void)
-{
-#ifdef MONGOC_TRACE
-   gLogTrace = true;
-#endif
-}
-
-void
-mongoc_log_trace_disable (void)
-{
-#ifdef MONGOC_TRACE
-   gLogTrace = false;
-#endif
-}
-
 void
 mongoc_log_trace_bytes (const char *domain, const uint8_t *_b, size_t _l)
 {
@@ -226,11 +226,9 @@ mongoc_log_trace_bytes (const char *domain, const uint8_t *_b, size_t _l)
    int32_t _i;
    uint8_t _v;
 
-#ifdef MONGOC_TRACE
-   if (!gLogTrace) {
+   if (!_mongoc_log_trace_is_enabled ()) {
       return;
    }
-#endif
 
    str = bson_string_new (NULL);
    astr = bson_string_new (NULL);
@@ -281,11 +279,9 @@ mongoc_log_trace_iovec (const char *domain,
    size_t _l = 0;
    uint8_t _v;
 
-#ifdef MONGOC_TRACE
-   if (!gLogTrace) {
+   if (!_mongoc_log_trace_is_enabled ()) {
       return;
    }
-#endif
 
    for (_i = 0; _i < _iovcnt; _i++) {
       _l += _iov[_i].iov_len;

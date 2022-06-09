@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-prelude.h"
+#include "mongoc-prelude.h"
 
 #ifndef MONGOC_READ_CONCERN_H
 #define MONGOC_READ_CONCERN_H
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-macros.h"
+#include "mongoc-macros.h"
 
 BSON_BEGIN_DECLS
 
@@ -36,9 +36,10 @@ typedef struct _mongoc_read_concern_t mongoc_read_concern_t;
 
 
 MONGOC_EXPORT (mongoc_read_concern_t *)
-mongoc_read_concern_new (void);
+mongoc_read_concern_new (void) BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (mongoc_read_concern_t *)
-mongoc_read_concern_copy (const mongoc_read_concern_t *read_concern);
+mongoc_read_concern_copy (const mongoc_read_concern_t *read_concern)
+   BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (void)
 mongoc_read_concern_destroy (mongoc_read_concern_t *read_concern);
 MONGOC_EXPORT (const char *)

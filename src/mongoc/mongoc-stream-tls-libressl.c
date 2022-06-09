@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
-#include "mongoc/mongoc-config.h"
+#include "mongoc-config.h"
 
 #ifdef MONGOC_ENABLE_SSL_LIBRESSL
 
 #include <bson/bson.h>
 
-#include "mongoc/mongoc-trace-private.h"
-#include "mongoc/mongoc-log.h"
-#include "mongoc/mongoc-stream-tls.h"
-#include "mongoc/mongoc-stream-tls-private.h"
-#include "mongoc/mongoc-stream-private.h"
-#include "mongoc/mongoc-stream-tls-libressl-private.h"
-#include "mongoc/mongoc-libressl-private.h"
-#include "mongoc/mongoc-ssl.h"
-#include "mongoc/mongoc-error.h"
-#include "mongoc/mongoc-counters-private.h"
-#include "mongoc/mongoc-stream-socket.h"
-#include "mongoc/mongoc-socket-private.h"
+#include "mongoc-trace-private.h"
+#include "mongoc-log.h"
+#include "mongoc-stream-tls.h"
+#include "mongoc-stream-tls-private.h"
+#include "mongoc-stream-private.h"
+#include "mongoc-stream-tls-libressl-private.h"
+#include "mongoc-libressl-private.h"
+#include "mongoc-ssl.h"
+#include "mongoc-ssl-private.h"
+#include "mongoc-error.h"
+#include "mongoc-counters-private.h"
+#include "mongoc-stream-socket.h"
+#include "mongoc-socket-private.h"
 
 #include <tls.h>
 
@@ -538,6 +539,16 @@ mongoc_stream_tls_libressl_new (mongoc_stream_t *base_stream,
    }
 
    mongoc_counter_streams_active_inc ();
+
+   if (_mongoc_ssl_opts_disable_certificate_revocation_check (opt)) {
+      MONGOC_ERROR ("Setting tlsDisableCertificateRevocationCheck has no "
+                    "effect when built against libtls");
+   }
+
+   if (_mongoc_ssl_opts_disable_ocsp_endpoint_check (opt)) {
+      MONGOC_ERROR ("Setting tlsDisableOCSPEndpointCheck has no effect when "
+                    "built against libtls");
+   }
    RETURN ((mongoc_stream_t *) tls);
 }
 #endif /* MONGOC_ENABLE_SSL_LIBRESSL */
