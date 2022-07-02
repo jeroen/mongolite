@@ -2,13 +2,9 @@
 
 ##### *Fast and Simple MongoDB Client for R*
 
-[![Build Status](https://travis-ci.org/jeroen/mongolite.svg?branch=master)](https://travis-ci.org/jeroen/mongolite)
-[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/jeroen/mongolite?branch=master&svg=true)](https://ci.appveyor.com/project/jeroen/mongolite)
-[![Coverage Status](https://codecov.io/github/jeroen/mongolite/coverage.svg?branch=master)](https://codecov.io/github/jeroen/mongolite?branch=master)
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/mongolite)](http://cran.r-project.org/package=mongolite)
 [![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/mongolite)](http://cran.r-project.org/web/packages/mongolite/index.html)
 [![Research software impact](http://depsy.org/api/package/cran/mongolite/badge.svg)](http://depsy.org/package/r/mongolite)
-[![Github Stars](https://img.shields.io/github/stars/jeroen/mongolite.svg?style=social&label=Github)](https://github.com/jeroen/mongolite)
 
 > High-level, high-performance MongoDB client based on libmongoc and
   jsonlite. Includes support for aggregation, indexing, map-reduce, streaming,

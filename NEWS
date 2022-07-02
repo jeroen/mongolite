@@ -1,3 +1,7 @@
+2.6.2
+ - Suppress openssl3 deprecation warnings in vendored mongo-c-driver until
+   there is a new version of mongo-c-driver.
+
 2.6.1
  - Fix build of new kms module on Alpine linux
 
