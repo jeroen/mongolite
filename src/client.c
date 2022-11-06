@@ -2,7 +2,7 @@
 
 #define safe_string(x) x ? Rf_mkString(x) : R_NilValue
 
-SEXP R_default_ssl_options(){
+SEXP R_default_ssl_options(void){
   const mongoc_ssl_opt_t *opt = mongoc_ssl_opt_get_default();
   SEXP out = PROTECT(Rf_allocVector(VECSXP, 6));
   SET_VECTOR_ELT(out, 0, safe_string(opt->pem_file));
