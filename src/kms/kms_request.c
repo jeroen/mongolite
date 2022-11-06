@@ -237,7 +237,7 @@ kms_request_append_header_field_value (kms_request_t *request,
       KMS_ERROR (
          request,
          "Ensure the request has at least one header field before calling %s",
-         __func__);
+         __FUNCTION__);
    }
 
    v = request->header_fields->kvs[request->header_fields->len - 1].value;

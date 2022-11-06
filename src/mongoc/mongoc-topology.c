@@ -212,6 +212,8 @@ _server_session_init (mongoc_server_session_t *session,
                       mongoc_topology_t *unused,
                       bson_error_t *error)
 {
+   BSON_UNUSED (unused);
+
    _mongoc_server_session_init (session, error);
 }
 
@@ -219,6 +221,8 @@ static void
 _server_session_destroy (mongoc_server_session_t *session,
                          mongoc_topology_t *unused)
 {
+   BSON_UNUSED (unused);
+
    _mongoc_server_session_destroy (session);
 }
 
@@ -374,7 +378,7 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
       uri, MONGOC_URI_HEARTBEATFREQUENCYMS, heartbeat_default);
 
    topology->_shared_descr_._sptr_ = mongoc_shared_ptr_create (
-      bson_malloc0 (sizeof (mongoc_topology_description_t)),
+      BSON_ALIGNED_ALLOC0 (mongoc_topology_description_t),
       _tpld_destroy_and_free);
    td = mc_tpld_unsafe_get_mutable (topology);
    mongoc_topology_description_init (td, heartbeat);
@@ -696,9 +700,13 @@ mongoc_topology_destroy (mongoc_topology_t *topology)
    mongoc_shared_ptr_reset_null (&topology->_shared_descr_._sptr_);
    mongoc_topology_scanner_destroy (topology->scanner);
    mongoc_server_session_pool_free (topology->session_pool);
+   bson_free (topology->clientSideEncryption.autoOptions.extraOptions
+                 .cryptSharedLibPath);
 
    mongoc_cond_destroy (&topology->cond_client);
    bson_mutex_destroy (&topology->tpld_modification_mtx);
+
+   bson_destroy (topology->encrypted_fields_map);
 
    bson_free (topology);
 }
@@ -1629,7 +1637,7 @@ _mongoc_topology_push_server_session (mongoc_topology_t *topology,
     * The next pop operation that encounters an expired session will clear the
     * entire session pool, thus preventing unbounded growth of the pool.
     */
-   mongoc_server_session_pool_return (server_session);
+   mongoc_server_session_pool_return (topology->session_pool, server_session);
 
    EXIT;
 }
@@ -1675,13 +1683,13 @@ _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd)
       const char *key;
       bson_uint32_to_string (i, &key, buf, sizeof buf);
       BSON_APPEND_DOCUMENT (&ar, key, &ss->lsid);
-      mongoc_server_session_pool_drop (ss);
+      mongoc_server_session_pool_drop (topology->session_pool, ss);
    }
 
    if (ss) {
       /* We deleted at least 10'000 sessions, so we will need to return the
        * final session that we didn't drop */
-      mongoc_server_session_pool_return (ss);
+      mongoc_server_session_pool_return (topology->session_pool, ss);
    }
 
    bson_append_array_end (cmd, &ar);
@@ -1736,6 +1744,8 @@ _handle_sdam_app_error_command (mongoc_topology_t *topology,
    bool should_clear_pool = false;
    mc_tpld_modification tdmod;
    mongoc_server_description_t *mut_sd;
+
+   BSON_UNUSED (td);
 
    if (_mongoc_cmd_check_ok_no_wce (
           reply, MONGOC_ERROR_API_VERSION_2, &cmd_error)) {
@@ -2030,4 +2040,10 @@ mc_tpld_modify_drop (mc_tpld_modification mod)
 {
    bson_mutex_unlock (&mod.topology->tpld_modification_mtx);
    mongoc_topology_description_destroy (mod.new_td);
+}
+
+bool
+mongoc_topology_uses_server_api (const mongoc_topology_t *topology)
+{
+   return mongoc_topology_scanner_uses_server_api (topology->scanner);
 }

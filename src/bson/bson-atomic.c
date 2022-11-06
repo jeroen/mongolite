@@ -54,7 +54,7 @@ bson_memory_barrier (void)
 static int8_t gEmulAtomicLock = 0;
 
 static void
-_lock_emul_atomic ()
+_lock_emul_atomic (void)
 {
    int i;
    if (bson_atomic_int8_compare_exchange_weak (
@@ -78,7 +78,7 @@ _lock_emul_atomic ()
 }
 
 static void
-_unlock_emul_atomic ()
+_unlock_emul_atomic (void)
 {
    int64_t rv = bson_atomic_int8_exchange (
       &gEmulAtomicLock, 0, bson_memory_order_release);
@@ -91,6 +91,9 @@ _bson_emul_atomic_int64_fetch_add (volatile int64_t *p,
                                    enum bson_memory_order _unused)
 {
    int64_t ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    *p += n;
@@ -104,6 +107,9 @@ _bson_emul_atomic_int64_exchange (volatile int64_t *p,
                                   enum bson_memory_order _unused)
 {
    int64_t ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    *p = n;
@@ -118,6 +124,9 @@ _bson_emul_atomic_int64_compare_exchange_strong (volatile int64_t *p,
                                                  enum bson_memory_order _unused)
 {
    int64_t ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    if (ret == expect_value) {
@@ -145,6 +154,9 @@ _bson_emul_atomic_int32_fetch_add (volatile int32_t *p,
                                    enum bson_memory_order _unused)
 {
    int32_t ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    *p += n;
@@ -158,6 +170,9 @@ _bson_emul_atomic_int32_exchange (volatile int32_t *p,
                                   enum bson_memory_order _unused)
 {
    int32_t ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    *p = n;
@@ -172,6 +187,9 @@ _bson_emul_atomic_int32_compare_exchange_strong (volatile int32_t *p,
                                                  enum bson_memory_order _unused)
 {
    int32_t ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    if (ret == expect_value) {
@@ -199,6 +217,9 @@ _bson_emul_atomic_int_fetch_add (volatile int *p,
                                  enum bson_memory_order _unused)
 {
    int ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    *p += n;
@@ -212,6 +233,9 @@ _bson_emul_atomic_int_exchange (volatile int *p,
                                 enum bson_memory_order _unused)
 {
    int ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    *p = n;
@@ -226,6 +250,9 @@ _bson_emul_atomic_int_compare_exchange_strong (volatile int *p,
                                                enum bson_memory_order _unused)
 {
    int ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    if (ret == expect_value) {
@@ -252,6 +279,9 @@ _bson_emul_atomic_ptr_exchange (void *volatile *p,
                                 enum bson_memory_order _unused)
 {
    void *ret;
+
+   BSON_UNUSED (_unused);
+
    _lock_emul_atomic ();
    ret = *p;
    *p = n;
