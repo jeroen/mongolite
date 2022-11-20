@@ -27,6 +27,7 @@
 #include "mongoc-host-list-private.h"
 #include "mongoc-stream-private.h"
 #include "mongoc-ssl-private.h"
+#include "mongoc-cluster-aws-private.h"
 #include "mongoc-util-private.h"
 
 struct __mongoc_crypt_t {
@@ -35,6 +36,11 @@ struct __mongoc_crypt_t {
    mongoc_ssl_opt_t aws_tls_opt;
    mongoc_ssl_opt_t azure_tls_opt;
    mongoc_ssl_opt_t gcp_tls_opt;
+   /// The kmsProviders that were provided by the user when encryption was
+   /// initiated. We need to remember this in case we need to load on-demand
+   /// credentials.
+   bson_t kms_providers;
+   mc_kms_credentials_callback creds_cb;
 };
 
 static void
@@ -44,6 +50,9 @@ _log_callback (mongocrypt_log_level_t mongocrypt_log_level,
                void *ctx)
 {
    mongoc_log_level_t log_level = MONGOC_LOG_LEVEL_ERROR;
+
+   BSON_UNUSED (message_len);
+   BSON_UNUSED (ctx);
 
    switch (mongocrypt_log_level) {
    case MONGOCRYPT_LOG_LEVEL_FATAL:
@@ -308,7 +317,7 @@ _state_need_mongo_markings (_state_machine_t *state_machine,
     * mongocrypt_ctx_mongo_op on the MongoClient connected to mongocryptd. */
    bson_destroy (&reply);
    if (!mongoc_client_command_simple (state_machine->mongocryptd_client,
-                                      "admin",
+                                      state_machine->db_name,
                                       &mongocryptd_cmd_bson,
                                       NULL /* read_prefs */,
                                       &reply,
@@ -349,7 +358,6 @@ _state_need_mongo_keys (_state_machine_t *state_machine, bson_error_t *error)
    mongocrypt_binary_t *key_bin = NULL;
    const bson_t *key_bson;
    mongoc_cursor_t *cursor = NULL;
-   mongoc_read_concern_t *rc = NULL;
 
    /* 1. Use MongoCollection.find on the MongoClient connected to the key vault
     * client (which may be the same as the encrypted client). Use the filter
@@ -365,15 +373,12 @@ _state_need_mongo_keys (_state_machine_t *state_machine, bson_error_t *error)
       goto fail;
    }
 
-   rc = mongoc_read_concern_new ();
-   mongoc_read_concern_set_level (rc, MONGOC_READ_CONCERN_LEVEL_MAJORITY);
-   if (!mongoc_read_concern_append (rc, &opts)) {
-      bson_set_error (error,
-                      MONGOC_ERROR_BSON,
-                      MONGOC_ERROR_BSON_INVALID,
-                      "%s",
-                      "could not set read concern");
-      goto fail;
+   {
+      const mongoc_read_concern_t *const rc =
+         mongoc_collection_get_read_concern (state_machine->keyvault_coll);
+      const char *const level = rc ? mongoc_read_concern_get_level (rc) : NULL;
+      BSON_ASSERT (level &&
+                   strcmp (level, MONGOC_READ_CONCERN_LEVEL_MAJORITY) == 0);
    }
 
    cursor = mongoc_collection_find_with_opts (
@@ -404,7 +409,6 @@ _state_need_mongo_keys (_state_machine_t *state_machine, bson_error_t *error)
 fail:
    mongocrypt_binary_destroy (filter_bin);
    mongoc_cursor_destroy (cursor);
-   mongoc_read_concern_destroy (rc);
    bson_destroy (&opts);
    mongocrypt_binary_destroy (key_bin);
    return ret;
@@ -580,6 +584,145 @@ fail:
 #undef BUFFER_SIZE
 }
 
+/**
+ * @brief Determine whether the given kmsProviders has an empty 'aws'
+ * subdocument
+ *
+ * @param kms_providers The user-provided kmsProviders
+ * @param error Output parameter for possible errors.
+ * @return true If 'aws' is present and an empty subdocument
+ * @return false Otherwise or on error
+ */
+static bool
+_needs_on_demand_aws_kms (bson_t const *kms_providers, bson_error_t *error)
+{
+   bson_iter_t iter;
+   if (!bson_iter_init_find (&iter, kms_providers, "aws")) {
+      // No "aws" subdocument
+      return false;
+   }
+
+   if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+      // "aws" is not a document? Should be validated by libmongocrypt
+      return false;
+   }
+
+   const uint8_t *dataptr;
+   uint32_t datalen;
+   bson_iter_document (&iter, &datalen, &dataptr);
+   bson_t subdoc;
+   if (!bson_init_static (&subdoc, dataptr, datalen)) {
+      // Invalid "aws" document? Should be validated by libmongocrypt
+      return false;
+   }
+
+   if (bson_empty (&subdoc)) {
+      // "aws" is present and is an empty subdocument, which means that the user
+      // requests that the AWS credentials be loaded on-demand from the
+      // environment.
+      return true;
+   } else {
+      // "aws" is present and is non-empty, which means that the user has
+      // already provided credentials for AWS.
+      return false;
+   }
+}
+
+/**
+ * @brief Attempt to load AWS credentials from the environment and insert them
+ * into the given kmsProviders bson document on the "aws" property.
+ *
+ * @param out A kmsProviders object to update
+ * @param error An error-out parameter
+ * @return true If there was no error and we successfully loaded credentials.
+ * @return false If there was an error while updating the BSON data or obtaining
+ * credentials.
+ */
+static bool
+_try_add_aws_from_env (bson_t *out, bson_error_t *error)
+{
+   // Attempt to obtain AWS credentials from the environment.
+   _mongoc_aws_credentials_t creds;
+   if (!_mongoc_aws_credentials_obtain (NULL, &creds, error)) {
+      // Error while obtaining credentials
+      return false;
+   }
+
+   // Build the new "aws" subdoc
+   bson_t aws;
+   bool okay =
+      BSON_APPEND_DOCUMENT_BEGIN (out, "aws", &aws)
+      // Add the accessKeyId and the secretAccessKey
+      && BSON_APPEND_UTF8 (&aws, "accessKeyId", creds.access_key_id)         //
+      && BSON_APPEND_UTF8 (&aws, "secretAccessKey", creds.secret_access_key) //
+      // Add the sessionToken, if we got one:
+      && (!creds.session_token ||
+          BSON_APPEND_UTF8 (&aws, "sessionToken", creds.session_token)) //
+      // Finish the document
+      && bson_append_document_end (out, &aws);
+   BSON_ASSERT (okay && "Failed to build aws credentials document");
+   // Good!
+   _mongoc_aws_credentials_cleanup (&creds);
+   return true;
+}
+
+static bool
+_state_need_kms_credentials (_state_machine_t *sm, bson_error_t *error)
+{
+   bson_t creds = BSON_INITIALIZER;
+   const bson_t empty = BSON_INITIALIZER;
+   bool okay = false;
+
+   if (sm->crypt->creds_cb.fn) {
+      // We have a user-provided credentials callback. Try it.
+      if (!sm->crypt->creds_cb.fn (
+             sm->crypt->creds_cb.userdata, &empty, &creds, error)) {
+         // User-provided callback indicated failure
+         if (!error->code) {
+            // The callback did not set an error, so we'll provide a default
+            // one.
+            bson_set_error (error,
+                            MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
+                            "The user-provided callback for on-demand KMS "
+                            "credentials failed.");
+         }
+         goto fail;
+      }
+      // The user's callback reported success
+   }
+
+   bson_iter_t iter;
+   const bool callback_provided_aws =
+      bson_iter_init_find (&iter, &creds, "aws");
+
+   if (!callback_provided_aws &&
+       _needs_on_demand_aws_kms (&sm->crypt->kms_providers, error)) {
+      // The original kmsProviders had an empty "aws" property, and the
+      // user-provided callback did not fill in a new "aws" property for us.
+      // Attempt instead to load the AWS credentials from the environment:
+      if (!_try_add_aws_from_env (&creds, error)) {
+         // Error while trying to add AWS credentials
+         goto fail;
+      }
+   }
+
+   // Now actually send that data to libmongocrypt
+   mongocrypt_binary_t *const def = mongocrypt_binary_new_from_data (
+      (uint8_t *) bson_get_data (&creds), creds.len);
+   okay = mongocrypt_ctx_provide_kms_providers (sm->ctx, def);
+   if (!okay) {
+      _ctx_check_error (sm->ctx, error, true);
+   }
+   mongocrypt_binary_destroy (def);
+
+fail:
+   bson_destroy (&creds);
+
+   return okay;
+}
+
+
 static bool
 _state_ready (_state_machine_t *state_machine,
               bson_t *result,
@@ -653,6 +796,11 @@ _state_machine_run (_state_machine_t *state_machine,
          break;
       case MONGOCRYPT_CTX_NEED_KMS:
          if (!_state_need_kms (state_machine, error)) {
+            goto fail;
+         }
+         break;
+      case MONGOCRYPT_CTX_NEED_KMS_CREDENTIALS:
+         if (!_state_need_kms_credentials (state_machine, error)) {
             goto fail;
          }
          break;
@@ -799,9 +947,10 @@ _parse_all_tls_opts (_mongoc_crypt_t *crypt,
       if (0 == strcmp (key, "aws")) {
          if (has_aws) {
             bson_set_error (error,
-                           MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
-                           MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
-                           "Error parsing duplicate TLS options for %s", key);
+                            MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
+                            "Error parsing duplicate TLS options for %s",
+                            key);
             goto fail;
          }
 
@@ -815,9 +964,10 @@ _parse_all_tls_opts (_mongoc_crypt_t *crypt,
       if (0 == strcmp (key, "azure")) {
          if (has_azure) {
             bson_set_error (error,
-                           MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
-                           MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
-                           "Error parsing duplicate TLS options for %s", key);
+                            MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
+                            "Error parsing duplicate TLS options for %s",
+                            key);
             goto fail;
          }
 
@@ -831,9 +981,10 @@ _parse_all_tls_opts (_mongoc_crypt_t *crypt,
       if (0 == strcmp (key, "gcp")) {
          if (has_gcp) {
             bson_set_error (error,
-                           MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
-                           MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
-                           "Error parsing duplicate TLS options for %s", key);
+                            MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
+                            "Error parsing duplicate TLS options for %s",
+                            key);
             goto fail;
          }
 
@@ -847,9 +998,10 @@ _parse_all_tls_opts (_mongoc_crypt_t *crypt,
       if (0 == strcmp (key, "kmip")) {
          if (has_kmip) {
             bson_set_error (error,
-                           MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
-                           MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
-                           "Error parsing duplicate TLS options for %s", key);
+                            MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
+                            "Error parsing duplicate TLS options for %s",
+                            key);
             goto fail;
          }
 
@@ -909,18 +1061,29 @@ fail:
 _mongoc_crypt_t *
 _mongoc_crypt_new (const bson_t *kms_providers,
                    const bson_t *schema_map,
+                   const bson_t *encrypted_fields_map,
                    const bson_t *tls_opts,
+                   const char *crypt_shared_lib_path,
+                   bool crypt_shared_lib_required,
+                   bool bypass_auto_encryption,
+                   bool bypass_query_analysis,
+                   mc_kms_credentials_callback creds_cb,
                    bson_error_t *error)
 {
    _mongoc_crypt_t *crypt;
    mongocrypt_binary_t *local_masterkey_bin = NULL;
    mongocrypt_binary_t *schema_map_bin = NULL;
+   mongocrypt_binary_t *encrypted_fields_map_bin = NULL;
    mongocrypt_binary_t *kms_providers_bin = NULL;
    bool success = false;
 
    /* Create the handle to libmongocrypt. */
    crypt = bson_malloc0 (sizeof (*crypt));
    crypt->handle = mongocrypt_new ();
+
+   // Stash away a copy of the user's kmsProviders in case we need to lazily
+   // load credentials.
+   bson_copy_to (kms_providers, &crypt->kms_providers);
 
    if (!_parse_all_tls_opts (crypt, tls_opts, error)) {
       goto fail;
@@ -945,14 +1108,75 @@ _mongoc_crypt_new (const bson_t *kms_providers,
       }
    }
 
+   if (encrypted_fields_map) {
+      encrypted_fields_map_bin = mongocrypt_binary_new_from_data (
+         (uint8_t *) bson_get_data (encrypted_fields_map),
+         encrypted_fields_map->len);
+      if (!mongocrypt_setopt_encrypted_field_config_map (
+             crypt->handle, encrypted_fields_map_bin)) {
+         _crypt_check_error (crypt->handle, error, true);
+         goto fail;
+      }
+   }
+
+   if (!bypass_auto_encryption) {
+      mongocrypt_setopt_append_crypt_shared_lib_search_path (crypt->handle,
+                                                             "$SYSTEM");
+      if (!_crypt_check_error (crypt->handle, error, false)) {
+         goto fail;
+      }
+
+      if (crypt_shared_lib_path != NULL) {
+         mongocrypt_setopt_set_crypt_shared_lib_path_override (
+            crypt->handle, crypt_shared_lib_path);
+         if (!_crypt_check_error (crypt->handle, error, false)) {
+            goto fail;
+         }
+      }
+   }
+
+   if (bypass_query_analysis) {
+      mongocrypt_setopt_bypass_query_analysis (crypt->handle);
+      if (!_crypt_check_error (crypt->handle, error, false)) {
+         goto fail;
+      }
+   }
+
+   // Enable the NEEDS_CREDENTIALS state for on-demand credential loading
+   mongocrypt_setopt_use_need_kms_credentials_state (crypt->handle);
+
    if (!mongocrypt_init (crypt->handle)) {
       _crypt_check_error (crypt->handle, error, true);
       goto fail;
    }
 
+   if (crypt_shared_lib_required) {
+      uint32_t len = 0;
+      const char *s =
+         mongocrypt_crypt_shared_lib_version_string (crypt->handle, &len);
+      if (!s || len == 0) {
+         // empty/null version string indicates that crypt_shared was not loaded
+         // by libmongocrypt
+         bson_set_error (
+            error,
+            MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_STATE,
+            "Option 'cryptSharedLibRequired' is 'true', but failed to "
+            "load the crypt_shared runtime library");
+         goto fail;
+      }
+      mongoc_log (MONGOC_LOG_LEVEL_DEBUG,
+                  MONGOC_LOG_DOMAIN,
+                  "crypt_shared library version '%s' was found and loaded",
+                  s);
+   }
+
+   crypt->creds_cb = creds_cb;
+
    success = true;
 fail:
    mongocrypt_binary_destroy (local_masterkey_bin);
+   mongocrypt_binary_destroy (encrypted_fields_map_bin);
    mongocrypt_binary_destroy (schema_map_bin);
    mongocrypt_binary_destroy (kms_providers_bin);
 
@@ -975,6 +1199,7 @@ _mongoc_crypt_destroy (_mongoc_crypt_t *crypt)
    _mongoc_ssl_opts_cleanup (&crypt->aws_tls_opt, true /* free_internal */);
    _mongoc_ssl_opts_cleanup (&crypt->azure_tls_opt, true /* free_internal */);
    _mongoc_ssl_opts_cleanup (&crypt->gcp_tls_opt, true /* free_internal */);
+   bson_destroy (&crypt->kms_providers);
    bson_free (crypt);
 }
 
@@ -1071,6 +1296,8 @@ _mongoc_crypt_explicit_encrypt (_mongoc_crypt_t *crypt,
                                 const char *algorithm,
                                 const bson_value_t *keyid,
                                 char *keyaltname,
+                                const char *query_type,
+                                const int64_t *contention_factor,
                                 const bson_value_t *value_in,
                                 bson_value_t *value_out,
                                 bson_error_t *error)
@@ -1096,6 +1323,21 @@ _mongoc_crypt_explicit_encrypt (_mongoc_crypt_t *crypt,
    if (!mongocrypt_ctx_setopt_algorithm (state_machine->ctx, algorithm, -1)) {
       _ctx_check_error (state_machine->ctx, error, true);
       goto fail;
+   }
+
+   if (query_type != NULL) {
+      if (!mongocrypt_ctx_setopt_query_type (
+             state_machine->ctx, query_type, -1)) {
+         goto fail;
+      }
+   }
+
+   if (contention_factor != NULL) {
+      if (!mongocrypt_ctx_setopt_contention_factor (state_machine->ctx,
+                                                    *contention_factor)) {
+         _ctx_check_error (state_machine->ctx, error, true);
+         goto fail;
+      }
    }
 
    if (keyaltname) {
@@ -1242,6 +1484,8 @@ _mongoc_crypt_create_datakey (_mongoc_crypt_t *crypt,
                               const bson_t *masterkey,
                               char **keyaltnames,
                               uint32_t keyaltnames_count,
+                              const uint8_t *keymaterial,
+                              uint32_t keymaterial_len,
                               bson_t *doc_out,
                               bson_error_t *error)
 {
@@ -1294,6 +1538,19 @@ _mongoc_crypt_create_datakey (_mongoc_crypt_t *crypt,
       }
    }
 
+   if (keymaterial) {
+      bson_t *const bson = BCON_NEW (
+         "keyMaterial",
+         BCON_BIN (BSON_SUBTYPE_BINARY, keymaterial, keymaterial_len));
+      mongocrypt_binary_t *const bin = mongocrypt_binary_new_from_data (
+         (uint8_t *) bson_get_data (bson), bson->len);
+
+      mongocrypt_ctx_setopt_key_material (state_machine->ctx, bin);
+
+      bson_destroy (bson);
+      mongocrypt_binary_destroy (bin);
+   }
+
    if (!mongocrypt_ctx_datakey_init (state_machine->ctx)) {
       _ctx_check_error (state_machine->ctx, error, true);
       goto fail;
@@ -1311,6 +1568,93 @@ fail:
    mongocrypt_binary_destroy (masterkey_w_provider_bin);
    _state_machine_destroy (state_machine);
    return ret;
+}
+
+bool
+_mongoc_crypt_rewrap_many_datakey (_mongoc_crypt_t *crypt,
+                                   mongoc_collection_t *keyvault_coll,
+                                   const bson_t *filter,
+                                   const char *provider,
+                                   const bson_t *master_key,
+                                   bson_t *doc_out,
+                                   bson_error_t *error)
+{
+   _state_machine_t *state_machine = NULL;
+   const bson_t empty_bson = BSON_INITIALIZER;
+   mongocrypt_binary_t *filter_bin = NULL;
+   bool ret = false;
+
+   bson_init (doc_out);
+   state_machine = _state_machine_new (crypt);
+   state_machine->keyvault_coll = keyvault_coll;
+   state_machine->ctx = mongocrypt_ctx_new (crypt->handle);
+   if (!state_machine->ctx) {
+      _crypt_check_error (crypt->handle, error, true);
+      goto fail;
+   }
+
+   {
+      bson_t new_provider = BSON_INITIALIZER;
+      mongocrypt_binary_t *new_provider_bin = NULL;
+      bool success = true;
+
+      if (provider) {
+         BSON_APPEND_UTF8 (&new_provider, "provider", provider);
+
+         if (master_key) {
+            bson_concat (&new_provider, master_key);
+         }
+
+         new_provider_bin = mongocrypt_binary_new_from_data (
+            (uint8_t *) bson_get_data (&new_provider), new_provider.len);
+
+         if (!mongocrypt_ctx_setopt_key_encryption_key (state_machine->ctx,
+                                                        new_provider_bin)) {
+            _ctx_check_error (state_machine->ctx, error, true);
+            success = false;
+         }
+
+         mongocrypt_binary_destroy (new_provider_bin);
+      }
+
+      bson_destroy (&new_provider);
+
+      if (!success) {
+         goto fail;
+      }
+   }
+
+   if (!filter) {
+      filter = &empty_bson;
+   }
+
+   filter_bin = mongocrypt_binary_new_from_data (
+      (uint8_t *) bson_get_data (filter), filter->len);
+
+   if (!mongocrypt_ctx_rewrap_many_datakey_init (state_machine->ctx,
+                                                 filter_bin)) {
+      _ctx_check_error (state_machine->ctx, error, true);
+      goto fail;
+   }
+
+   bson_destroy (doc_out);
+   if (!_state_machine_run (state_machine, doc_out, error)) {
+      goto fail;
+   }
+
+   ret = true;
+
+fail:
+   mongocrypt_binary_destroy (filter_bin);
+   _state_machine_destroy (state_machine);
+
+   return ret;
+}
+
+const char *
+_mongoc_crypt_get_crypt_shared_version (const _mongoc_crypt_t *crypt)
+{
+   return mongocrypt_crypt_shared_lib_version_string (crypt->handle, NULL);
 }
 
 #else

@@ -30,7 +30,7 @@ bool rfc_3986_tab[256] = {0};
 bool kms_initialized = false;
 
 static void
-tables_init ()
+tables_init (void)
 {
    int i;
 
@@ -324,7 +324,7 @@ kms_request_str_append_stripped (kms_request_str_t *str,
 
    kms_request_str_reserve (str, appended->len);
 
-   // msvcrt is unhappy when it gets non-ANSI characters in isspace
+   /* msvcrt is unhappy when it gets non-ANSI characters in isspace */
    while (*src >= 0 && isspace (*src)) {
       ++src;
    }

@@ -1,3 +1,7 @@
+2.7.0
+ - Update vendored mongo-c-driver to 1.23
+ - Backport 675515d02 to address -Wformat and -Wstrict-prototypes warnings
+
 2.6.2
  - Suppress openssl3 deprecation warnings in vendored mongo-c-driver until
    there is a new version of mongo-c-driver.

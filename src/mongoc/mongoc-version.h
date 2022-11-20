@@ -37,7 +37,7 @@
  *
  * MONGOC minor version component (e.g. 2 if %MONGOC_VERSION is 1.2.3)
  */
-#define MONGOC_MINOR_VERSION (21)
+#define MONGOC_MINOR_VERSION (23)
 
 
 /**
@@ -45,7 +45,7 @@
  *
  * MONGOC micro version component (e.g. 3 if %MONGOC_VERSION is 1.2.3)
  */
-#define MONGOC_MICRO_VERSION (1)
+#define MONGOC_MICRO_VERSION (2)
 
 
 /**
@@ -53,7 +53,7 @@
  *
  * MONGOC prerelease version component (e.g. pre if %MONGOC_VERSION is 1.2.3-pre)
  */
-#define MONGOC_PRERELEASE_VERSION ()
+#define MONGOC_PRERELEASE_VERSION (pre)
 
 
 /**
@@ -61,7 +61,7 @@
  *
  * MONGOC version.
  */
-#define MONGOC_VERSION (1.21.1)
+#define MONGOC_VERSION (1.23.2-pre)
 
 
 /**
@@ -70,7 +70,7 @@
  * MONGOC version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define MONGOC_VERSION_S "1.21.1"
+#define MONGOC_VERSION_S "1.23.2-pre"
 
 
 /**
