@@ -236,4 +236,12 @@ enum {
 #undef MONGOC_HAVE_RES_NCLOSE
 #endif
 
+/* Temp workaround for use of deprecated APIs in libmongoc */
+#ifdef __APPLE__
+#include <Availability.h>
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+  _Pragma ("clang diagnostic ignored \"-Wdeprecated-declarations\"")
+#endif
+#endif
+
 #endif /* MONGOC_CONFIG_H */
