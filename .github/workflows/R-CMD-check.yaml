@@ -21,16 +21,16 @@ jobs:
           - {os: windows-latest, r: '3.6'}
           - {os: windows-latest, r: '4.1'}
           - {os: windows-latest, r: 'devel'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
-          - {os: ubuntu-latest,   r: 'release'}
-          - {os: ubuntu-18.04,    r: 'oldrel-4'}
+          - {os: ubuntu-20.04,   r: 'devel', http-user-agent: 'release'}
+          - {os: ubuntu-20.04,   r: 'release'}
+          - {os: ubuntu-20.04,    r: 'oldrel-4'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - if: runner.os == 'macos'
         run: brew services start $(brew list --formula | grep mongodb-community)
