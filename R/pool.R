@@ -5,7 +5,7 @@
 new_client <- local({
   pool <- new.env()
   function(params){
-    hash <- as.character(openssl::md5(serialize(params, NULL)))
+    hash <- as.character(openssl::sha1(serialize(params, NULL)))
     client <- get_weakref(pool[[hash]])
     if(!length(client) || null_ptr(client)){
       # Make sure 'client' remains in scope after creating weakref!
