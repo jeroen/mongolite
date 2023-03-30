@@ -1,3 +1,6 @@
+2.7.2
+ - Fix another -Wstrict-prototypes warning (mac only)
+
 2.7.1
  - Fix the build on Windows with C11: do not use aligned_alloc()
 
