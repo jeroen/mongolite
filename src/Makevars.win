@@ -58,16 +58,13 @@ STATLIB = mongoc/libstatmongoc.a
 
 # For development only
 # PKG_CFLAGS= -Wall -pedantic
-#all: clean winlibs
+#all: clean
 
 all: $(SHLIB)
 
 $(SHLIB): $(STATLIB)
 
 $(STATLIB): $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
-
-winlibs:
-	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
 
 clean:
 	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS) $(LIBKMS)
