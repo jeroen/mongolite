@@ -132,7 +132,7 @@ mongo_import <- function(col, con, verbose = FALSE){
   while(length(json <- readLines(con, n = 100))) {
     json <- Filter(function(x){!grepl("^\\s*$", x)}, json)
     if(!all(vapply(json, jsonlite::validate, logical(1))))
-      stop("Invalid JSON. Data must be in newline delimited json format (http://ndjson.org/)")
+      stop("Invalid JSON. Data must be in newline delimited json format (https://ndjson.org/)")
     mongo_collection_insert_page(col, json)
     count <- count + length(json)
     if(verbose)
