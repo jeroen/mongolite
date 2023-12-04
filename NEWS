@@ -1,3 +1,6 @@
+2.7.3
+ - Fix some printf warnings for CRAN
+
 2.7.2
  - Fix another -Wstrict-prototypes warning (mac only)
  - Internally use sha1 instead of md5 keys for caching

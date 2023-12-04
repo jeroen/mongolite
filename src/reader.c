@@ -54,7 +54,7 @@ SEXP R_mongo_restore(SEXP con, SEXP ptr_col, SEXP verb) {
     if(!mongoc_bulk_operation_execute (bulk, &reply, &err)){
       bson_reader_destroy(reader);
       mongoc_bulk_operation_destroy (bulk);
-      Rf_error(err.message);
+      stop(err.message);
     }
 
     if(verbose)

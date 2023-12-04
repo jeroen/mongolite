@@ -119,7 +119,7 @@ SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_er
   //check for errors
   if(!success){
     if(ordered){
-      Rf_errorcall(R_NilValue, err.message);
+      stop(err.message);
     } else {
       Rf_warningcall(R_NilValue, "Not all inserts were successful: %s\n", err.message);
     }

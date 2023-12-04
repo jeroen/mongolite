@@ -5,7 +5,8 @@
 #include <bson/bson.h>
 #include <mongoc/mongoc.h>
 
-#define stop(...) Rf_errorcall(R_NilValue, __VA_ARGS__)
+#define stop(str) Rf_errorcall(R_NilValue, "%s", str)
+#define stopf(...) Rf_errorcall(R_NilValue, __VA_ARGS__)
 
 SEXP mkStringUTF8(const char* str);
 SEXP mkRaw(const unsigned char *buf, int len);

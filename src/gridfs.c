@@ -60,7 +60,7 @@ static mongoc_gridfs_file_t * find_single_file(SEXP ptr_fs, SEXP name){
   mongoc_gridfs_find_one_by_filename (fs, get_string(name), &err) :
     mongoc_gridfs_find_one_with_opts(fs, r2bson(name), NULL, &err);
   if(file == NULL)
-    stop("File not found. %s", err.message);
+    stopf("File not found. %s", err.message);
   return file;
 }
 
@@ -137,7 +137,7 @@ SEXP R_mongo_gridfs_download(SEXP ptr_fs, SEXP name, SEXP path){
   char buf[4096];
   FILE * fp = fopen(get_string(path), "wb");
   if(!fp)
-    stop("Failed to open file %s", get_string(path));
+    stopf("Failed to open file %s", get_string(path));
 
   for(;;) {
     int nbytes = mongoc_stream_read(stream, buf, 4096, -1, 0);

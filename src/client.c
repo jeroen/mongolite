@@ -24,9 +24,10 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
                         SEXP ca_dir, SEXP crl_file, SEXP allow_invalid_hostname, SEXP weak_cert_validation) {
 
   bson_error_t err;
-  mongoc_uri_t *uri = mongoc_uri_new_with_error (Rf_translateCharUTF8(STRING_ELT(uri_string, 0)), &err);
+  const char *urlstr = Rf_translateCharUTF8(STRING_ELT(uri_string, 0));
+  mongoc_uri_t *uri = mongoc_uri_new_with_error (urlstr, &err);
   if (!uri)
-    Rf_error("failed to parse URI: %s (%s)", uri_string, err.message);
+    Rf_error("failed to parse URI: %s (%s)", urlstr, err.message);
 
   /* openssl is too old on Solaris, skip cert validation */
 #if defined(__sun)
