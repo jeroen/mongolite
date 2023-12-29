@@ -52,7 +52,7 @@ elif [ `uname` = "Darwin" ]; then
     PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib -lssl -lcrypto"
   else
     curl -sfL "https://autobrew.github.io/scripts/openssl" > autobrew
-    . autobrew
+    . ./autobrew
   fi
   PKG_LIBS="$PKG_LIBS $SASL_LIBS"
 fi
