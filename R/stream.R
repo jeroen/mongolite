@@ -30,20 +30,18 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
 
   # Default handler appends to big list
   count <- 0
-  cb <- if(is.null(handler)){
-    out <- new.env()
-    function(x){
-      if(length(x)){
-        count <<- count + length(x)
+  out <- new.env()
+  cb <- function(x){
+    if(length(x)){
+      count <<- count + length(x)
+      if(is.null(handler)) {
         out[[as.character(count)]] <<- x
+      } else {
+        out[[as.character(count)]] <<- handler(x)
       }
     }
-  } else {
-    function(x){
-      handler(post_process(x))
-      count <<- count + length(x)
-    }
   }
+
 
   # Read data page by page
   repeat {
@@ -57,13 +55,14 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
       break
   }
 
-  if(is.null(handler)){
-    if(verbose) cat("\r Imported", count, "records. Simplifying into dataframe...\n")
-    out <- as.list(out, sorted = FALSE)
-    post_process(unlist(out[order(as.numeric(names(out)))], FALSE, FALSE))
-  } else {
-    invisible()
-  }
+  if(verbose)
+    cat("\r Imported", count, "records. Simplifying into dataframe...\n")
+  out <- as.list(out, sorted = FALSE)
+  out <- unlist(out[order(as.numeric(names(out)))], FALSE, FALSE)
+
+  if(is.null(handler))
+    out <- post_process(out)
+  invisible(out)
 }
 
 post_process <- function(x){
