@@ -47,10 +47,15 @@ jobs:
         run: |
           Set-Service mongodb -StartupType Automatic
           Do {
+            try {
               Write-Host "Trying to start MongoDB..."
               Start-Service MongoDB
-              Start-Sleep -Seconds 10
-              $Service = Get-Service MongoDB
+            }
+            catch {
+              "Failure occurred in Start-Service MongoDB."
+            }
+            Start-Sleep -Seconds 5
+            $Service = Get-Service MongoDB
           } Until ($Service.Status -eq "Running")
 
       - uses: r-lib/actions/setup-r@v2
