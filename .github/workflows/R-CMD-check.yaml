@@ -17,32 +17,46 @@ jobs:
 #      max-parallel: 2 #try to avoid races due to concurrent db access
       matrix:
         config:
-          - {os: macOS-latest,   r: 'release'}
-          - {os: windows-latest, r: '3.6'}
+          - {os: macOS-13,   r: 'release'}
+          - {os: macOS-14,   r: 'release'}
           - {os: windows-latest, r: '4.1'}
           - {os: windows-latest, r: 'release'}
           - {os: windows-latest, r: 'devel'}
           - {os: ubuntu-20.04,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-20.04,   r: 'release'}
-          - {os: ubuntu-20.04,    r: 'oldrel-4'}
+          - {os: ubuntu-20.04,   r: 'oldrel-4'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - if: runner.os == 'macos'
-        run: brew services start $(brew list --formula | grep mongodb-community)
+        run: |
+          brew tap mongodb/brew
+          brew install mongodb-community@7.0
+          brew services start $(brew list --formula | grep mongodb-community)
 
       - if: runner.os == 'linux'
         run: sudo systemctl restart mongod
 
       - if: runner.os == 'windows'
+        continue-on-error: true
         run: |
           Set-Service mongodb -StartupType Automatic
-          Start-Service -Name mongodb
+          Do {
+            try {
+              Write-Host "Trying to start MongoDB..."
+              Start-Service MongoDB
+            }
+            catch {
+              "Failure occurred in Start-Service MongoDB."
+            }
+            Start-Sleep -Seconds 5
+            $Service = Get-Service MongoDB
+          } Until ($Service.Status -eq "Running")
 
       - uses: r-lib/actions/setup-r@v2
         with:
