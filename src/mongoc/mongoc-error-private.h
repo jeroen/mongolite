@@ -19,6 +19,8 @@
 #include <bson/bson.h>
 #include <stddef.h>
 
+#include "mongoc-server-description.h"
+
 BSON_BEGIN_DECLS
 
 typedef enum {
@@ -38,6 +40,7 @@ typedef enum {
    MONGOC_SERVER_ERR_NETWORKTIMEOUT = 89,
    MONGOC_SERVER_ERR_SHUTDOWNINPROGRESS = 91,
    MONGOC_SERVER_ERR_FAILEDTOSATISFYREADPREFERENCE = 133,
+   MONGOC_SERVER_ERR_READCONCERNMAJORITYNOTAVAILABLEYET = 134,
    MONGOC_SERVER_ERR_STALEEPOCH = 150,
    MONGOC_SERVER_ERR_PRIMARYSTEPPEDDOWN = 189,
    MONGOC_SERVER_ERR_ELECTIONINPROGRESS = 216,
@@ -65,10 +68,13 @@ _mongoc_error_copy_labels_and_upsert (const bson_t *src,
                                       char *label);
 
 void
+_mongoc_write_error_append_retryable_label (bson_t *reply);
+
+void
 _mongoc_write_error_handle_labels (bool cmd_ret,
                                    const bson_error_t *cmd_err,
                                    bson_t *reply,
-                                   int32_t server_max_wire_version);
+                                   const mongoc_server_description_t *sd);
 
 bool
 _mongoc_error_is_shutdown (bson_error_t *error);
@@ -84,5 +90,11 @@ _mongoc_error_is_state_change (bson_error_t *error);
 
 bool
 _mongoc_error_is_network (const bson_error_t *error);
+
+bool
+_mongoc_error_is_server (const bson_error_t *error);
+
+bool
+_mongoc_error_is_auth (const bson_error_t *error);
 
 BSON_END_DECLS

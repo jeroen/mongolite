@@ -29,9 +29,92 @@
 #include "common-b64-private.h"
 
 #include "mongoc-memcmp-private.h"
+#include "common-thread-private.h"
+#include <utf8proc.h>
+
+typedef struct _mongoc_scram_cache_entry_t {
+   /* book keeping */
+   bool taken;
+   /* pre-secrets */
+   char hashed_password[MONGOC_SCRAM_HASH_MAX_SIZE];
+   uint8_t decoded_salt[MONGOC_SCRAM_B64_HASH_MAX_SIZE];
+   uint32_t iterations;
+   /* secrets */
+   uint8_t client_key[MONGOC_SCRAM_HASH_MAX_SIZE];
+   uint8_t server_key[MONGOC_SCRAM_HASH_MAX_SIZE];
+   uint8_t salted_password[MONGOC_SCRAM_HASH_MAX_SIZE];
+} mongoc_scram_cache_entry_t;
 
 #define MONGOC_SCRAM_SERVER_KEY "Server Key"
 #define MONGOC_SCRAM_CLIENT_KEY "Client Key"
+
+/* returns true if the first UTF-8 code point in `s` is valid. */
+bool
+_mongoc_utf8_first_code_point_is_valid (const char *c, size_t length);
+
+/* returns whether a character is between two limits (inclusive). */
+bool
+_mongoc_utf8_code_unit_in_range (const uint8_t c,
+                                 const uint8_t lower,
+                                 const uint8_t upper);
+
+/* returns whether a codepoint exists in the specified table. The table format
+ * is that the 2*n element is the lower bound and the 2*n + 1 is the upper bound
+ * (both inclusive). */
+bool
+_mongoc_utf8_code_point_is_in_table (uint32_t code,
+                                     const uint32_t *table,
+                                     size_t size);
+
+/* returns the byte length of the UTF-8 code point. Returns -1 if `c` is not a
+ * valid UTF-8 code point. */
+ssize_t
+_mongoc_utf8_code_point_length (uint32_t c);
+
+/* converts a Unicode code point to UTF-8 character. Returns how many bytes the
+ * character converted is. Returns -1 if the code point is invalid.
+ * char *out must be large enough to contain all of the code units written to
+ * it. */
+ssize_t
+_mongoc_utf8_code_point_to_str (uint32_t c, char *out);
+
+static bson_shared_mutex_t g_scram_cache_rwlock;
+
+static bson_once_t init_cache_once_control = BSON_ONCE_INIT;
+static bson_mutex_t clear_cache_lock;
+
+/*
+ * Cache lookups are a linear search through this table. This table is a
+ * constant size, which is small enough that lookup cost is insignificant.
+ *
+ * This can be refactored into a hashmap if the cache size needs to grow larger
+ * in the future, but a linear lookup is currently fast enough and is much
+ * simpler logic to reason about.
+ */
+static mongoc_scram_cache_entry_t g_scram_cache[MONGOC_SCRAM_CACHE_SIZE];
+
+static void
+_mongoc_scram_cache_clear (void)
+{
+   bson_mutex_lock (&clear_cache_lock);
+   memset (g_scram_cache, 0, sizeof (g_scram_cache));
+   bson_mutex_unlock (&clear_cache_lock);
+}
+
+static BSON_ONCE_FUN (_mongoc_scram_cache_init)
+{
+   bson_shared_mutex_init (&g_scram_cache_rwlock);
+   bson_mutex_init (&clear_cache_lock);
+   _mongoc_scram_cache_clear ();
+
+   BSON_ONCE_RETURN;
+}
+
+static void
+_mongoc_scram_cache_init_once (void)
+{
+   bson_once (&init_cache_once_control, _mongoc_scram_cache_init);
+}
 
 static int
 _scram_hash_size (mongoc_scram_t *scram)
@@ -46,7 +129,7 @@ _scram_hash_size (mongoc_scram_t *scram)
 
 /* Copies the cache's secrets to scram */
 static void
-_mongoc_scram_cache_apply_secrets (mongoc_scram_cache_t *cache,
+_mongoc_scram_cache_apply_secrets (mongoc_scram_cache_entry_t *cache,
                                    mongoc_scram_t *scram)
 {
    BSON_ASSERT (cache);
@@ -60,82 +143,66 @@ _mongoc_scram_cache_apply_secrets (mongoc_scram_cache_t *cache,
 }
 
 
-static mongoc_scram_cache_t *
-_mongoc_scram_cache_copy (const mongoc_scram_cache_t *cache)
-{
-   mongoc_scram_cache_t *ret = NULL;
-
-   if (cache) {
-      ret = (mongoc_scram_cache_t *) bson_malloc0 (sizeof (*ret));
-      ret->hashed_password = bson_strdup (cache->hashed_password);
-      memcpy (
-         ret->decoded_salt, cache->decoded_salt, sizeof (ret->decoded_salt));
-      ret->iterations = cache->iterations;
-      memcpy (ret->client_key, cache->client_key, sizeof (ret->client_key));
-      memcpy (ret->server_key, cache->server_key, sizeof (ret->server_key));
-      memcpy (ret->salted_password,
-              cache->salted_password,
-              sizeof (ret->salted_password));
-   }
-
-   return ret;
-}
-
-#ifdef MONGOC_ENABLE_ICU
-#include <unicode/usprep.h>
-#include <unicode/ustring.h>
-#endif
-
-
 void
-_mongoc_scram_cache_destroy (mongoc_scram_cache_t *cache)
+_mongoc_scram_cache_destroy (mongoc_scram_cache_entry_t *cache)
 {
    BSON_ASSERT (cache);
-
-   if (cache->hashed_password) {
-      bson_zero_free (cache->hashed_password, strlen (cache->hashed_password));
-   }
-
    bson_free (cache);
 }
 
 
-/* Checks whether the cache contains scram's pre-secrets */
+/*
+ * Checks whether the cache contains scram's pre-secrets.
+ * Populate `cache` with the values found in the global cache if found.
+ */
 static bool
-_mongoc_scram_cache_has_presecrets (mongoc_scram_cache_t *cache,
-                                    mongoc_scram_t *scram)
+_mongoc_scram_cache_has_presecrets (mongoc_scram_cache_entry_t *cache /* out */,
+                                    const mongoc_scram_t *scram)
 {
+   bool cache_hit = false;
+
    BSON_ASSERT (cache);
    BSON_ASSERT (scram);
 
-   return cache->hashed_password && scram->hashed_password &&
-          !strcmp (cache->hashed_password, scram->hashed_password) &&
-          cache->iterations == scram->iterations &&
-          !memcmp (cache->decoded_salt,
-                   scram->decoded_salt,
-                   sizeof (cache->decoded_salt));
-}
+   _mongoc_scram_cache_init_once ();
 
+   /*
+    * - Take a read lock
+    * - Search through g_scram_cache if the hashed_password, decoded_salt, and
+    *   iterations match an entry.
+    * - If so, then return true
+    * - Otherwise return false
+    */
+   bson_shared_mutex_lock_shared (&g_scram_cache_rwlock);
 
-mongoc_scram_cache_t *
-_mongoc_scram_get_cache (mongoc_scram_t *scram)
-{
-   BSON_ASSERT (scram);
-
-   return _mongoc_scram_cache_copy (scram->cache);
-}
-
-
-void
-_mongoc_scram_set_cache (mongoc_scram_t *scram, mongoc_scram_cache_t *cache)
-{
-   BSON_ASSERT (scram);
-
-   if (scram->cache) {
-      _mongoc_scram_cache_destroy (scram->cache);
+   for (size_t i = 0; i < MONGOC_SCRAM_CACHE_SIZE; i++) {
+      if (g_scram_cache[i].taken) {
+         mongoc_scram_cache_entry_t *cache_entry = &g_scram_cache[i];
+         cache_hit =
+            !strcmp (cache_entry->hashed_password, scram->hashed_password) &&
+            cache_entry->iterations == scram->iterations &&
+            !memcmp (cache_entry->decoded_salt,
+                     scram->decoded_salt,
+                     sizeof (cache_entry->decoded_salt));
+         if (cache_hit) {
+            /* copy the found cache items into the 'cache' output parameter */
+            memcpy (cache->client_key,
+                    cache_entry->client_key,
+                    sizeof (cache->client_key));
+            memcpy (cache->server_key,
+                    cache_entry->server_key,
+                    sizeof (cache->server_key));
+            memcpy (cache->salted_password,
+                    cache_entry->salted_password,
+                    sizeof (cache->salted_password));
+            goto done;
+         }
+      }
    }
 
-   scram->cache = _mongoc_scram_cache_copy (cache);
+done:
+   bson_shared_mutex_unlock_shared (&g_scram_cache_rwlock);
+   return cache_hit;
 }
 
 
@@ -184,44 +251,85 @@ _mongoc_scram_destroy (mongoc_scram_t *scram)
       bson_zero_free (scram->pass, strlen (scram->pass));
    }
 
-   if (scram->hashed_password) {
-      bson_zero_free (scram->hashed_password, strlen (scram->hashed_password));
-   }
+   memset (scram->hashed_password, 0, sizeof (scram->hashed_password));
 
    bson_free (scram->auth_message);
-
-   if (scram->cache) {
-      _mongoc_scram_cache_destroy (scram->cache);
-   }
 
    memset (scram, 0, sizeof *scram);
 }
 
+static void
+_mongoc_scram_cache_insert (const mongoc_scram_t *scram)
+{
+   bson_shared_mutex_lock (&g_scram_cache_rwlock);
+
+again:
+   for (size_t i = 0; i < MONGOC_SCRAM_CACHE_SIZE; i++) {
+      mongoc_scram_cache_entry_t *cache_entry = &g_scram_cache[i];
+      bool already_exists =
+         !strcmp (cache_entry->hashed_password, scram->hashed_password) &&
+         cache_entry->iterations == scram->iterations &&
+         !memcmp (cache_entry->decoded_salt,
+                  scram->decoded_salt,
+                  sizeof (cache_entry->decoded_salt)) &&
+         !memcmp (cache_entry->client_key,
+                  scram->client_key,
+                  sizeof (cache_entry->client_key)) &&
+         !memcmp (cache_entry->server_key,
+                  scram->server_key,
+                  sizeof (cache_entry->server_key)) &&
+         !memcmp (cache_entry->salted_password,
+                  scram->salted_password,
+                  sizeof (cache_entry->salted_password));
+
+      if (already_exists) {
+         /* cache entry already populated between read and write lock
+          * acquisition, skipping */
+         break;
+      }
+
+      if (!cache_entry->taken) {
+         /* found an empty slot */
+         memcpy (cache_entry->client_key,
+                 scram->client_key,
+                 sizeof (cache_entry->client_key));
+         memcpy (cache_entry->server_key,
+                 scram->server_key,
+                 sizeof (cache_entry->server_key));
+         memcpy (cache_entry->salted_password,
+                 scram->salted_password,
+                 sizeof (cache_entry->salted_password));
+         memcpy (cache_entry->decoded_salt,
+                 scram->decoded_salt,
+                 sizeof (cache_entry->decoded_salt));
+         memcpy (cache_entry->hashed_password,
+                 scram->hashed_password,
+                 sizeof (cache_entry->hashed_password));
+         cache_entry->iterations = scram->iterations;
+         cache_entry->taken = true;
+         break;
+      }
+
+      /* if cache is full, then invalidate the cache and insert again */
+      if (i == (MONGOC_SCRAM_CACHE_SIZE - 1)) {
+         _mongoc_scram_cache_clear ();
+         goto again;
+      }
+   }
+
+   bson_shared_mutex_unlock (&g_scram_cache_rwlock);
+}
 
 /* Updates the cache with scram's last-used pre-secrets and secrets */
 static void
-_mongoc_scram_update_cache (mongoc_scram_t *scram)
+_mongoc_scram_update_cache (const mongoc_scram_t *scram)
 {
-   mongoc_scram_cache_t *cache;
-
-   BSON_ASSERT (scram);
-
-   if (scram->cache) {
-      _mongoc_scram_cache_destroy (scram->cache);
+   mongoc_scram_cache_entry_t cache;
+   bool found = _mongoc_scram_cache_has_presecrets (&cache, scram);
+   if (!found) {
+      /* cache miss, insert this as a new cache entry */
+      _mongoc_scram_cache_insert (scram);
    }
-
-   cache = (mongoc_scram_cache_t *) bson_malloc0 (sizeof (*cache));
-   cache->hashed_password = bson_strdup (scram->hashed_password);
-   memcpy (
-      cache->decoded_salt, scram->decoded_salt, sizeof (cache->decoded_salt));
-   cache->iterations = scram->iterations;
-   memcpy (cache->client_key, scram->client_key, sizeof (cache->client_key));
-   memcpy (cache->server_key, scram->server_key, sizeof (cache->server_key));
-   memcpy (cache->salted_password,
-           scram->salted_password,
-           sizeof (cache->salted_password));
-
-   scram->cache = cache;
 }
 
 
@@ -409,8 +517,6 @@ _mongoc_scram_salt_password (mongoc_scram_t *scram,
    uint8_t intermediate_digest[MONGOC_SCRAM_HASH_MAX_SIZE];
    uint8_t start_key[MONGOC_SCRAM_HASH_MAX_SIZE];
 
-   int i;
-   int k;
    uint8_t *output = scram->salted_password;
 
    memcpy (start_key, salt, salt_len);
@@ -431,15 +537,17 @@ _mongoc_scram_salt_password (mongoc_scram_t *scram,
 
    /* intermediateDigest contains Ui and output contains the accumulated XOR:ed
     * result */
-   for (i = 2; i <= iterations; i++) {
+   for (uint32_t i = 2u; i <= iterations; i++) {
+      const int hash_size = _scram_hash_size (scram);
+
       mongoc_crypto_hmac (&scram->crypto,
                           password,
                           password_len,
                           intermediate_digest,
-                          _scram_hash_size (scram),
+                          hash_size,
                           intermediate_digest);
 
-      for (k = 0; k < _scram_hash_size (scram); k++) {
+      for (int k = 0; k < hash_size; k++) {
          output[k] ^= intermediate_digest[k];
       }
    }
@@ -532,7 +640,7 @@ _mongoc_scram_step2 (mongoc_scram_t *scram,
    const uint8_t *next_comma;
 
    char *tmp;
-   char *hashed_password;
+   char *hashed_password = NULL;
 
    uint8_t decoded_salt[MONGOC_SCRAM_B64_HASH_MAX_SIZE] = {0};
    int32_t decoded_salt_len;
@@ -559,8 +667,7 @@ _mongoc_scram_step2 (mongoc_scram_t *scram,
       /* Auth spec for SCRAM-SHA-256: "Passwords MUST be prepared with SASLprep,
        * per RFC 5802. Passwords are used directly for key derivation; they
        * MUST NOT be digested as they are in SCRAM-SHA-1." */
-      hashed_password =
-         _mongoc_sasl_prep (scram->pass, (int) strlen (scram->pass), error);
+      hashed_password = _mongoc_sasl_prep (scram->pass, error);
       if (!hashed_password) {
          goto FAIL;
       }
@@ -669,7 +776,7 @@ _mongoc_scram_step2 (mongoc_scram_t *scram,
    }
 
    /* verify our nonce */
-   if (val_r_len < scram->encoded_nonce_len ||
+   if (bson_cmp_less_us (val_r_len, scram->encoded_nonce_len) ||
        mongoc_memcmp (val_r, scram->encoded_nonce, scram->encoded_nonce_len)) {
       bson_set_error (
          error,
@@ -755,13 +862,18 @@ _mongoc_scram_step2 (mongoc_scram_t *scram,
    }
 
    /* Save the presecrets for caching */
-   scram->hashed_password = bson_strdup (hashed_password);
+   if (hashed_password) {
+      bson_strncpy (scram->hashed_password,
+                    hashed_password,
+                    sizeof (scram->hashed_password));
+   }
+
    scram->iterations = iterations;
    memcpy (scram->decoded_salt, decoded_salt, sizeof (scram->decoded_salt));
 
-   if (scram->cache &&
-       _mongoc_scram_cache_has_presecrets (scram->cache, scram)) {
-      _mongoc_scram_cache_apply_secrets (scram->cache, scram);
+   mongoc_scram_cache_entry_t cache;
+   if (_mongoc_scram_cache_has_presecrets (&cache, scram)) {
+      _mongoc_scram_cache_apply_secrets (&cache, scram);
    }
 
    if (!*scram->salted_password) {
@@ -820,12 +932,15 @@ _mongoc_scram_verify_server_signature (mongoc_scram_t *scram,
    uint8_t server_signature[MONGOC_SCRAM_HASH_MAX_SIZE];
 
    if (!*scram->server_key) {
+      const size_t key_len = strlen (MONGOC_SCRAM_SERVER_KEY);
+      BSON_ASSERT (bson_in_range_unsigned (int, key_len));
+
       /* ServerKey := HMAC(SaltedPassword, "Server Key") */
       mongoc_crypto_hmac (&scram->crypto,
                           scram->salted_password,
                           _scram_hash_size (scram),
                           (uint8_t *) MONGOC_SCRAM_SERVER_KEY,
-                          strlen (MONGOC_SCRAM_SERVER_KEY),
+                          (int) key_len,
                           scram->server_key);
    }
 
@@ -1025,19 +1140,17 @@ _mongoc_sasl_prep_required (const char *str)
    return false;
 }
 
-#ifdef MONGOC_ENABLE_ICU
 char *
 _mongoc_sasl_prep_impl (const char *name,
                         const char *in_utf8,
-                        int in_utf8_len,
                         bson_error_t *err)
 {
-   /* The flow is in_utf8 -> in_utf16 -> SASLPrep -> out_utf16 -> out_utf8. */
-   UChar *in_utf16, *out_utf16;
-   char *out_utf8;
-   int32_t in_utf16_len, out_utf16_len, out_utf8_len;
-   UErrorCode error_code = U_ZERO_ERROR;
-   UStringPrepProfile *prep;
+   BSON_ASSERT_PARAM (name);
+   BSON_ASSERT_PARAM (in_utf8);
+
+   uint32_t *utf8_codepoints;
+   ssize_t num_chars;
+   uint8_t *out_utf8;
 
 #define SASL_PREP_ERR_RETURN(msg)                        \
    do {                                                  \
@@ -1049,102 +1162,402 @@ _mongoc_sasl_prep_impl (const char *name,
       return NULL;                                       \
    } while (0)
 
-   /* 1. convert str to UTF-16. */
+   /* 1. convert str to Unicode codepoints. */
    /* preflight to get the destination length. */
-   (void) u_strFromUTF8 (
-      NULL, 0, &in_utf16_len, in_utf8, in_utf8_len, &error_code);
-   if (error_code != U_BUFFER_OVERFLOW_ERROR) {
-      SASL_PREP_ERR_RETURN ("could not calculate UTF-16 length of %s");
-   }
-
-   /* convert to UTF-16. */
-   error_code = U_ZERO_ERROR;
-   in_utf16 = bson_malloc (sizeof (UChar) *
-                           (in_utf16_len + 1)); /* add one for null byte. */
-   (void) u_strFromUTF8 (
-      in_utf16, in_utf16_len + 1, NULL, in_utf8, in_utf8_len, &error_code);
-   if (error_code) {
-      bson_free (in_utf16);
-      SASL_PREP_ERR_RETURN ("could not convert %s to UTF-16");
-   }
-
-   /* 2. perform SASLPrep. */
-   prep = usprep_openByType (USPREP_RFC4013_SASLPREP, &error_code);
-   if (error_code) {
-      bson_free (in_utf16);
-      SASL_PREP_ERR_RETURN ("could not start SASLPrep for %s");
-   }
-   /* preflight. */
-   out_utf16_len = usprep_prepare (
-      prep, in_utf16, in_utf16_len, NULL, 0, USPREP_DEFAULT, NULL, &error_code);
-   if (error_code != U_BUFFER_OVERFLOW_ERROR) {
-      bson_free (in_utf16);
-      usprep_close (prep);
-      SASL_PREP_ERR_RETURN ("could not calculate SASLPrep length of %s");
-   }
-
-   /* convert. */
-   error_code = U_ZERO_ERROR;
-   out_utf16 = bson_malloc (sizeof (UChar) * (out_utf16_len + 1));
-   (void) usprep_prepare (prep,
-                          in_utf16,
-                          in_utf16_len,
-                          out_utf16,
-                          out_utf16_len + 1,
-                          USPREP_DEFAULT,
-                          NULL,
-                          &error_code);
-   if (error_code) {
-      bson_free (in_utf16);
-      bson_free (out_utf16);
-      usprep_close (prep);
-      SASL_PREP_ERR_RETURN ("could not execute SASLPrep for %s");
-   }
-   bson_free (in_utf16);
-   usprep_close (prep);
-
-   /* 3. convert back to UTF-8. */
-   /* preflight. */
-   (void) u_strToUTF8 (
-      NULL, 0, &out_utf8_len, out_utf16, out_utf16_len, &error_code);
-   if (error_code != U_BUFFER_OVERFLOW_ERROR) {
-      bson_free (out_utf16);
+   num_chars = _mongoc_utf8_string_length (in_utf8);
+   if (num_chars == -1) {
       SASL_PREP_ERR_RETURN ("could not calculate UTF-8 length of %s");
    }
 
-   /* convert. */
-   error_code = U_ZERO_ERROR;
-   out_utf8 = (char *) bson_malloc (
-      sizeof (char) * (out_utf8_len + 1)); /* add one for null byte. */
-   (void) u_strToUTF8 (
-      out_utf8, out_utf8_len + 1, NULL, out_utf16, out_utf16_len, &error_code);
-   if (error_code) {
-      bson_free (out_utf8);
-      bson_free (out_utf16);
-      SASL_PREP_ERR_RETURN ("could not convert %s back to UTF-8");
+   /* convert to unicode. */
+   utf8_codepoints = bson_malloc (
+      sizeof (uint32_t) * (num_chars + 1)); /* add one for trailing 0 value. */
+   const char *c = in_utf8;
+
+   for (size_t i = 0; i < num_chars; ++i) {
+      const size_t utf8_char_length = _mongoc_utf8_char_length (c);
+      utf8_codepoints[i] =
+         _mongoc_utf8_get_first_code_point (c, utf8_char_length);
+
+      c += utf8_char_length;
    }
-   bson_free (out_utf16);
-   return out_utf8;
+   utf8_codepoints[num_chars] = '\0';
+
+   /* 2. perform SASLPREP */
+
+   // the steps below come directly from RFC 3454: 2. Preparation Overview.
+
+   // a. Map - For each character in the input, check if it has a mapping (using
+   // the tables) and, if so, replace it with its mapping.
+
+   // because we will have to map some characters to nothing, we'll use two
+   // pointers: one for reading the original characters (i) and one for writing
+   // the new characters (curr). i will always be >= curr.
+   size_t curr = 0;
+   for (size_t i = 0; i < num_chars; ++i) {
+      if (_mongoc_utf8_code_point_is_in_table (
+             utf8_codepoints[i],
+             non_ascii_space_character_ranges,
+             sizeof (non_ascii_space_character_ranges) / sizeof (uint32_t)))
+         utf8_codepoints[curr++] = 0x0020;
+      else if (_mongoc_utf8_code_point_is_in_table (
+                  utf8_codepoints[i],
+                  commonly_mapped_to_nothing_ranges,
+                  sizeof (commonly_mapped_to_nothing_ranges) /
+                     sizeof (uint32_t))) {
+         // effectively skip over the character because we don't increment curr.
+      } else
+         utf8_codepoints[curr++] = utf8_codepoints[i];
+   }
+   utf8_codepoints[curr] = '\0';
+   num_chars = curr;
+
+
+   // b. Normalize - normalize the result of step `a` using Unicode
+   // normalization.
+
+   // this is an optional step for stringprep, but Unicode normalization with
+   // form KC is required for SASLPrep.
+
+   // in order to do this, we must first convert back to UTF-8.
+
+   // preflight for length
+   size_t utf8_pre_norm_len = 0;
+   for (size_t i = 0; i < num_chars; ++i) {
+      const ssize_t len = _mongoc_utf8_code_point_length (utf8_codepoints[i]);
+      if (len == -1) {
+         bson_free (utf8_codepoints);
+         SASL_PREP_ERR_RETURN ("invalid Unicode code point in %s");
+      } else {
+         utf8_pre_norm_len += len;
+      }
+   }
+   char *utf8_pre_norm =
+      (char *) bson_malloc (sizeof (char) * (utf8_pre_norm_len + 1));
+
+   char *loc = utf8_pre_norm;
+   for (size_t i = 0; i < num_chars; ++i) {
+      const ssize_t utf8_char_length =
+         _mongoc_utf8_code_point_to_str (utf8_codepoints[i], loc);
+      if (utf8_char_length == -1) {
+         bson_free (utf8_pre_norm);
+         bson_free (utf8_codepoints);
+         SASL_PREP_ERR_RETURN ("invalid Unicode code point in %s");
+      }
+      loc += utf8_char_length;
+   }
+   *loc = '\0';
+
+   out_utf8 = (uint8_t *) utf8proc_NFKC ((utf8proc_uint8_t *) utf8_pre_norm);
+
+   // the last two steps are both checks for characters that should not be
+   // allowed. Because the normalization step is guarenteed to not create any
+   // characters that will cause an error, we will use the utf8_codepoints
+   // codepoints to check (pre-normalization) as to avoid converting back and
+   // forth from UTF-8 to unicode codepoints.
+
+   // c. Prohibit -- Check for any characters
+   // that are not allowed in the output. If any are found, return an error.
+
+   for (size_t i = 0; i < num_chars; ++i) {
+      if (_mongoc_utf8_code_point_is_in_table (
+             utf8_codepoints[i],
+             prohibited_output_ranges,
+             sizeof (prohibited_output_ranges) / sizeof (uint32_t)) ||
+          _mongoc_utf8_code_point_is_in_table (
+             utf8_codepoints[i],
+             unassigned_codepoint_ranges,
+             sizeof (unassigned_codepoint_ranges) / sizeof (uint32_t))) {
+         bson_free (out_utf8);
+         bson_free (utf8_pre_norm);
+         bson_free (utf8_codepoints);
+         SASL_PREP_ERR_RETURN ("prohibited character included in %s");
+      }
+   }
+
+   // d. Check bidi -- Possibly check for right-to-left characters, and if
+   // any are found, make sure that the whole string satisfies the
+   // requirements for bidirectional strings.  If the string does not
+   // satisfy the requirements for bidirectional strings, return an
+   // error.
+
+   // note: bidi stands for directional (text). Most characters are displayed
+   // left to right but some are displayed right to left. The requirements are
+   // as follows:
+   // 1. If a string contains any RandALCat character, it can't contain an LCat
+   // character
+   // 2. If it contains an RandALCat character, there must be an RandALCat
+   // character at the beginning and the end of the string (does not have to be
+   // the same character)
+   bool contains_LCat = false;
+   bool contains_RandALCar = false;
+
+
+   for (size_t i = 0; i < num_chars; ++i) {
+      if (_mongoc_utf8_code_point_is_in_table (utf8_codepoints[i],
+                                               LCat_bidi_ranges,
+                                               sizeof (LCat_bidi_ranges) /
+                                                  sizeof (uint32_t))) {
+         contains_LCat = true;
+      }
+      if (_mongoc_utf8_code_point_is_in_table (utf8_codepoints[i],
+                                               RandALCat_bidi_ranges,
+                                               sizeof (RandALCat_bidi_ranges) /
+                                                  sizeof (uint32_t)))
+         contains_RandALCar = true;
+   }
+
+   if (
+      // requirement 1
+      (contains_RandALCar && contains_LCat) ||
+      // requirement 2
+      (contains_RandALCar &&
+       (!_mongoc_utf8_code_point_is_in_table (utf8_codepoints[0],
+                                              RandALCat_bidi_ranges,
+                                              sizeof (RandALCat_bidi_ranges) /
+                                                 sizeof (uint32_t)) ||
+        !_mongoc_utf8_code_point_is_in_table (utf8_codepoints[num_chars - 1],
+                                              RandALCat_bidi_ranges,
+                                              sizeof (RandALCat_bidi_ranges) /
+                                                 sizeof (uint32_t))))) {
+      bson_free (out_utf8);
+      bson_free (utf8_pre_norm);
+      bson_free (utf8_codepoints);
+      SASL_PREP_ERR_RETURN ("%s does not meet bidirectional requirements");
+   }
+
+   bson_free (utf8_pre_norm);
+   bson_free (utf8_codepoints);
+
+   return (char *) out_utf8;
 #undef SASL_PREP_ERR_RETURN
 }
-#endif
 
 char *
-_mongoc_sasl_prep (const char *in_utf8, int in_utf8_len, bson_error_t *err)
+_mongoc_sasl_prep (const char *in_utf8, bson_error_t *err)
 {
-   BSON_UNUSED (in_utf8_len);
-
-#ifdef MONGOC_ENABLE_ICU
-   return _mongoc_sasl_prep_impl ("password", in_utf8, in_utf8_len, err);
-#else
    if (_mongoc_sasl_prep_required (in_utf8)) {
-      bson_set_error (err,
-                      MONGOC_ERROR_SCRAM,
-                      MONGOC_ERROR_SCRAM_PROTOCOL_ERROR,
-                      "SCRAM Failure: ICU required to SASLPrep password");
-      return NULL;
+      return _mongoc_sasl_prep_impl ("password", in_utf8, err);
    }
    return bson_strdup (in_utf8);
-#endif
 }
+
+size_t
+_mongoc_utf8_char_length (const char *s)
+{
+   BSON_ASSERT_PARAM (s);
+
+   uint8_t *c = (uint8_t *) s;
+   // UTF-8 characters are either 1, 2, 3, or 4 bytes and the character length
+   // can be determined by the first byte
+   if ((*c & UINT8_C (0x80)) == 0)
+      return 1u;
+   else if ((*c & UINT8_C (0xe0)) == UINT8_C (0xc0))
+      return 2u;
+   else if ((*c & UINT8_C (0xf0)) == UINT8_C (0xe0))
+      return 3u;
+   else if ((*c & UINT8_C (0xf8)) == UINT8_C (0xf0))
+      return 4u;
+   else
+      return 1u;
+}
+
+ssize_t
+_mongoc_utf8_string_length (const char *s)
+{
+   BSON_ASSERT_PARAM (s);
+
+   const uint8_t *c = (uint8_t *) s;
+
+   ssize_t str_length = 0;
+
+   while (*c) {
+      const size_t utf8_char_length = _mongoc_utf8_char_length ((char *) c);
+
+      if (!_mongoc_utf8_first_code_point_is_valid ((char *) c,
+                                                   utf8_char_length))
+         return -1;
+
+      str_length++;
+      c += utf8_char_length;
+   }
+
+   return str_length;
+}
+
+
+bool
+_mongoc_utf8_first_code_point_is_valid (const char *c, size_t length)
+{
+   BSON_ASSERT_PARAM (c);
+
+   uint8_t *temp_c = (uint8_t *) c;
+   // Referenced table here:
+   // https://lemire.me/blog/2018/05/09/how-quickly-can-you-check-that-a-string-is-valid-unicode-utf-8/
+   switch (length) {
+   case 1:
+      return _mongoc_utf8_code_unit_in_range (
+         temp_c[0], UINT8_C (0x00), UINT8_C (0x7F));
+   case 2:
+      return _mongoc_utf8_code_unit_in_range (
+                temp_c[0], UINT8_C (0xC2), UINT8_C (0xDF)) &&
+             _mongoc_utf8_code_unit_in_range (
+                temp_c[1], UINT8_C (0x80), UINT8_C (0xBF));
+   case 3:
+      // Four options, separated by ||
+      return (_mongoc_utf8_code_unit_in_range (
+                 temp_c[0], UINT8_C (0xE0), UINT8_C (0xE0)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[1], UINT8_C (0xA0), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[2], UINT8_C (0x80), UINT8_C (0xBF))) ||
+             (_mongoc_utf8_code_unit_in_range (
+                 temp_c[0], UINT8_C (0xE1), UINT8_C (0xEC)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[1], UINT8_C (0x80), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[2], UINT8_C (0x80), UINT8_C (0xBF))) ||
+             (_mongoc_utf8_code_unit_in_range (
+                 temp_c[0], UINT8_C (0xED), UINT8_C (0xED)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[1], UINT8_C (0x80), UINT8_C (0x9F)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[2], UINT8_C (0x80), UINT8_C (0xBF))) ||
+             (_mongoc_utf8_code_unit_in_range (
+                 temp_c[0], UINT8_C (0xEE), UINT8_C (0xEF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[1], UINT8_C (0x80), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[2], UINT8_C (0x80), UINT8_C (0xBF)));
+   case 4:
+      // Three options, separated by ||
+      return (_mongoc_utf8_code_unit_in_range (
+                 temp_c[0], UINT8_C (0xF0), UINT8_C (0xF0)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[1], UINT8_C (0x90), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[2], UINT8_C (0x80), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[3], UINT8_C (0x80), UINT8_C (0xBF))) ||
+             (_mongoc_utf8_code_unit_in_range (
+                 temp_c[0], UINT8_C (0xF1), UINT8_C (0xF3)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[1], UINT8_C (0x80), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[2], UINT8_C (0x80), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[3], UINT8_C (0x80), UINT8_C (0xBF))) ||
+             (_mongoc_utf8_code_unit_in_range (
+                 temp_c[0], UINT8_C (0xF4), UINT8_C (0xF4)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[1], UINT8_C (0x80), UINT8_C (0x8F)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[2], UINT8_C (0x80), UINT8_C (0xBF)) &&
+              _mongoc_utf8_code_unit_in_range (
+                 temp_c[3], UINT8_C (0x80), UINT8_C (0xBF)));
+   default:
+      return true;
+   }
+}
+
+
+bool
+_mongoc_utf8_code_unit_in_range (const uint8_t c,
+                                 const uint8_t lower,
+                                 const uint8_t upper)
+{
+   return (c >= lower && c <= upper);
+}
+
+bool
+_mongoc_utf8_code_point_is_in_table (uint32_t code,
+                                     const uint32_t *table,
+                                     size_t size)
+{
+   BSON_ASSERT_PARAM (table);
+
+   // all tables have size / 2 ranges
+   for (size_t i = 0; i < size; i += 2) {
+      if (code >= table[i] && code <= table[i + 1])
+         return true;
+   }
+
+   return false;
+}
+
+uint32_t
+_mongoc_utf8_get_first_code_point (const char *c, size_t length)
+{
+   BSON_ASSERT_PARAM (c);
+
+   uint8_t *temp_c = (uint8_t *) c;
+   switch (length) {
+   case 1:
+      return (uint32_t) temp_c[0];
+   case 2:
+      return (uint32_t) (((temp_c[0] & UINT8_C (0x1f)) << 6) |
+                         (temp_c[1] & UINT8_C (0x3f)));
+   case 3:
+      return (uint32_t) (((temp_c[0] & UINT8_C (0x0f)) << 12) |
+                         ((temp_c[1] & UINT8_C (0x3f)) << 6) |
+                         (temp_c[2] & UINT8_C (0x3f)));
+   case 4:
+      return (uint32_t) (((temp_c[0] & UINT8_C (0x07)) << 18) |
+                         ((temp_c[1] & UINT8_C (0x3f)) << 12) |
+                         ((temp_c[2] & UINT8_C (0x3f)) << 6) |
+                         (temp_c[3] & UINT8_C (0x3f)));
+   default:
+      return 0;
+   }
+}
+
+ssize_t
+_mongoc_utf8_code_point_to_str (uint32_t c, char *out)
+{
+   BSON_ASSERT_PARAM (out);
+
+   uint8_t *ptr = (uint8_t *) out;
+
+   if (c <= UINT8_C (0x7F)) {
+      // Plain ASCII
+      ptr[0] = (uint8_t) c;
+      return 1;
+   } else if (c <= 0x07FF) {
+      // 2-byte unicode
+      ptr[0] = (uint8_t) (((c >> 6) & UINT8_C (0x1F)) | UINT8_C (0xC0));
+      ptr[1] = (uint8_t) (((c >> 0) & UINT8_C (0x3F)) | UINT8_C (0x80));
+      return 2;
+   } else if (c <= 0xFFFF) {
+      // 3-byte unicode
+      ptr[0] = (uint8_t) (((c >> 12) & UINT8_C (0x0F)) | UINT8_C (0xE0));
+      ptr[1] = (uint8_t) (((c >> 6) & UINT8_C (0x3F)) | UINT8_C (0x80));
+      ptr[2] = (uint8_t) ((c & UINT8_C (0x3F)) | UINT8_C (0x80));
+      return 3;
+   } else if (c <= 0x10FFFF) {
+      // 4-byte unicode
+      ptr[0] = (uint8_t) (((c >> 18) & UINT8_C (0x07)) | UINT8_C (0xF0));
+      ptr[1] = (uint8_t) (((c >> 12) & UINT8_C (0x3F)) | UINT8_C (0x80));
+      ptr[2] = (uint8_t) (((c >> 6) & UINT8_C (0x3F)) | UINT8_C (0x80));
+      ptr[3] = (uint8_t) ((c & UINT8_C (0x3F)) | UINT8_C (0x80));
+      return 4;
+   } else {
+      return -1;
+   }
+}
+
+ssize_t
+_mongoc_utf8_code_point_length (uint32_t c)
+{
+   if (c <= UINT8_C (0x7F))
+      return 1;
+   else if (c <= 0x07FF)
+      return 2;
+   else if (c <= 0xFFFF)
+      return 3;
+   else if (c <= 0x10FFFF)
+      return 4;
+   else
+      return -1;
+}
+
 #endif

@@ -214,7 +214,6 @@ _mongoc_topology_scanner_add_speculative_authentication (
    bson_t *cmd,
    const mongoc_uri_t *uri,
    const mongoc_ssl_opt_t *ssl_opts,
-   mongoc_scram_cache_t *scram_cache,
    mongoc_scram_t *scram /* OUT */);
 
 void
@@ -284,8 +283,11 @@ _mongoc_topology_scanner_tcp_initiate (mongoc_async_cmd_t *acmd);
 /* Returns true if versioned server API has been selected, otherwise
  * false. */
 bool
-mongoc_topology_scanner_uses_server_api (
-   const mongoc_topology_scanner_t *topology_scanner);
+mongoc_topology_scanner_uses_server_api (const mongoc_topology_scanner_t *ts);
+
+/* Returns true if load balancing mode has been selected, otherwise false. */
+bool
+mongoc_topology_scanner_uses_loadbalanced (const mongoc_topology_scanner_t *ts);
 
 BSON_END_DECLS
 

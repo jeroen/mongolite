@@ -29,6 +29,92 @@
 #include "mongoc-ssl-private.h"
 #include "mongoc-cluster-aws-private.h"
 #include "mongoc-util-private.h"
+#include "mongoc-http-private.h"
+#include "mcd-azure.h"
+#include "mcd-time.h"
+#include "service-gcp.h"
+
+// `mcd_mapof_kmsid_to_tlsopts` maps a KMS ID (e.g. `aws` or `aws:myname`) to a
+// `mongoc_ssl_opt_t`. The acryonym TLS is preferred over SSL for
+// consistency with the CSE and URI specifications.
+typedef struct {
+   mongoc_array_t entries;
+} mcd_mapof_kmsid_to_tlsopts;
+
+typedef struct {
+   char *kmsid;
+   mongoc_ssl_opt_t tlsopts;
+} mcd_mapof_kmsid_to_tlsopts_entry;
+
+mcd_mapof_kmsid_to_tlsopts *
+mcd_mapof_kmsid_to_tlsopts_new (void)
+{
+   mcd_mapof_kmsid_to_tlsopts *k2t =
+      bson_malloc0 (sizeof (mcd_mapof_kmsid_to_tlsopts));
+   _mongoc_array_init (&k2t->entries,
+                       sizeof (mcd_mapof_kmsid_to_tlsopts_entry));
+   return k2t;
+}
+
+void
+mcd_mapof_kmsid_to_tlsopts_destroy (mcd_mapof_kmsid_to_tlsopts *k2t)
+{
+   if (!k2t) {
+      return;
+   }
+   for (size_t i = 0; i < k2t->entries.len; i++) {
+      mcd_mapof_kmsid_to_tlsopts_entry *e = &_mongoc_array_index (
+         &k2t->entries, mcd_mapof_kmsid_to_tlsopts_entry, i);
+      bson_free (e->kmsid);
+      _mongoc_ssl_opts_cleanup (&e->tlsopts, true /* free_internal */);
+   }
+   _mongoc_array_destroy (&k2t->entries);
+   bson_free (k2t);
+}
+
+// `mcd_mapof_kmsid_to_tlsopts_insert` adds an entry into the map.
+// `kmsid` and `tlsopts` are copied.
+// No checking is done to prohibit duplicate entries.
+void
+mcd_mapof_kmsid_to_tlsopts_insert (mcd_mapof_kmsid_to_tlsopts *k2t,
+                                   const char *kmsid,
+                                   const mongoc_ssl_opt_t *tlsopts)
+{
+   BSON_ASSERT_PARAM (k2t);
+   BSON_ASSERT_PARAM (kmsid);
+   BSON_ASSERT_PARAM (tlsopts);
+
+   mcd_mapof_kmsid_to_tlsopts_entry e = {.kmsid = bson_strdup (kmsid)};
+   _mongoc_ssl_opts_copy_to (tlsopts, &e.tlsopts, true /* copy_internal */);
+   _mongoc_array_append_val (&k2t->entries, e);
+}
+
+// `mcd_mapof_kmsid_to_tlsopts_get` returns the TLS options for a KMS ID, or
+// NULL.
+const mongoc_ssl_opt_t *
+mcd_mapof_kmsid_to_tlsopts_get (const mcd_mapof_kmsid_to_tlsopts *k2t,
+                                const char *kmsid)
+{
+   BSON_ASSERT_PARAM (k2t);
+   BSON_ASSERT_PARAM (kmsid);
+
+   for (size_t i = 0; i < k2t->entries.len; i++) {
+      mcd_mapof_kmsid_to_tlsopts_entry *e = &_mongoc_array_index (
+         &k2t->entries, mcd_mapof_kmsid_to_tlsopts_entry, i);
+      if (0 == strcmp (e->kmsid, kmsid)) {
+         return &e->tlsopts;
+      }
+   }
+   return NULL;
+}
+
+
+bool
+mcd_mapof_kmsid_to_tlsopts_has (const mcd_mapof_kmsid_to_tlsopts *k2t,
+                                const char *kmsid)
+{
+   return NULL != mcd_mapof_kmsid_to_tlsopts_get (k2t, kmsid);
+}
 
 struct __mongoc_crypt_t {
    mongocrypt_t *handle;
@@ -36,11 +122,19 @@ struct __mongoc_crypt_t {
    mongoc_ssl_opt_t aws_tls_opt;
    mongoc_ssl_opt_t azure_tls_opt;
    mongoc_ssl_opt_t gcp_tls_opt;
+   mcd_mapof_kmsid_to_tlsopts *kmsid_to_tlsopts;
+
    /// The kmsProviders that were provided by the user when encryption was
    /// initiated. We need to remember this in case we need to load on-demand
    /// credentials.
    bson_t kms_providers;
    mc_kms_credentials_callback creds_cb;
+
+   /// The most recently auto-acquired Azure token, on null if it was destroyed
+   /// or not yet acquired.
+   mcd_azure_access_token azure_token;
+   /// The time point at which the `azure_token` was acquired.
+   mcd_time_point azure_token_issued_at;
 };
 
 static void
@@ -222,6 +316,9 @@ _state_machine_new (_mongoc_crypt_t *crypt)
 void
 _state_machine_destroy (_state_machine_t *state_machine)
 {
+   if (!state_machine) {
+      return;
+   }
    mongocrypt_ctx_destroy (state_machine->ctx);
    bson_free (state_machine);
 }
@@ -440,6 +537,15 @@ _get_stream (const char *endpoint,
    tls_stream = mongoc_stream_tls_new_with_hostname (
       base_stream, host.host, &ssl_opt_copy, 1 /* client */);
 
+   if (!tls_stream) {
+      bson_set_error (error,
+                      MONGOC_ERROR_STREAM,
+                      MONGOC_ERROR_STREAM_SOCKET,
+                      "Failed to create TLS stream to: %s",
+                      endpoint);
+      goto fail;
+   }
+
    if (!mongoc_stream_tls_handshake_block (
           tls_stream, host.host, connecttimeoutms, error)) {
       goto fail;
@@ -469,9 +575,7 @@ _state_need_kms (_state_machine_t *state_machine, bson_error_t *error)
    mongocrypt_binary_t *http_req = NULL;
    mongocrypt_binary_t *http_reply = NULL;
    const char *endpoint;
-   uint32_t sockettimeout;
-
-   sockettimeout = MONGOC_DEFAULT_SOCKETTIMEOUTMS;
+   const int32_t sockettimeout = MONGOC_DEFAULT_SOCKETTIMEOUTMS;
    kms_ctx = mongocrypt_ctx_next_kms_ctx (state_machine->ctx);
    while (kms_ctx) {
       mongoc_iovec_t iov;
@@ -488,6 +592,10 @@ _state_need_kms (_state_machine_t *state_machine, bson_error_t *error)
          ssl_opt = &state_machine->crypt->azure_tls_opt;
       } else if (0 == strcmp ("gcp", provider)) {
          ssl_opt = &state_machine->crypt->gcp_tls_opt;
+      } else if (mcd_mapof_kmsid_to_tlsopts_has (
+                    state_machine->crypt->kmsid_to_tlsopts, provider)) {
+         ssl_opt = mcd_mapof_kmsid_to_tlsopts_get (
+            state_machine->crypt->kmsid_to_tlsopts, provider);
       } else {
          ssl_opt = mongoc_ssl_opt_get_default ();
       }
@@ -556,7 +664,10 @@ _state_need_kms (_state_machine_t *state_machine, bson_error_t *error)
          }
 
          mongocrypt_binary_destroy (http_reply);
-         http_reply = mongocrypt_binary_new_from_data (buf, read_ret);
+
+         BSON_ASSERT (bson_in_range_signed (uint32_t, read_ret));
+         http_reply =
+            mongocrypt_binary_new_from_data (buf, (uint32_t) read_ret);
          if (!mongocrypt_kms_ctx_feed (kms_ctx, http_reply)) {
             _kms_ctx_check_error (kms_ctx, error, true);
             goto fail;
@@ -590,8 +701,8 @@ fail:
  *
  * @param kms_providers The user-provided kmsProviders
  * @param error Output parameter for possible errors.
- * @return true If 'aws' is present and an empty subdocument
- * @return false Otherwise or on error
+ * @retval true If 'aws' is present and an empty subdocument
+ * @retval false Otherwise or on error
  */
 static bool
 _needs_on_demand_aws_kms (bson_t const *kms_providers, bson_error_t *error)
@@ -629,13 +740,42 @@ _needs_on_demand_aws_kms (bson_t const *kms_providers, bson_error_t *error)
 }
 
 /**
+ * @brief Check whether the given kmsProviders object requests automatic Azure
+ * credentials
+ *
+ * @param kmsprov The input kmsProviders that may have an "azure" property
+ * @param error An output error
+ * @retval true If success AND `kmsprov` requests automatic Azure credentials
+ * @retval false Otherwise. Check error->code for failure.
+ */
+static bool
+_check_azure_kms_auto (const bson_t *kmsprov, bson_error_t *error)
+{
+   if (error) {
+      *error = (bson_error_t){0};
+   }
+
+   bson_iter_t iter;
+   if (!bson_iter_init_find (&iter, kmsprov, "azure")) {
+      return false;
+   }
+
+   bson_t azure_subdoc;
+   if (!_mongoc_iter_document_as_bson (&iter, &azure_subdoc, error)) {
+      return false;
+   }
+
+   return bson_empty (&azure_subdoc);
+}
+
+/**
  * @brief Attempt to load AWS credentials from the environment and insert them
  * into the given kmsProviders bson document on the "aws" property.
  *
  * @param out A kmsProviders object to update
  * @param error An error-out parameter
- * @return true If there was no error and we successfully loaded credentials.
- * @return false If there was an error while updating the BSON data or obtaining
+ * @retval true If there was no error and we successfully loaded credentials.
+ * @retval false If there was an error while updating the BSON data or obtaining
  * credentials.
  */
 static bool
@@ -664,6 +804,164 @@ _try_add_aws_from_env (bson_t *out, bson_error_t *error)
    // Good!
    _mongoc_aws_credentials_cleanup (&creds);
    return true;
+}
+
+/**
+ * @brief Attempt to request a new Azure access token from the IMDS HTTP server
+ *
+ * @param out The token to populate. Must later be destroyed by the caller.
+ * @param error An output parameter to capture any errors
+ * @retval true Upon successfully obtaining and parsing a token
+ * @retval false If any error occurs.
+ */
+static bool
+_request_new_azure_token (mcd_azure_access_token *out, bson_error_t *error)
+{
+   return mcd_azure_access_token_from_imds (out,
+                                            NULL, // Use the default host
+                                            0,    //  Default port as well
+                                            NULL, // No extra headers
+                                            error);
+}
+
+/**
+ * @brief Attempt to load an Azure access token from the environment and append
+ * them to the kmsProviders
+ *
+ * @param out A kmsProviders object to update
+ * @param error An error-out parameter
+ * @retval true If there was no error and we loaded credentials
+ * @retval false If there was an error obtaining or appending credentials
+ */
+static bool
+_try_add_azure_from_env (_mongoc_crypt_t *crypt,
+                         bson_t *out,
+                         bson_error_t *error)
+{
+   if (crypt->azure_token.access_token) {
+      // The access-token is non-null, so we may have one cached.
+      mcd_time_point one_min_from_now = mcd_later (mcd_now (), mcd_minutes (1));
+      mcd_time_point expires_at = mcd_later (crypt->azure_token_issued_at,
+                                             crypt->azure_token.expires_in);
+      if (mcd_time_compare (expires_at, one_min_from_now) >= 0) {
+         // The token is still valid for at least another minute
+      } else {
+         // The token will expire soon. Destroy it, and below we will below ask
+         // IMDS for a new one.
+         mcd_azure_access_token_destroy (&crypt->azure_token);
+      }
+   }
+
+   if (crypt->azure_token.access_token == NULL) {
+      // There is no access token in our cache.
+      // Save the current time point as the "issue time" of the token, even
+      // though it will take some time for the HTTP request to hit the metadata
+      // server. This time is only used to track token expiry. IMDS gives us a
+      // number of seconds that the token will be valid relative to its issue
+      // time. Avoid reliance on system clocks by comparing the issue time to an
+      // abstract monotonic "now"
+      crypt->azure_token_issued_at = mcd_now ();
+      // Get the token:
+      if (!_request_new_azure_token (&crypt->azure_token, error)) {
+         return false;
+      }
+   }
+
+   // Build the new KMS credentials
+   bson_t new_azure_creds = BSON_INITIALIZER;
+   const bool okay = BSON_APPEND_UTF8 (&new_azure_creds,
+                                       "accessToken",
+                                       crypt->azure_token.access_token) &&
+                     BSON_APPEND_DOCUMENT (out, "azure", &new_azure_creds);
+   bson_destroy (&new_azure_creds);
+   if (!okay) {
+      bson_set_error (error,
+                      MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                      MONGOC_ERROR_BSON_INVALID,
+                      "Failed to build new 'azure' credentials");
+   }
+
+   return okay;
+}
+
+/**
+ * @brief Check whether the given kmsProviders object requests automatic GCP
+ * credentials
+ *
+ * @param kmsprov The input kmsProviders that may have an "gcp" property
+ * @param error An output error
+ * @retval true If success AND `kmsprov` requests automatic GCP credentials
+ * @retval false Otherwise. Check error->code for failure.
+ */
+static bool
+_check_gcp_kms_auto (const bson_t *kmsprov, bson_error_t *error)
+{
+   if (error) {
+      *error = (bson_error_t){0};
+   }
+
+   bson_iter_t iter;
+   if (!bson_iter_init_find (&iter, kmsprov, "gcp")) {
+      return false;
+   }
+
+   bson_t gcp_subdoc;
+   if (!_mongoc_iter_document_as_bson (&iter, &gcp_subdoc, error)) {
+      return false;
+   }
+
+   return bson_empty (&gcp_subdoc);
+}
+
+/**
+ * @brief Attempt to request a new GCP access token from the HTTP server
+ *
+ * @param out The token to populate. Must later be destroyed by the caller.
+ * @param error An output parameter to capture any errors
+ * @retval true Upon successfully obtaining and parsing a token
+ * @retval false If any error occurs.
+ */
+static bool
+_request_new_gcp_token (gcp_service_account_token *out, bson_error_t *error)
+{
+   return (gcp_access_token_from_gcp_server (out, NULL, 0, NULL, error));
+}
+
+/**
+ * @brief Attempt to load an GCP access token from the environment and append
+ * them to the kmsProviders
+ *
+ * @param out A kmsProviders object to update
+ * @param error An error-out parameter
+ * @retval true If there was no error and we loaded credentials
+ * @retval false If there was an error obtaining or appending credentials
+ */
+static bool
+_try_add_gcp_from_env (bson_t *out, bson_error_t *error)
+{
+   // Not caching gcp tokens, so we will always request a new one from the gcp
+   // server.
+   gcp_service_account_token gcp_token;
+   if (!_request_new_gcp_token (&gcp_token, error)) {
+      return false;
+   }
+
+   // Build the new KMS credentials
+   bson_t new_gcp_creds = BSON_INITIALIZER;
+   const bool okay = BSON_APPEND_UTF8 (&new_gcp_creds,
+                                       "accessToken",
+                                       gcp_token.access_token) &&
+                     BSON_APPEND_DOCUMENT (out, "gcp", &new_gcp_creds);
+   bson_destroy (&new_gcp_creds);
+   gcp_access_token_destroy (&gcp_token);
+   if (!okay) {
+      bson_set_error (error,
+                      MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                      MONGOC_ERROR_BSON_INVALID,
+                      "Failed to build new 'gcp' credentials");
+   }
+
+   return okay;
 }
 
 static bool
@@ -703,6 +1001,38 @@ _state_need_kms_credentials (_state_machine_t *sm, bson_error_t *error)
       // Attempt instead to load the AWS credentials from the environment:
       if (!_try_add_aws_from_env (&creds, error)) {
          // Error while trying to add AWS credentials
+         goto fail;
+      }
+   }
+
+   // Whether the callback provided Azure credentials
+   const bool cb_provided_azure = bson_iter_init_find (&iter, &creds, "azure");
+   // Whether the original kmsProviders requested auto-Azure credentials:
+   const bool orig_wants_auto_azure =
+      _check_azure_kms_auto (&sm->crypt->kms_providers, error);
+   if (error->code) {
+      // _check_azure_kms_auto failed
+      goto fail;
+   }
+   const bool wants_auto_azure = orig_wants_auto_azure && !cb_provided_azure;
+   if (wants_auto_azure) {
+      if (!_try_add_azure_from_env (sm->crypt, &creds, error)) {
+         goto fail;
+      }
+   }
+
+   // Whether the callback provided GCP credentials
+   const bool cb_provided_gcp = bson_iter_init_find (&iter, &creds, "gcp");
+   // Whether the original kmsProviders requested auto-GCP credentials:
+   const bool orig_wants_auto_gcp =
+      _check_gcp_kms_auto (&sm->crypt->kms_providers, error);
+   if (error->code) {
+      // _check_gcp_kms_auto failed
+      goto fail;
+   }
+   const bool wants_auto_gcp = orig_wants_auto_gcp && !cb_provided_gcp;
+   if (wants_auto_gcp) {
+      if (!_try_add_gcp_from_env (&creds, error)) {
          goto fail;
       }
    }
@@ -884,6 +1214,10 @@ _parse_one_tls_opts (bson_iter_t *iter,
          continue;
       }
 
+      if (0 == bson_strcasecmp (key, MONGOC_URI_TLSDISABLEOCSPENDPOINTCHECK)) {
+         continue;
+      }
+
       bson_set_error (
          error,
          MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
@@ -1012,6 +1346,29 @@ _parse_all_tls_opts (_mongoc_crypt_t *crypt,
          continue;
       }
 
+      const char *colon_pos = strstr (key, ":");
+      if (colon_pos != NULL) {
+         // Parse TLS options for a named KMS provider.
+         if (mcd_mapof_kmsid_to_tlsopts_has (crypt->kmsid_to_tlsopts, key)) {
+            bson_set_error (error,
+                            MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
+                            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
+                            "Error parsing duplicate TLS options for %s",
+                            key);
+            goto fail;
+         }
+
+         mongoc_ssl_opt_t tlsopts = {0};
+         if (!_parse_one_tls_opts (&iter, &tlsopts, error)) {
+            _mongoc_ssl_opts_cleanup (&tlsopts, true /* free_internal */);
+            goto fail;
+         }
+         mcd_mapof_kmsid_to_tlsopts_insert (
+            crypt->kmsid_to_tlsopts, key, &tlsopts);
+         _mongoc_ssl_opts_cleanup (&tlsopts, true /* free_internal */);
+         continue;
+      }
+
       bson_set_error (error,
                       MONGOC_ERROR_CLIENT_SIDE_ENCRYPTION,
                       MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_ARG,
@@ -1079,6 +1436,7 @@ _mongoc_crypt_new (const bson_t *kms_providers,
 
    /* Create the handle to libmongocrypt. */
    crypt = bson_malloc0 (sizeof (*crypt));
+   crypt->kmsid_to_tlsopts = mcd_mapof_kmsid_to_tlsopts_new ();
    crypt->handle = mongocrypt_new ();
 
    // Stash away a copy of the user's kmsProviders in case we need to lazily
@@ -1200,6 +1558,8 @@ _mongoc_crypt_destroy (_mongoc_crypt_t *crypt)
    _mongoc_ssl_opts_cleanup (&crypt->azure_tls_opt, true /* free_internal */);
    _mongoc_ssl_opts_cleanup (&crypt->gcp_tls_opt, true /* free_internal */);
    bson_destroy (&crypt->kms_providers);
+   mcd_azure_access_token_destroy (&crypt->azure_token);
+   mcd_mapof_kmsid_to_tlsopts_destroy (crypt->kmsid_to_tlsopts);
    bson_free (crypt);
 }
 
@@ -1217,6 +1577,7 @@ _mongoc_crypt_auto_encrypt (_mongoc_crypt_t *crypt,
    mongocrypt_binary_t *cmd_bin = NULL;
    bool ret = false;
 
+   BSON_ASSERT_PARAM (collinfo_client);
    bson_init (cmd_out);
 
    state_machine = _state_machine_new (crypt);
@@ -1290,26 +1651,31 @@ fail:
    return ret;
 }
 
-bool
-_mongoc_crypt_explicit_encrypt (_mongoc_crypt_t *crypt,
+// _create_explicit_state_machine_t creates a _state_machine_t for explicit
+// encryption. The returned state machine may be used encrypting a value or
+// encrypting an expression.
+static _state_machine_t *
+_create_explicit_state_machine (_mongoc_crypt_t *crypt,
                                 mongoc_collection_t *keyvault_coll,
                                 const char *algorithm,
                                 const bson_value_t *keyid,
-                                char *keyaltname,
+                                const char *keyaltname,
                                 const char *query_type,
                                 const int64_t *contention_factor,
-                                const bson_value_t *value_in,
-                                bson_value_t *value_out,
+                                const bson_t *range_opts,
                                 bson_error_t *error)
 {
-   _state_machine_t *state_machine = NULL;
-   bson_t *to_encrypt_doc = NULL;
-   mongocrypt_binary_t *to_encrypt_bin = NULL;
-   bson_iter_t iter;
-   bool ret = false;
-   bson_t result = BSON_INITIALIZER;
+   BSON_ASSERT_PARAM (crypt);
+   BSON_ASSERT_PARAM (keyvault_coll);
+   BSON_ASSERT (algorithm || true);
+   BSON_ASSERT (keyid || true);
+   BSON_ASSERT (keyaltname || true);
+   BSON_ASSERT (query_type || true);
+   BSON_ASSERT (range_opts || true);
+   BSON_ASSERT (error || true);
 
-   value_out->value_type = BSON_TYPE_EOD;
+   _state_machine_t *state_machine = NULL;
+   bool ok = false;
 
    /* Create the context for the operation. */
    state_machine = _state_machine_new (crypt);
@@ -1323,6 +1689,19 @@ _mongoc_crypt_explicit_encrypt (_mongoc_crypt_t *crypt,
    if (!mongocrypt_ctx_setopt_algorithm (state_machine->ctx, algorithm, -1)) {
       _ctx_check_error (state_machine->ctx, error, true);
       goto fail;
+   }
+
+   if (range_opts != NULL) {
+      /* mongocrypt error checks and parses range options */
+      mongocrypt_binary_t *binary_range_opts = mongocrypt_binary_new_from_data (
+         (uint8_t *) bson_get_data (range_opts), range_opts->len);
+      if (!mongocrypt_ctx_setopt_algorithm_range (state_machine->ctx,
+                                                  binary_range_opts)) {
+         mongocrypt_binary_destroy (binary_range_opts);
+         _ctx_check_error (state_machine->ctx, error, true);
+         goto fail;
+      }
+      mongocrypt_binary_destroy (binary_range_opts);
    }
 
    if (query_type != NULL) {
@@ -1380,6 +1759,61 @@ _mongoc_crypt_explicit_encrypt (_mongoc_crypt_t *crypt,
       }
    }
 
+   ok = true;
+fail:
+   if (!ok) {
+      _state_machine_destroy (state_machine);
+      state_machine = NULL;
+   }
+   return state_machine;
+}
+
+bool
+_mongoc_crypt_explicit_encrypt (_mongoc_crypt_t *crypt,
+                                mongoc_collection_t *keyvault_coll,
+                                const char *algorithm,
+                                const bson_value_t *keyid,
+                                const char *keyaltname,
+                                const char *query_type,
+                                const int64_t *contention_factor,
+                                const bson_t *range_opts,
+                                const bson_value_t *value_in,
+                                bson_value_t *value_out,
+                                bson_error_t *error)
+{
+   BSON_ASSERT_PARAM (crypt);
+   BSON_ASSERT_PARAM (keyvault_coll);
+   BSON_ASSERT (algorithm || true);
+   BSON_ASSERT (keyid || true);
+   BSON_ASSERT (keyaltname || true);
+   BSON_ASSERT (query_type || true);
+   BSON_ASSERT (range_opts || true);
+   BSON_ASSERT_PARAM (value_in);
+   BSON_ASSERT_PARAM (value_out);
+   BSON_ASSERT (error || true);
+
+   _state_machine_t *state_machine = NULL;
+   bson_t *to_encrypt_doc = NULL;
+   mongocrypt_binary_t *to_encrypt_bin = NULL;
+   bson_iter_t iter;
+   bool ret = false;
+   bson_t result = BSON_INITIALIZER;
+
+   value_out->value_type = BSON_TYPE_EOD;
+
+   state_machine = _create_explicit_state_machine (crypt,
+                                                   keyvault_coll,
+                                                   algorithm,
+                                                   keyid,
+                                                   keyaltname,
+                                                   query_type,
+                                                   contention_factor,
+                                                   range_opts,
+                                                   error);
+   if (!state_machine) {
+      goto fail;
+   }
+
    to_encrypt_doc = bson_new ();
    BSON_APPEND_VALUE (to_encrypt_doc, "v", value_in);
    to_encrypt_bin = mongocrypt_binary_new_from_data (
@@ -1400,13 +1834,110 @@ _mongoc_crypt_explicit_encrypt (_mongoc_crypt_t *crypt,
       bson_set_error (error,
                       MONGOC_ERROR_CLIENT,
                       MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_STATE,
-                      "encrypted result unexpected");
+                      "encrypted result unexpected: no 'v' found");
       goto fail;
    } else {
       const bson_value_t *tmp;
 
       tmp = bson_iter_value (&iter);
       bson_value_copy (tmp, value_out);
+   }
+
+   ret = true;
+fail:
+   _state_machine_destroy (state_machine);
+   mongocrypt_binary_destroy (to_encrypt_bin);
+   bson_destroy (to_encrypt_doc);
+   bson_destroy (&result);
+   return ret;
+}
+
+bool
+_mongoc_crypt_explicit_encrypt_expression (_mongoc_crypt_t *crypt,
+                                           mongoc_collection_t *keyvault_coll,
+                                           const char *algorithm,
+                                           const bson_value_t *keyid,
+                                           const char *keyaltname,
+                                           const char *query_type,
+                                           const int64_t *contention_factor,
+                                           const bson_t *range_opts,
+                                           const bson_t *expr_in,
+                                           bson_t *expr_out,
+                                           bson_error_t *error)
+{
+   BSON_ASSERT_PARAM (crypt);
+   BSON_ASSERT_PARAM (keyvault_coll);
+   BSON_ASSERT (algorithm || true);
+   BSON_ASSERT (keyid || true);
+   BSON_ASSERT (keyaltname || true);
+   BSON_ASSERT (query_type || true);
+   BSON_ASSERT (range_opts || true);
+   BSON_ASSERT_PARAM (expr_in);
+   BSON_ASSERT_PARAM (expr_out);
+   BSON_ASSERT (error || true);
+
+   _state_machine_t *state_machine = NULL;
+   bson_t *to_encrypt_doc = NULL;
+   mongocrypt_binary_t *to_encrypt_bin = NULL;
+   bson_iter_t iter;
+   bool ret = false;
+   bson_t result = BSON_INITIALIZER;
+
+   bson_init (expr_out);
+
+   state_machine = _create_explicit_state_machine (crypt,
+                                                   keyvault_coll,
+                                                   algorithm,
+                                                   keyid,
+                                                   keyaltname,
+                                                   query_type,
+                                                   contention_factor,
+                                                   range_opts,
+                                                   error);
+   if (!state_machine) {
+      goto fail;
+   }
+
+   to_encrypt_doc = bson_new ();
+   BSON_APPEND_DOCUMENT (to_encrypt_doc, "v", expr_in);
+   to_encrypt_bin = mongocrypt_binary_new_from_data (
+      (uint8_t *) bson_get_data (to_encrypt_doc), to_encrypt_doc->len);
+   if (!mongocrypt_ctx_explicit_encrypt_expression_init (state_machine->ctx,
+                                                         to_encrypt_bin)) {
+      _ctx_check_error (state_machine->ctx, error, true);
+      goto fail;
+   }
+
+   bson_destroy (&result);
+   if (!_state_machine_run (state_machine, &result, error)) {
+      goto fail;
+   }
+
+   /* extract document */
+   if (!bson_iter_init_find (&iter, &result, "v")) {
+      bson_set_error (error,
+                      MONGOC_ERROR_CLIENT,
+                      MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_STATE,
+                      "encrypted result unexpected: no 'v' found");
+      goto fail;
+   } else {
+      bson_t tmp;
+
+      if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+         bson_set_error (
+            error,
+            MONGOC_ERROR_CLIENT,
+            MONGOC_ERROR_CLIENT_INVALID_ENCRYPTION_STATE,
+            "encrypted result unexpected: 'v' is not a document, got: %s",
+            _mongoc_bson_type_to_str (bson_iter_type (&iter)));
+         goto fail;
+      }
+
+      if (!_mongoc_iter_document_as_bson (&iter, &tmp, error)) {
+         goto fail;
+      }
+
+      bson_copy_to (&tmp, expr_out);
    }
 
    ret = true;
@@ -1517,9 +2048,7 @@ _mongoc_crypt_create_datakey (_mongoc_crypt_t *crypt,
    }
 
    if (keyaltnames) {
-      int i;
-
-      for (i = 0; i < keyaltnames_count; i++) {
+      for (uint32_t i = 0u; i < keyaltnames_count; i++) {
          bool keyaltname_ret;
          mongocrypt_binary_t *keyaltname_bin;
          bson_t *keyaltname_doc;
@@ -1583,6 +2112,9 @@ _mongoc_crypt_rewrap_many_datakey (_mongoc_crypt_t *crypt,
    const bson_t empty_bson = BSON_INITIALIZER;
    mongocrypt_binary_t *filter_bin = NULL;
    bool ret = false;
+
+   // Caller must ensure `provider` is provided alongside `master_key`.
+   BSON_ASSERT (!master_key || provider);
 
    bson_init (doc_out);
    state_machine = _state_machine_new (crypt);

@@ -20,6 +20,7 @@
 #include "mongoc-error-private.h"
 #include "mongoc-rpc-private.h"
 #include "mongoc-client-private.h"
+#include "mongoc-server-description-private.h"
 
 bool
 mongoc_error_has_label (const bson_t *reply, const char *label)
@@ -40,27 +41,11 @@ mongoc_error_has_label (const bson_t *reply, const char *label)
       }
    }
 
-   if (!bson_iter_init_find (&iter, reply, "writeConcernError")) {
-      return false;
-   }
-
-   BSON_ASSERT (bson_iter_recurse (&iter, &iter));
-
-   if (bson_iter_find (&iter, "errorLabels") &&
-       bson_iter_recurse (&iter, &error_labels)) {
-      while (bson_iter_next (&error_labels)) {
-         if (BSON_ITER_HOLDS_UTF8 (&error_labels) &&
-             !strcmp (bson_iter_utf8 (&error_labels, NULL), label)) {
-            return true;
-         }
-      }
-   }
-
    return false;
 }
 
-static bool
-_mongoc_error_is_server (bson_error_t *error)
+bool
+_mongoc_error_is_server (const bson_error_t *error)
 {
    if (!error) {
       return false;
@@ -96,7 +81,7 @@ _mongoc_write_error_is_retryable (bson_error_t *error)
    }
 }
 
-static void
+void
 _mongoc_write_error_append_retryable_label (bson_t *reply)
 {
    bson_t reply_local = BSON_INITIALIZER;
@@ -118,7 +103,7 @@ void
 _mongoc_write_error_handle_labels (bool cmd_ret,
                                    const bson_error_t *cmd_err,
                                    bson_t *reply,
-                                   int32_t server_max_wire_version)
+                                   const mongoc_server_description_t *sd)
 {
    bson_error_t error;
 
@@ -131,14 +116,21 @@ _mongoc_write_error_handle_labels (bool cmd_ret,
       return;
    }
 
-   if (server_max_wire_version >= WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL) {
+   if (sd->max_wire_version >= WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL) {
       return;
    }
 
-   /* check for a server error. */
-   if (_mongoc_cmd_check_ok_no_wce (
-          reply, MONGOC_ERROR_API_VERSION_2, &error)) {
-      return;
+   /* Check for a server error. Do not consult writeConcernError for pre-4.4
+    * mongos. */
+   if (sd->type == MONGOC_SERVER_MONGOS) {
+      if (_mongoc_cmd_check_ok (reply, MONGOC_ERROR_API_VERSION_2, &error)) {
+         return;
+      }
+   } else {
+      if (_mongoc_cmd_check_ok_no_wce (
+             reply, MONGOC_ERROR_API_VERSION_2, &error)) {
+         return;
+      }
    }
 
    if (_mongoc_write_error_is_retryable (&error)) {
@@ -184,12 +176,14 @@ _mongoc_read_error_get_type (bool cmd_ret,
    }
 
    switch (error.code) {
+   case MONGOC_SERVER_ERR_EXCEEDEDTIMELIMIT:
    case MONGOC_SERVER_ERR_INTERRUPTEDATSHUTDOWN:
    case MONGOC_SERVER_ERR_INTERRUPTEDDUETOREPLSTATECHANGE:
    case MONGOC_SERVER_ERR_NOTPRIMARY:
    case MONGOC_SERVER_ERR_NOTPRIMARYNOSECONDARYOK:
    case MONGOC_SERVER_ERR_NOTPRIMARYORSECONDARY:
    case MONGOC_SERVER_ERR_PRIMARYSTEPPEDDOWN:
+   case MONGOC_SERVER_ERR_READCONCERNMAJORITYNOTAVAILABLEYET:
    case MONGOC_SERVER_ERR_SHUTDOWNINPROGRESS:
    case MONGOC_SERVER_ERR_HOSTNOTFOUND:
    case MONGOC_SERVER_ERR_HOSTUNREACHABLE:
@@ -212,28 +206,23 @@ _mongoc_error_copy_labels_and_upsert (const bson_t *src,
 {
    bson_iter_t iter;
    bson_iter_t src_label;
-   bson_t dst_labels;
-   char str[16];
-   uint32_t i = 0;
-   const char *key;
+   bson_array_builder_t *dst_labels;
 
-   BSON_APPEND_ARRAY_BEGIN (dst, "errorLabels", &dst_labels);
-   BSON_APPEND_UTF8 (&dst_labels, "0", label);
+   BSON_APPEND_ARRAY_BUILDER_BEGIN (dst, "errorLabels", &dst_labels);
+   bson_array_builder_append_utf8 (dst_labels, label, -1);
 
    /* append any other errorLabels already in "src" */
    if (bson_iter_init_find (&iter, src, "errorLabels") &&
        bson_iter_recurse (&iter, &src_label)) {
       while (bson_iter_next (&src_label) && BSON_ITER_HOLDS_UTF8 (&src_label)) {
          if (strcmp (bson_iter_utf8 (&src_label, NULL), label) != 0) {
-            i++;
-            bson_uint32_to_string (i, &key, str, sizeof str);
-            BSON_APPEND_UTF8 (
-               &dst_labels, key, bson_iter_utf8 (&src_label, NULL));
+            bson_array_builder_append_utf8 (
+               dst_labels, bson_iter_utf8 (&src_label, NULL), -1);
          }
       }
    }
 
-   bson_append_array_end (dst, &dst_labels);
+   bson_append_array_builder_end (dst, dst_labels);
 }
 
 /* Defined in SDAM spec under "Application Errors".
@@ -270,7 +259,8 @@ _mongoc_error_is_not_primary (bson_error_t *error)
    case MONGOC_SERVER_ERR_NOTPRIMARYNOSECONDARYOK:
    case MONGOC_SERVER_ERR_LEGACYNOTPRIMARY:
       return true;
-      /* All errors where no code was found are marked as MONGOC_ERROR_QUERY_FAILURE */
+      /* All errors where no code was found are marked as
+       * MONGOC_ERROR_QUERY_FAILURE */
    case MONGOC_ERROR_QUERY_FAILURE:
       return NULL != strstr (error->message, "not master");
    default:
@@ -291,7 +281,8 @@ _mongoc_error_is_recovering (bson_error_t *error)
    case MONGOC_SERVER_ERR_PRIMARYSTEPPEDDOWN:
    case MONGOC_SERVER_ERR_SHUTDOWNINPROGRESS:
       return true;
-   /* All errors where no code was found are marked as MONGOC_ERROR_QUERY_FAILURE */
+   /* All errors where no code was found are marked as
+    * MONGOC_ERROR_QUERY_FAILURE */
    case MONGOC_ERROR_QUERY_FAILURE:
       return NULL != strstr (error->message, "not master or secondary") ||
              NULL != strstr (error->message, "node is recovering");
@@ -324,4 +315,15 @@ _mongoc_error_is_network (const bson_error_t *error)
    }
 
    return false;
+}
+
+bool
+_mongoc_error_is_auth (const bson_error_t *error)
+{
+   if (!error) {
+      return false;
+   }
+
+   return error->domain == MONGOC_ERROR_CLIENT &&
+          error->code == MONGOC_ERROR_CLIENT_AUTHENTICATE;
 }

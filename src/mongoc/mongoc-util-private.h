@@ -125,6 +125,9 @@ _mongoc_validate_update (const bson_t *update,
                          bson_validate_flags_t vflags,
                          bson_error_t *error);
 
+bool
+mongoc_ends_with (const char *str, const char *suffix);
+
 void
 mongoc_lowercase (const char *src, char *buf /* OUT */);
 
@@ -138,8 +141,8 @@ void
 _mongoc_bson_array_copy_labels_to (const bson_t *reply, bson_t *dst);
 
 void
-_mongoc_bson_init_with_transient_txn_error (const mongoc_client_session_t *cs,
-                                            bson_t *reply);
+_mongoc_add_transient_txn_error (const mongoc_client_session_t *cs,
+                                 bson_t *reply);
 
 bool
 _mongoc_document_is_pipeline (const bson_t *document);
@@ -161,6 +164,33 @@ _mongoc_document_is_pipeline (const bson_t *document);
  */
 char *
 _mongoc_getenv (const char *name);
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_setenv --
+ *
+ *       Set or overwrite the value of an environment variable.
+ *
+ * Returns:
+ *       False if setting the variable was unsuccessful.
+ *
+ *--------------------------------------------------------------------------
+ */
+bool
+_mongoc_setenv (const char *name, const char *value);
+
+void
+bson_copy_to_including_noinit (const bson_t *src,
+                               bson_t *dst,
+                               const char *first_include,
+                               ...) BSON_GNUC_NULL_TERMINATED;
+
+void
+bson_copy_to_including_noinit_va (const bson_t *src,
+                                  bson_t *dst,
+                                  const char *first_include,
+                                  va_list args);
 
 /* Returns a uniformly-distributed uint32_t generated using
  * `_mongoc_rand_bytes()` if a source of cryptographic randomness is available
@@ -240,6 +270,12 @@ bool
 _mongoc_iter_document_as_bson (const bson_iter_t *iter,
                                bson_t *bson,
                                bson_error_t *error);
+
+uint8_t *
+hex_to_bin (const char *hex, uint32_t *len);
+
+char *
+bin_to_hex (const uint8_t *bin, uint32_t len);
 
 BSON_END_DECLS
 

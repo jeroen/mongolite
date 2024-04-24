@@ -138,16 +138,59 @@ _mongoc_cyrus_get_user (mongoc_cyrus_t *sasl,
    return (sasl->credentials.user != NULL) ? SASL_OK : SASL_FAIL;
 }
 
+static const char *
+sasl_verify_type_to_str (sasl_verify_type_t type)
+{
+   switch (type) {
+   case SASL_VRFY_PLUGIN:
+      return "SASL_VRFY_PLUGIN";
+   case SASL_VRFY_CONF:
+      return "SASL_VRFY_CONF";
+   case SASL_VRFY_PASSWD:
+      return "SASL_VRFY_PASSWD";
+   case SASL_VRFY_OTHER:
+      return "SASL_VRFY_OTHER";
+   default:
+      return "Unknown";
+   }
+}
+
+int
+_mongoc_cyrus_verifyfile_cb (void *context, const char *file, sasl_verify_type_t type)
+{
+   TRACE ("Attempting to load file: `%s`. Type is %s\n", file, sasl_verify_type_to_str (type));
+
+#ifdef _WIN32
+   // On Windows, Cyrus SASL hard-codes the plugin path.
+   // Only permit loading plugin from user configured path to prevent unintentional library loading.
+   if (type == SASL_VRFY_PLUGIN) {
+      const char *path_prefix = MONGOC_CYRUS_PLUGIN_PATH_PREFIX;
+      bool has_valid_prefix = (path_prefix && file == strstr (file, path_prefix));
+      // Check if `file` has necessary prefix.
+      if (has_valid_prefix) {
+         return SASL_OK;
+      }
+      MONGOC_WARNING ("Refusing to load Cyrus SASL plugin at: '%s'. If needed, set CYRUS_PLUGIN_PATH_PREFIX (currently "
+                      "'%s') to the absolute path prefix of the plugin during build configuration of the C Driver.",
+                      file,
+                      path_prefix ? path_prefix : "(unset)");
+      return SASL_CONTINUE;
+   }
+#endif
+
+   return SASL_OK;
+}
+
 
 void
 _mongoc_cyrus_init (mongoc_cyrus_t *sasl)
 {
-   sasl_callback_t callbacks[] = {
-      {SASL_CB_AUTHNAME, SASL_CALLBACK_FN (_mongoc_cyrus_get_user), sasl},
-      {SASL_CB_USER, SASL_CALLBACK_FN (_mongoc_cyrus_get_user), sasl},
-      {SASL_CB_PASS, SASL_CALLBACK_FN (_mongoc_cyrus_get_pass), sasl},
-      {SASL_CB_CANON_USER, SASL_CALLBACK_FN (_mongoc_cyrus_canon_user), sasl},
-      {SASL_CB_LIST_END}};
+   sasl_callback_t callbacks[] = {{SASL_CB_AUTHNAME, SASL_CALLBACK_FN (_mongoc_cyrus_get_user), sasl},
+                                  {SASL_CB_USER, SASL_CALLBACK_FN (_mongoc_cyrus_get_user), sasl},
+                                  {SASL_CB_PASS, SASL_CALLBACK_FN (_mongoc_cyrus_get_pass), sasl},
+                                  {SASL_CB_CANON_USER, SASL_CALLBACK_FN (_mongoc_cyrus_canon_user), sasl},
+                                  {SASL_CB_VERIFYFILE, SASL_CALLBACK_FN (_mongoc_cyrus_verifyfile_cb), NULL},
+                                  {SASL_CB_LIST_END}};
 
    BSON_ASSERT (sasl);
 
@@ -303,8 +346,6 @@ _mongoc_cyrus_start (mongoc_cyrus_t *sasl,
    const char *raw = NULL;
    unsigned raw_len = 0;
    int status;
-   int b64_ret;
-   int outbuf_capacity;
 
    BSON_ASSERT (sasl);
    BSON_ASSERT (outbuf);
@@ -349,19 +390,21 @@ _mongoc_cyrus_start (mongoc_cyrus_t *sasl,
    }
 
    *outbuflen = 0;
-   outbuf_capacity = mcommon_b64_ntop_calculate_target_size (raw_len);
+   const size_t outbuf_capacity =
+      mcommon_b64_ntop_calculate_target_size (raw_len);
    *outbuf = bson_malloc (outbuf_capacity);
 
-   b64_ret = mcommon_b64_ntop (
+   const int b64_ret = mcommon_b64_ntop (
       (uint8_t *) raw, raw_len, (char *) *outbuf, outbuf_capacity);
-   if (b64_ret == -1) {
+   if (b64_ret < 0) {
       bson_set_error (error,
                       MONGOC_ERROR_SASL,
                       MONGOC_ERROR_CLIENT_AUTHENTICATE,
                       "Unable to base64 encode client SASL message");
       return false;
    } else {
-      *outbuflen = b64_ret;
+      BSON_ASSERT (bson_in_range_signed (uint32_t, b64_ret));
+      *outbuflen = (uint32_t) b64_ret;
    }
 
    return true;
@@ -379,11 +422,6 @@ _mongoc_cyrus_step (mongoc_cyrus_t *sasl,
    const char *raw = NULL;
    unsigned rawlen = 0;
    int status;
-   char *decoded; /* post base64 decoded data */
-   uint32_t decoded_len;
-   uint32_t decoded_capacity;
-   uint32_t outbuf_capacity;
-   int b64_ret;
 
    BSON_ASSERT (sasl);
    if (sasl->step > 1) {
@@ -415,24 +453,28 @@ _mongoc_cyrus_step (mongoc_cyrus_t *sasl,
       return false;
    }
 
-   decoded_len = 0;
-   decoded_capacity = mcommon_b64_pton_calculate_target_size (inbuflen);
-   decoded = bson_malloc (decoded_capacity);
-   b64_ret =
-      mcommon_b64_pton ((char *) inbuf, (uint8_t *) decoded, decoded_capacity);
-   if (b64_ret == -1) {
-      bson_set_error (error,
-                      MONGOC_ERROR_SASL,
-                      MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                      "Unable to base64 decode client SASL message");
-      bson_free (decoded);
-      bson_free (*outbuf);
-      *outbuf = NULL;
-      return false;
-   } else {
-      /* Set the output length to the number of bytes actually decoded to
-       * excluding the NULL. */
-      decoded_len = b64_ret;
+   unsigned int decoded_len = 0;
+   const size_t decoded_capacity =
+      mcommon_b64_pton_calculate_target_size (inbuflen);
+
+   char *const decoded = bson_malloc (decoded_capacity);
+   {
+      const int b64_ret = mcommon_b64_pton (
+         (char *) inbuf, (uint8_t *) decoded, decoded_capacity);
+      if (b64_ret < 0) {
+         bson_set_error (error,
+                         MONGOC_ERROR_SASL,
+                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                         "Unable to base64 decode client SASL message");
+         bson_free (decoded);
+         bson_free (*outbuf);
+         *outbuf = NULL;
+         return false;
+      } else {
+         /* Set the output length to the number of bytes actually decoded to
+          * excluding the NULL. */
+         decoded_len = (unsigned int) b64_ret;
+      }
    }
 
    TRACE ("%s", "Running client_step");
@@ -446,23 +488,27 @@ _mongoc_cyrus_step (mongoc_cyrus_t *sasl,
    }
 
    *outbuflen = 0;
-   outbuf_capacity = mcommon_b64_ntop_calculate_target_size (rawlen);
+   const size_t outbuf_capacity =
+      mcommon_b64_ntop_calculate_target_size (rawlen);
    *outbuf = bson_malloc0 (outbuf_capacity);
-   b64_ret = mcommon_b64_ntop (
-      (const uint8_t *) raw, rawlen, (char *) *outbuf, outbuf_capacity);
-   if (b64_ret == -1) {
-      bson_set_error (error,
-                      MONGOC_ERROR_SASL,
-                      MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                      "Unable to base64 encode client SASL message");
-      bson_free (decoded);
-      bson_free (*outbuf);
-      *outbuf = NULL;
-      return false;
-   } else {
-      /* Set the output length to the number of characters written excluding the
-       * NULL. */
-      *outbuflen = b64_ret;
+   {
+      const int b64_ret = mcommon_b64_ntop (
+         (const uint8_t *) raw, rawlen, (char *) *outbuf, outbuf_capacity);
+      if (b64_ret < 0) {
+         bson_set_error (error,
+                         MONGOC_ERROR_SASL,
+                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                         "Unable to base64 encode client SASL message");
+         bson_free (decoded);
+         bson_free (*outbuf);
+         *outbuf = NULL;
+         return false;
+      } else {
+         /* Set the output length to the number of characters written excluding
+          * the NULL. */
+         BSON_ASSERT (bson_in_range_signed (uint32_t, b64_ret));
+         *outbuflen = (uint32_t) b64_ret;
+      }
    }
 
    bson_free (decoded);

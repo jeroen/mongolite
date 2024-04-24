@@ -1,9 +1,10 @@
 PKG_CPPFLAGS = \
-	-I. -Icommon -Ikms \
+	-I. -Icommon -Ikms -Iutf8proc \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
 	-DMONGOC_ENABLE_SSL_SECURE_CHANNEL -DMONGOC_ENABLE_CRYPTO_CNG \
 	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_CNG \
-	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO
+	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO \
+	-DKMS_MESSAGE_LITTLE_ENDIAN -DUTF8PROC_STATIC
 
 PKG_LIBS = \
 	-L. -Lmongoc -lstatmongoc \
@@ -35,9 +36,9 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-read-concern.o mongoc/mongoc-secure-channel.o mongoc/mongoc-apm.o \
 	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-common-crypto.o mongoc/mongoc-crypto-cng.o mongoc/mongoc-handshake.o \
 	mongoc/mongoc-stream-tls-secure-channel.o \
-	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o mongoc/mongoc-stream-file.o \
+	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o mongoc/mongoc-stream-file.o mongoc/mcd-rpc.o mongoc/mongoc-deprioritized-servers.o \
 	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o \
-	mongoc/mongoc-compression.o mongoc/mongoc-write-command-legacy.o \
+	mongoc/mongoc-compression.o \
 	mongoc/mongoc-sspi.o mongoc/mongoc-cluster-sspi.o mongoc/mongoc-queue.o \
 	mongoc/mongoc-opts.o mongoc/mongoc-opts-helpers.o \
 	mongoc/mongoc-cursor-cmd.o mongoc/mongoc-cursor-cmd-deprecated.o \
@@ -47,12 +48,13 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cluster-aws.o mongoc/mongoc-generation-map.o mongoc/mongoc-timeout.o \
 	mongoc/mongoc-server-monitor.o mongoc/mongoc-topology-background-monitoring.o common/common-thread.o \
 	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-ocsp-cache.o \
-	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o
+	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o utf8proc/utf8proc.o
 
 LIBKMS=kms/hexlify.o kms/kms_crypto_windows.o kms/kms_kv_list.o kms/kms_request.o \
 	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \
 	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o	\
-	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o
+	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o \
+	kms/kms_kmip_response_parser.o
 
 STATLIB = mongoc/libstatmongoc.a
 

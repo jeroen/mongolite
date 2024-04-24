@@ -107,7 +107,7 @@ _make_command (mongoc_change_stream_t *stream, bson_t *command)
    bson_iter_t iter;
    bson_t change_stream_stage; /* { $changeStream: <change_stream_doc> } */
    bson_t change_stream_doc;
-   bson_t pipeline;
+   bson_array_builder_t *pipeline;
    bson_t cursor_doc;
 
    if (stream->change_stream_type == MONGOC_CHANGE_STREAM_COLLECTION) {
@@ -117,10 +117,10 @@ _make_command (mongoc_change_stream_t *stream, bson_t *command)
       bson_append_int32 (command, "aggregate", 9, 1);
    }
 
-   bson_append_array_begin (command, "pipeline", 8, &pipeline);
+   bson_append_array_builder_begin (command, "pipeline", 8, &pipeline);
 
    /* append the $changeStream stage. */
-   bson_append_document_begin (&pipeline, "0", 1, &change_stream_stage);
+   bson_array_builder_append_document_begin (pipeline, &change_stream_stage);
    bson_append_document_begin (
       &change_stream_stage, "$changeStream", 13, &change_stream_doc);
    if (stream->full_document) {
@@ -128,6 +128,11 @@ _make_command (mongoc_change_stream_t *stream, bson_t *command)
    }
    if (stream->full_document_before_change) {
       bson_concat (&change_stream_doc, stream->full_document_before_change);
+   }
+   if (stream->show_expanded_events) {
+      BSON_APPEND_BOOL (&change_stream_doc,
+                        "showExpandedEvents",
+                        stream->show_expanded_events);
    }
 
    if (stream->resumed) {
@@ -187,29 +192,23 @@ _make_command (mongoc_change_stream_t *stream, bson_t *command)
       bson_append_bool (&change_stream_doc, "allChangesForCluster", 20, true);
    }
    bson_append_document_end (&change_stream_stage, &change_stream_doc);
-   bson_append_document_end (&pipeline, &change_stream_stage);
+   bson_array_builder_append_document_end (pipeline, &change_stream_stage);
 
    /* Append user pipeline if it exists */
    if (bson_iter_init_find (&iter, &stream->pipeline_to_append, "pipeline") &&
        BSON_ITER_HOLDS_ARRAY (&iter)) {
       bson_iter_t child_iter;
-      uint32_t key_int = 1;
-      char buf[16];
-      const char *key_str;
 
       BSON_ASSERT (bson_iter_recurse (&iter, &child_iter));
       while (bson_iter_next (&child_iter)) {
          /* the user pipeline may consist of invalid stages or non-documents.
           * append anyway, and rely on the server error. */
-         size_t keyLen =
-            bson_uint32_to_string (key_int, &key_str, buf, sizeof (buf));
-         bson_append_value (
-            &pipeline, key_str, (int) keyLen, bson_iter_value (&child_iter));
-         ++key_int;
+         bson_array_builder_append_value (pipeline,
+                                          bson_iter_value (&child_iter));
       }
    }
 
-   bson_append_array_end (command, &pipeline);
+   bson_append_array_builder_end (command, pipeline);
 
    /* Add batch size if needed */
    bson_append_document_begin (command, "cursor", 6, &cursor_doc);
@@ -289,13 +288,12 @@ _make_cursor (mongoc_change_stream_t *stream)
       goto cleanup;
    }
 
-   server_stream =
-      mongoc_cluster_stream_for_reads (&stream->client->cluster,
-                                       stream->read_prefs,
-                                       cs,
-                                       &reply,
-                                       /* Not aggregate-with-write */ false,
-                                       &stream->err);
+   server_stream = mongoc_cluster_stream_for_reads (&stream->client->cluster,
+                                                    stream->read_prefs,
+                                                    cs,
+                                                    NULL,
+                                                    &reply,
+                                                    &stream->err);
    if (!server_stream) {
       bson_destroy (&stream->err_doc);
       bson_copy_to (&reply, &stream->err_doc);
@@ -433,6 +431,7 @@ _change_stream_init (mongoc_change_stream_t *stream,
 
    stream->batch_size = stream->opts.batchSize;
    stream->max_await_time_ms = stream->opts.maxAwaitTimeMS;
+   stream->show_expanded_events = stream->opts.showExpandedEvents;
 
    /* Accept two forms of user pipeline:
     * 1. A document like: { "pipeline": [...] }
