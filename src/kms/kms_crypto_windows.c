@@ -168,7 +168,7 @@ kms_sign_rsaes_pkcs1_v1_5 (void *unused_ctx,
 
    success = CryptDecodeObjectEx (X509_ASN_ENCODING,
                                   PKCS_PRIVATE_KEY_INFO,
-                                  private_key,
+                                  (BYTE*) private_key,
                                   (DWORD) private_key_len,
                                   0,
                                   NULL,
@@ -182,7 +182,7 @@ kms_sign_rsaes_pkcs1_v1_5 (void *unused_ctx,
 
    success = CryptDecodeObjectEx (X509_ASN_ENCODING,
                                   PKCS_PRIVATE_KEY_INFO,
-                                  private_key,
+                                  (BYTE*) private_key,
                                   (DWORD) private_key_len,
                                   0,
                                   NULL,
@@ -222,13 +222,13 @@ kms_sign_rsaes_pkcs1_v1_5 (void *unused_ctx,
    }
 
    status = BCryptImportKeyPair (
-      _algoRSA,                
-      NULL,                   
-      LEGACY_RSAPRIVATE_BLOB, 
-      &hKey,            
-      raw_private,            
-      raw_private_len,       
-      0);                     
+      _algoRSA,
+      NULL,
+      LEGACY_RSAPRIVATE_BLOB,
+      &hKey,
+      raw_private,
+      raw_private_len,
+      0);
    if (!NT_SUCCESS (status)) {
       goto cleanup;
    }
@@ -244,12 +244,12 @@ kms_sign_rsaes_pkcs1_v1_5 (void *unused_ctx,
    status =
       BCryptSignHash (hKey,
                       &padding_PKCS1,
-                      hash_value,        
-                      SHA_256_HASH_LEN,            
+                      hash_value,
+                      SHA_256_HASH_LEN,
                       signature_out,
-                      hash_length, 
-                      &hash_length, 
-                      BCRYPT_PAD_PKCS1); 
+                      hash_length,
+                      &hash_length,
+                      BCRYPT_PAD_PKCS1);
    if (!NT_SUCCESS (status)) {
       goto cleanup;
    }
