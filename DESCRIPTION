@@ -16,9 +16,8 @@ Imports:
     openssl (>= 1.0),
     mime
 License: Apache License 2.0
-URL: https://github.com/jeroen/mongolite/ (devel) 
-    https://jeroen.github.io/mongolite/ (user manual)
-    http://mongoc.org/ (upstream)
+URL: https://jeroen.r-universe.dev/mongolite
+    https://jeroen.github.io/mongolite/
 BugReports: https://github.com/jeroen/mongolite/issues
 SystemRequirements: OpenSSL, Cyrus SASL (aka libsasl2)
 RoxygenNote: 7.2.3
