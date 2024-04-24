@@ -23,6 +23,8 @@
 
 #include "mongoc-handshake-private.h"
 
+#include "mongoc-cluster-aws-private.h"
+
 #ifdef MONGOC_ENABLE_SSL_OPENSSL
 #include "mongoc-openssl-private.h"
 #elif defined(MONGOC_ENABLE_SSL_LIBRESSL)
@@ -51,6 +53,7 @@
 
 #ifdef MONGOC_ENABLE_SASL_CYRUS
 #include <sasl/sasl.h>
+#include "mongoc-cyrus-private.h" // _mongoc_cyrus_verifyfile_cb
 
 static void *
 mongoc_cyrus_mutex_alloc (void)
@@ -111,7 +114,11 @@ static BSON_ONCE_FUN (_mongoc_do_init)
                    mongoc_cyrus_mutex_unlock,
                    mongoc_cyrus_mutex_free);
 
-   status = sasl_client_init (NULL);
+   sasl_callback_t callbacks[] = {// Include callback to disable loading plugins.
+                                  {SASL_CB_VERIFYFILE, SASL_CALLBACK_FN (_mongoc_cyrus_verifyfile_cb), NULL},
+                                  {SASL_CB_LIST_END}};
+
+   status = sasl_client_init (callbacks);
    BSON_ASSERT (status == SASL_OK);
 #endif
 
@@ -141,10 +148,11 @@ static BSON_ONCE_FUN (_mongoc_do_init)
 
 #if defined(MONGOC_ENABLE_MONGODB_AWS_AUTH)
    kms_message_init ();
+   _mongoc_aws_credentials_cache_init ();
 #endif
 
 #if defined(MONGOC_ENABLE_OCSP_OPENSSL)
-  _mongoc_ocsp_cache_init ();
+   _mongoc_ocsp_cache_init ();
 #endif
 
    BSON_ONCE_RETURN;
@@ -186,6 +194,7 @@ static BSON_ONCE_FUN (_mongoc_do_cleanup)
 
 #if defined(MONGOC_ENABLE_MONGODB_AWS_AUTH)
    kms_message_cleanup ();
+   _mongoc_aws_credentials_cache_cleanup ();
 #endif
 
 #if defined(MONGOC_ENABLE_OCSP_OPENSSL)

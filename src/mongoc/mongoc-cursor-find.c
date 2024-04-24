@@ -45,13 +45,8 @@ _prime (mongoc_cursor_t *cursor)
    mongoc_server_stream_cleanup (server_stream);
 
    /* set all mongoc_impl_t function pointers. */
-   if (
-      /* Server version 5.1 and newer do not support OP_QUERY. */
-      wire_version > WIRE_VERSION_5_0 ||
-      /* Fallback to legacy OP_QUERY wire protocol messages if exhaust cursor
-         requested with server version 3.6 or newer. */
-      (wire_version >= WIRE_VERSION_FIND_CMD &&
-       !_mongoc_cursor_get_opt_bool (cursor, MONGOC_CURSOR_EXHAUST))) {
+   /* CDRIVER-4722: always find_cmd when server >= 4.2 */
+   if (_mongoc_cursor_use_op_msg (cursor, wire_version)) {
       _mongoc_cursor_impl_find_cmd_init (cursor, &data->filter /* stolen */);
    } else {
       _mongoc_cursor_impl_find_opquery_init (cursor,
@@ -92,6 +87,8 @@ _mongoc_cursor_find_new (mongoc_client_t *client,
                          const mongoc_read_prefs_t *default_prefs,
                          const mongoc_read_concern_t *read_concern)
 {
+   BSON_ASSERT_PARAM (client);
+
    mongoc_cursor_t *cursor;
    data_find_t *data = BSON_ALIGNED_ALLOC0 (data_find_t);
    cursor = _mongoc_cursor_new_with_opts (

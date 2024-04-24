@@ -27,8 +27,10 @@
 #include "mongoc-rand-private.h"
 #include "mongoc-util-private.h"
 #include "mongoc-client.h"
+#include "mongoc-client-private.h" // WIRE_VERSION_* macros.
 #include "mongoc-client-session-private.h"
 #include "mongoc-trace-private.h"
+#include "mongoc-sleep.h"
 
 const bson_validate_flags_t _mongoc_default_insert_vflags =
    BSON_VALIDATE_UTF8 | BSON_VALIDATE_UTF8_ALLOW_NULL |
@@ -83,10 +85,20 @@ _mongoc_hex_md5 (const char *input)
    return bson_strdup (digest_str);
 }
 
+void
+mongoc_client_set_usleep_impl (mongoc_client_t *client,
+                               mongoc_usleep_func_t usleep_func,
+                               void *user_data)
+{
+   client->topology->usleep_fn = usleep_func;
+   client->topology->usleep_data = user_data;
+}
 
 void
-_mongoc_usleep (int64_t usec)
+mongoc_usleep_default_impl (int64_t usec, void *user_data)
 {
+   BSON_UNUSED (user_data);
+
 #ifdef _WIN32
    LARGE_INTEGER ft;
    HANDLE timer;
@@ -103,6 +115,13 @@ _mongoc_usleep (int64_t usec)
    usleep ((useconds_t) usec);
 #endif
 }
+
+void
+_mongoc_usleep (int64_t usec)
+{
+   mongoc_usleep_default_impl (usec, NULL);
+}
+
 
 int64_t
 _mongoc_get_real_time_ms (void)
@@ -288,28 +307,30 @@ _mongoc_wire_version_to_server_version (int32_t version)
       return "3.4";
    case 6:
       return "3.6";
-   case 7:
+   case WIRE_VERSION_4_0:
       return "4.0";
-   case 8:
+   case WIRE_VERSION_4_2:
       return "4.2";
-   case 9:
+   case WIRE_VERSION_4_4:
       return "4.4";
    case 10:
       return "4.7";
    case 11:
       return "4.8";
-   case 12:
+   case WIRE_VERSION_4_9:
       return "4.9";
-   case 13:
+   case WIRE_VERSION_5_0:
       return "5.0";
-   case 14:
+   case WIRE_VERSION_5_1:
       return "5.1";
    case 15:
       return "5.2";
    case 16:
       return "5.3";
-   case 17:
+   case WIRE_VERSION_6_0:
       return "6.0";
+   case WIRE_VERSION_7_0:
+      return "7.0";
    default:
       return "Unknown";
    }
@@ -477,6 +498,97 @@ _mongoc_validate_update (const bson_t *update,
    return true;
 }
 
+
+static bool
+should_include (const char *first_include, va_list args, const char *name)
+{
+   bool ret = false;
+   const char *include = first_include;
+   va_list args_copy;
+
+   va_copy (args_copy, args);
+
+   do {
+      if (!strcmp (name, include)) {
+         ret = true;
+         break;
+      }
+   } while ((include = va_arg (args_copy, const char *)));
+
+   va_end (args_copy);
+
+   return ret;
+}
+
+
+void
+bson_copy_to_including_noinit_va (const bson_t *src,
+                                  bson_t *dst,
+                                  const char *first_include,
+                                  va_list args)
+{
+   BSON_ASSERT_PARAM (src);
+   BSON_ASSERT_PARAM (dst);
+   BSON_ASSERT_PARAM (first_include);
+   bson_iter_t iter;
+
+   if (bson_iter_init (&iter, src)) {
+      while (bson_iter_next (&iter)) {
+         if (should_include (first_include, args, bson_iter_key (&iter))) {
+            if (!bson_append_iter (dst, NULL, 0, &iter)) {
+               /*
+                * This should not be able to happen since we are copying
+                * from within a valid bson_t.
+                */
+               BSON_ASSERT (false);
+               return;
+            }
+         }
+      }
+   }
+}
+
+void
+bson_copy_to_including_noinit (const bson_t *src,
+                               bson_t *dst,
+                               const char *first_include,
+                               ...)
+{
+   BSON_ASSERT_PARAM (src);
+   BSON_ASSERT_PARAM (dst);
+   BSON_ASSERT_PARAM (first_include);
+
+   va_list args;
+   va_start (args, first_include);
+   bson_copy_to_including_noinit_va (src, dst, first_include, args);
+   va_end (args);
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_ends_with --
+ *
+ *       Return true if str ends with suffix.
+ *
+ *--------------------------------------------------------------------------
+ */
+bool
+mongoc_ends_with (const char *str, const char *suffix)
+{
+   BSON_ASSERT_PARAM (str);
+   BSON_ASSERT_PARAM (suffix);
+
+   const size_t str_len = strlen (str);
+   const size_t suffix_len = strlen (suffix);
+
+   if (str_len < suffix_len) {
+      return false;
+   }
+
+   return strcmp (str + (str_len - suffix_len), suffix) == 0;
+}
+
 void
 mongoc_lowercase (const char *src, char *buf /* OUT */)
 {
@@ -576,10 +688,10 @@ _mongoc_bson_array_copy_labels_to (const bson_t *reply, bson_t *dst)
 
 /*--------------------------------------------------------------------------
  *
- * _mongoc_bson_init_with_transient_txn_error --
+ * _mongoc_add_transient_txn_error --
  *
- *       If @reply is not NULL, initialize it. If @cs is not NULL and in a
- *       transaction, add errorLabels: ["TransientTransactionError"] to @cs.
+ *       If @cs is not NULL and in a transaction, add errorLabels:
+ *       ["TransientTransactionError"] to @reply.
  *
  *       Transactions Spec: TransientTransactionError includes "server
  *       selection error encountered running any command besides
@@ -594,21 +706,27 @@ _mongoc_bson_array_copy_labels_to (const bson_t *reply, bson_t *dst)
  */
 
 void
-_mongoc_bson_init_with_transient_txn_error (const mongoc_client_session_t *cs,
-                                            bson_t *reply)
+_mongoc_add_transient_txn_error (const mongoc_client_session_t *cs,
+                                 bson_t *reply)
 {
-   bson_t labels;
-
    if (!reply) {
       return;
    }
 
-   bson_init (reply);
-
    if (_mongoc_client_session_in_txn (cs)) {
-      BSON_APPEND_ARRAY_BEGIN (reply, "errorLabels", &labels);
-      BSON_APPEND_UTF8 (&labels, "0", TRANSIENT_TXN_ERR);
-      bson_append_array_end (reply, &labels);
+      bson_t labels = BSON_INITIALIZER;
+      _mongoc_bson_array_copy_labels_to (reply, &labels);
+      _mongoc_bson_array_add_label (&labels, TRANSIENT_TXN_ERR);
+
+      bson_t new_reply = BSON_INITIALIZER;
+      bson_copy_to_excluding_noinit (reply, &new_reply, "errorLabels", NULL);
+      BSON_APPEND_ARRAY (&new_reply, "errorLabels", &labels);
+
+      bson_reinit (reply);
+      bson_concat (reply, &new_reply);
+
+      bson_destroy (&labels);
+      bson_destroy (&new_reply);
    }
 }
 
@@ -669,15 +787,31 @@ _mongoc_getenv (const char *name)
       return NULL;
    }
 #else
-
-   if (getenv (name) && strlen (getenv (name))) {
-      return bson_strdup (getenv (name));
+   char *const var = getenv (name);
+   if (var && strlen (var)) {
+      return bson_strdup (var);
    } else {
       return NULL;
    }
 
 #endif
 }
+
+bool
+_mongoc_setenv (const char *name, const char *value)
+{
+#ifdef _WIN32
+   return SetEnvironmentVariableA (name, value) != 0;
+#else
+
+   if (0 != setenv (name, value, 1)) {
+      return false;
+   }
+
+   return true;
+#endif
+}
+
 
 /* Nearly Divisionless (Algorithm 5): https://arxiv.org/abs/1805.10941 */
 static uint32_t
@@ -896,4 +1030,45 @@ _mongoc_iter_document_as_bson (const bson_iter_t *iter,
    }
 
    return true;
+}
+
+uint8_t *
+hex_to_bin (const char *hex, uint32_t *len)
+{
+   uint8_t *out;
+
+   const size_t hex_len = strlen (hex);
+   if (hex_len % 2u != 0u) {
+      return NULL;
+   }
+
+   BSON_ASSERT (bson_in_range_unsigned (uint32_t, hex_len / 2u));
+
+   *len = (uint32_t) (hex_len / 2u);
+   out = bson_malloc0 (*len);
+
+   for (uint32_t i = 0; i < hex_len; i += 2u) {
+      uint32_t hex_char;
+
+      if (1 != sscanf (hex + i, "%2x", &hex_char)) {
+         bson_free (out);
+         return NULL;
+      }
+
+      BSON_ASSERT (bson_in_range_unsigned (uint8_t, hex_char));
+      out[i / 2u] = (uint8_t) hex_char;
+   }
+   return out;
+}
+
+char *
+bin_to_hex (const uint8_t *bin, uint32_t len)
+{
+   char *out = bson_malloc0 (2u * len + 1u);
+
+   for (uint32_t i = 0u; i < len; i++) {
+      bson_snprintf (out + (2u * i), 3, "%02x", bin[i]);
+   }
+
+   return out;
 }

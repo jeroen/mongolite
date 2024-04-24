@@ -1,4 +1,5 @@
-PKG_CPPFLAGS=-I. -Icommon -Ikms \
+PKG_CPPFLAGS=-I. -Icommon -Ikms -Iutf8proc \
+	-D_XOPEN_SOURCE=700 -D_DEFAULT_SOURCE \
 	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_LIBCRYPTO \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION -DOPENSSL_SUPPRESS_DEPRECATED @cflags@
 
@@ -29,8 +30,8 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o \
 	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o \
 	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o mongoc/mongoc-cluster-cyrus.o \
-	mongoc/mongoc-compression.o mongoc/mongoc-cyrus.o mongoc/mongoc-write-command-legacy.o \
-	mongoc/mongoc-linux-distro-scanner.o mongoc/mongoc-stream-file.o \
+	mongoc/mongoc-compression.o mongoc/mongoc-cyrus.o \
+	mongoc/mongoc-linux-distro-scanner.o mongoc/mongoc-stream-file.o mongoc/mcd-rpc.o mongoc/mongoc-deprioritized-servers.o \
 	mongoc/mongoc-opts.o mongoc/mongoc-opts-helpers.o \
 	mongoc/mongoc-cursor-cmd.o mongoc/mongoc-cursor-cmd-deprecated.o \
 	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
@@ -39,7 +40,7 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-cluster-aws.o mongoc/mongoc-generation-map.o mongoc/mongoc-timeout.o \
 	mongoc/mongoc-server-monitor.o mongoc/mongoc-topology-background-monitoring.o common/common-thread.o \
 	mongoc/mongoc-optional.o mongoc/mongoc-server-api.o mongoc/mongoc-http.o mongoc/mongoc-ocsp-cache.o \
-	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o
+	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o utf8proc/utf8proc.o
 
 LIBKMS=kms/hexlify.o kms/kms_crypto_windows.o kms/kms_kv_list.o kms/kms_request.o \
 	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \

@@ -18,18 +18,6 @@
 #ifndef MONGOC_CONFIG_H
 #define MONGOC_CONFIG_H
 
-#define MONGOC_TRACE 0
-
-enum {
-        /**
-         * @brief Compile-time constant determining whether the mongoc library was
-         * compiled with tracing enabled.
-         *
-         * Can be controlled with the 'ENABLE_TRACING" configure-time boolean option
-         */
-        MONGOC_TRACE_ENABLED = MONGOC_TRACE
-};
-
 /* R packages should be portable */
 #define MONGOC_CC ""
 #define MONGOC_USER_SET_CFLAGS ""
@@ -243,5 +231,12 @@ enum {
   _Pragma ("clang diagnostic ignored \"-Wdeprecated-declarations\"")
 #endif
 #endif
+
+#define MONGOC_TRACE 0
+#define MONGOC_ENABLE_SRV 1
+enum {
+  MONGOC_TRACE_ENABLED = MONGOC_TRACE,
+  MONGOC_SRV_ENABLED = MONGOC_ENABLE_SRV,
+};
 
 #endif /* MONGOC_CONFIG_H */
