@@ -44,9 +44,9 @@ jobs:
 
       - if: runner.os == 'windows'
         run: |
-          reg add HKLM\System\CurrentControlSet\Control /v ServicesPipeTimeout /t REG_DWORD /d 300000 /f
           Set-Service mongodb -StartupType Automatic
-          Start-Sleep -Seconds 3
+          Set-Service mongodb -StartupType Automatic
+          Set-Service mongodb -StartupType Automatic
           Start-Service -Name MongoDB
 
       - uses: r-lib/actions/setup-r@v2
