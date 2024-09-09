@@ -7,7 +7,7 @@ Description: High-performance MongoDB client based on 'mongo-c-driver' and 'json
     of the available methods in the package: <https://jeroen.github.io/mongolite/>.
 Version: 2.8.0
 Authors@R: c(
-    person("Jeroen", "Ooms", ,"jeroen@berkeley.edu", role = c("aut", "cre"),
+    person("Jeroen", "Ooms", ,"jeroenooms@gmail.com", role = c("aut", "cre"),
       comment = c(ORCID = "0000-0002-4035-0289")),
     person("MongoDB, Inc", role = "cph", 
       comment = "Bundled mongo-c-driver, see AUTHORS file"))
