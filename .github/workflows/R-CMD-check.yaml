@@ -20,8 +20,9 @@ jobs:
         config:
           - {os: macos-13,        r: 'release'}
           - {os: macos-14,        r: 'release'}
-          - {os: windows-4.1 ,    r: 'release'}
-          - {os: windows-latest , r: 'release'}
+          - {os: windows-latest,  r: '4.1'}
+          - {os: windows-latest,  r: '4.2'}
+          - {os: windows-latest,  r: 'release'}
           - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
           - {os: ubuntu-latest,   r: 'oldrel-1'}
