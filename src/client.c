@@ -43,6 +43,8 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
   }
 #endif
 
+  SEXP uri_ptr = uri2r(uri);
+
   mongoc_client_t *client = mongoc_client_new_from_uri (uri);
   if(!client)
     stop("Invalid uri_string. Try mongodb://localhost");
@@ -86,5 +88,9 @@ SEXP R_mongo_client_new(SEXP uri_string, SEXP pem_file, SEXP pem_pwd, SEXP ca_fi
   }
   */
 
-  return client2r(client);
+  SEXP c_R = client2r(client);
+
+  // add uri as attribute
+  Rf_setAttrib(c_R, Rf_install("mongoc_uri"), uri_ptr);
+  return c_R;
 }
