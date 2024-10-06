@@ -132,16 +132,17 @@ SEXP R_mongo_collection_insert_page(SEXP ptr_col, SEXP json_vec, SEXP stop_on_er
   return out;
 }
 
-SEXP R_mongo_collection_create_index(SEXP ptr_col, SEXP ptr_bson) {
+SEXP R_mongo_collection_create_index(SEXP ptr_col, SEXP ptr_bson, SEXP ptr_unique) {
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *keys = r2bson(ptr_bson);
   const char * collection_name = mongoc_collection_get_name(col);
   char * index_name = mongoc_collection_keys_to_index_string (keys);
+  bool isUnique = Rf_asLogical(ptr_unique);
   bson_error_t err;
 
   //From: https://s3.amazonaws.com/mciuploads/mongo-c-driver/docs/latest/create-indexes.html
   bson_t * command = BCON_NEW ("createIndexes", BCON_UTF8 (collection_name), "indexes",
-    "[", "{", "key", BCON_DOCUMENT (keys), "name", BCON_UTF8 (index_name), "}", "]");
+    "[", "{", "key", BCON_DOCUMENT (keys), "name", BCON_UTF8 (index_name), "unique", BCON_BOOL(isUnique), "}","]");
 
   if(!mongoc_collection_write_command_with_opts(col, command, NULL, NULL, &err))
     stop(err.message);
