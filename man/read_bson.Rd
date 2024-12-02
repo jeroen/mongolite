@@ -4,7 +4,7 @@
 \alias{read_bson}
 \title{Standalone BSON reader}
 \usage{
-read_bson(con, as_json = FALSE, verbose = TRUE)
+read_bson(con, as_json = FALSE, verbose = interactive())
 }
 \arguments{
 \item{con}{either a path to a file, a url, or a a connection object}
@@ -13,11 +13,17 @@ read_bson(con, as_json = FALSE, verbose = TRUE)
 
 \item{verbose}{print some output as we read}
 }
+\value{
+list with either data objects or json strings
+}
 \description{
-Utility to parse BSON files into R without using MongoDB. This is useful
-to read data from a \code{mongoexport} dump without needing local mongodb server.
-This reads all data in memory. To import a bson dump into your local mongodb
-server, use the \link[=mongo]{mongo$import} function instead.
+Utility to parse BSON data into R without using MongoDB. Useful to read data
+from a \code{mongoexport} dump without mongodb if it fits in memory.
+}
+\details{
+To import a bson dump into a local mongodb server, use the \link[=mongo]{mongo$import}
+function instead. This requires less memory and once data is in mongo you can
+easily query it.
 }
 \examples{
 diamonds <- read_bson("http://jeroen.github.io/data/diamonds.bson")

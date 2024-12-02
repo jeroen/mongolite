@@ -1,3 +1,6 @@
+2.8.2
+ - Add function bson_read() to read mongodb dumps
+
 2.8.0
  - Update vendored mongo-c-driver to 1.26.2
 

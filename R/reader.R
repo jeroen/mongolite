@@ -1,18 +1,21 @@
 #' Standalone BSON reader
 #'
-#' Utility to parse BSON files into R without using MongoDB. This is useful
-#' to read data from a `mongoexport` dump without needing local mongodb server.
-#' This reads all data in memory. To import a bson dump into your local mongodb
-#' server, use the [mongo$import][mongo] function instead.
+#' Utility to parse BSON data into R without using MongoDB. Useful to read data
+#' from a `mongoexport` dump without mongodb if it fits in memory.
+#'
+#' To import a bson dump into a local mongodb server, use the [mongo$import][mongo]
+#' function instead. This requires less memory and once data is in mongo you can
+#' easily query it.
 #'
 #' @export
 #' @useDynLib mongolite R_bson_reader_new R_bson_reader_read
 #' @param con either a path to a file, a url, or a a connection object
 #' @param as_json return data as json strings instead of R lists
 #' @param verbose print some output as we read
+#' @return list with either data objects or json strings
 #' @examples
 #' diamonds <- read_bson("http://jeroen.github.io/data/diamonds.bson")
-read_bson <- function(con, as_json = FALSE, verbose = TRUE){
+read_bson <- function(con, as_json = FALSE, verbose = interactive()){
   if(length(con) && is.character(con)){
     con <- if(grepl("^https?://", con)){
       url(con)
