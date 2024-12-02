@@ -36,7 +36,7 @@ SEXP mkRaw(const unsigned char *buf, int len){
   return out;
 }
 
-SEXP bson2list(bson_t *b){
+SEXP bson2list(const bson_t *b){
   bson_iter_t iter1;
   bson_iter_t iter2;
   bson_iter_init(&iter1, b);

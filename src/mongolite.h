@@ -22,5 +22,5 @@ SEXP client2r(mongoc_client_t *client);
 SEXP gridfs2r(mongoc_gridfs_t *fs, SEXP prot);
 void mongolite_log_handler (mongoc_log_level_t log_level, const char *log_domain, const char *message, void *user_data);
 SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter);
-SEXP bson2list(bson_t *b);
+SEXP bson2list(const bson_t *b);
 SEXP bson_to_str(const bson_t * b);
