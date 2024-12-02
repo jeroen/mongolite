@@ -4,25 +4,31 @@
 \alias{read_bson}
 \title{Standalone BSON reader}
 \usage{
-read_bson(file, as_json = FALSE, verbose = interactive())
+read_bson(file, as_json = FALSE, simplify = TRUE, verbose = interactive())
 }
 \arguments{
 \item{file}{path or url to a bson file}
 
 \item{as_json}{read data into json strings instead of R lists.}
 
+\item{simplify}{should nested data get simplified into atomic vectors and
+dataframes where possible? See details.}
+
 \item{verbose}{print some progress output while reading}
 }
 \description{
 Utility to read BSON data into R without MongoDB. Useful to read a dump from
 from a \code{mongoexport} dump if it fits in memory. This utility does not attempt
-to convert data into a data.frame: the output is a vector with length of the
-total number of documents in the bson collection.
+to convert result into one giant data.frame: the output is a vector of length
+equal to total number of documents in the bson collection. However it is
+possible to simplify the separate data objects using \link[=fromJSON]{jsonlite} rules,
+to recognize atomic vectors and data frames in nested bson documents.
 }
 \details{
-Alternatively, to import a bson dump into your local mongodb server, use the
-\link[=mongo]{mongo$import} function instead. This requires little memory and once
-data is in mongo you can easily query it.
+An alternative to this function is to import your bson dump into a local mongodb
+server using the \link[=mongo]{mongo$import} function. This requires little memory
+and once data is in mongodb you can easily query and manipulate it using this
+package.
 }
 \examples{
 diamonds <- read_bson("https://jeroen.github.io/data/diamonds.bson")
