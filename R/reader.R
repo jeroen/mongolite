@@ -15,7 +15,7 @@
 #' @param as_json read data into json strings instead of R lists.
 #' @param verbose print some progress output while reading
 #' @examples
-#' diamonds <- read_bson("http://jeroen.github.io/data/diamonds.bson")
+#' diamonds <- read_bson("https://jeroen.github.io/data/diamonds.bson")
 #' length(diamonds)
 read_bson <- function(file, as_json = FALSE, verbose = interactive()){
   if(grepl("^https?://", file)){

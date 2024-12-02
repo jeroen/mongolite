@@ -1,5 +1,4 @@
-AppVeyor
-Github
+BSON
 GridFS
 Mongo
 MongoDB
@@ -10,6 +9,7 @@ POSIXct
 RHEL
 RStudio
 SASL
+Standalone
 UseR
 arXiv
 bson

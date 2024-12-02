@@ -25,6 +25,6 @@ Alternatively, to import a bson dump into your local mongodb server, use the
 data is in mongo you can easily query it.
 }
 \examples{
-diamonds <- read_bson("http://jeroen.github.io/data/diamonds.bson")
+diamonds <- read_bson("https://jeroen.github.io/data/diamonds.bson")
 length(diamonds)
 }
