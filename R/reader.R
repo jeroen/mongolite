@@ -17,7 +17,7 @@
 #' @param file path or url to a bson file
 #' @param as_json read data into json strings instead of R lists.
 #' @param simplify should nested data get simplified into atomic vectors and
-#' dataframes where possible? See details.
+#' dataframes where possible? Only used for `as_json = FALSE`.
 #' @param verbose print some progress output while reading
 #' @examples
 #' diamonds <- read_bson("https://jeroen.github.io/data/diamonds.bson")
@@ -31,7 +31,7 @@ read_bson <- function(file, as_json = FALSE, simplify = TRUE, verbose = interact
   }
   file <- normalizePath(file, mustWork = TRUE)
   out <- .Call(R_bson_reader_file, file, as_json, verbose)
-  if(!isTRUE(simplify))
+  if(isTRUE(as_json) || !isTRUE(simplify))
     return(out)
   if(verbose)
     cat("Simplifying data...\n", file = stderr())

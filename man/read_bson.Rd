@@ -12,7 +12,7 @@ read_bson(file, as_json = FALSE, simplify = TRUE, verbose = interactive())
 \item{as_json}{read data into json strings instead of R lists.}
 
 \item{simplify}{should nested data get simplified into atomic vectors and
-dataframes where possible? See details.}
+dataframes where possible? Only used for \code{as_json = FALSE}.}
 
 \item{verbose}{print some progress output while reading}
 }
@@ -21,7 +21,7 @@ Utility to read BSON data into R without MongoDB. Useful to read a dump from
 from a \code{mongoexport} dump if it fits in memory. This utility does not attempt
 to convert result into one giant data.frame: the output is a vector of length
 equal to total number of documents in the bson collection. However it is
-possible to simplify the separate data objects using \link[=fromJSON]{jsonlite} rules,
+possible to simplify the separate data objects using \link[jsonlite:fromJSON]{jsonlite} rules,
 to recognize atomic vectors and data frames in nested bson documents.
 }
 \details{
