@@ -22,6 +22,7 @@ SystemRequirements: OpenSSL, Cyrus SASL (aka libsasl2)
 RoxygenNote: 7.3.2.9000
 Roxygen: list(markdown = TRUE)
 Suggests:
+    curl,
     spelling,
     nycflights13,
     ggplot2

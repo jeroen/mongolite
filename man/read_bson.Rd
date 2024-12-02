@@ -7,7 +7,7 @@
 read_bson(file, as_json = FALSE, verbose = interactive())
 }
 \arguments{
-\item{file}{path to a bson file on disk}
+\item{file}{path or url to a bson file}
 
 \item{as_json}{read data into json strings instead of R lists.}
 
@@ -16,8 +16,8 @@ read_bson(file, as_json = FALSE, verbose = interactive())
 \description{
 Utility to read BSON data into R without MongoDB. Useful to read a dump from
 from a \code{mongoexport} dump if it fits in memory. This utility does not attempt
-to convert data into a data.frame: the output is a vector with length equal
-to the number of documents in the collection.
+to convert data into a data.frame: the output is a vector with length of the
+total number of documents in the bson collection.
 }
 \details{
 Alternatively, to import a bson dump into your local mongodb server, use the
@@ -25,7 +25,6 @@ Alternatively, to import a bson dump into your local mongodb server, use the
 data is in mongo you can easily query it.
 }
 \examples{
-download.file("http://jeroen.github.io/data/diamonds.bson", "diamonds.bson")
-diamonds <- read_bson("diamonds.bson")
-unlink("diamonds.bson")
+diamonds <- read_bson("http://jeroen.github.io/data/diamonds.bson")
+length(diamonds)
 }
