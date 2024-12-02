@@ -17,18 +17,19 @@ dataframes where possible? Only used for \code{as_json = FALSE}.}
 \item{verbose}{print some progress output while reading}
 }
 \description{
-Utility to read BSON data into R without MongoDB. Useful to read a dump from
-from a \code{mongoexport} dump if it fits in memory. This utility does not attempt
-to convert result into one giant data.frame: the output is a vector of length
-equal to total number of documents in the bson collection. However it is
-possible to simplify the separate data objects using \link[jsonlite:fromJSON]{jsonlite} rules,
-to recognize atomic vectors and data frames in nested bson documents.
+Reads BSON data from a \code{mongoexport} dump file directly into R (if it can fit
+in memory). This utility does not attempt to convert result into one big single
+data.frame: the output is always a vector of length equal to total number of
+documents in the collection.
 }
 \details{
-An alternative to this function is to import your bson dump into a local mongodb
-server using the \link[=mongo]{mongo$import} function. This requires little memory
-and once data is in mongodb you can easily query and manipulate it using this
-package.
+It is enabled by default to simplify the individual data documents using the
+same rules as \link[jsonlite:fromJSON]{jsonlite}. This converts nested lists into atomic
+vectors and data frames when possible, which makes data easier to work with in R.
+
+An alternative to this function is to import your BSON file into a local mongodb
+server using the \link[=mongo]{mongo$import()} function. This requires little memory
+and once data is in mongodb you can easily query and modify it.
 }
 \examples{
 diamonds <- read_bson("https://jeroen.github.io/data/diamonds.bson")

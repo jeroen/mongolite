@@ -1,16 +1,17 @@
 #' Standalone BSON reader
 #'
-#' Utility to read BSON data into R without MongoDB. Useful to read a dump from
-#' from a `mongoexport` dump if it fits in memory. This utility does not attempt
-#' to convert result into one giant data.frame: the output is a vector of length
-#' equal to total number of documents in the bson collection. However it is
-#' possible to simplify the separate data objects using [jsonlite][fromJSON] rules,
-#' to recognize atomic vectors and data frames in nested bson documents.
+#' Reads BSON data from a `mongoexport` dump file directly into R (if it can fit
+#' in memory). This utility does not attempt to convert result into one big single
+#' data.frame: the output is always a vector of length equal to total number of
+#' documents in the collection.
 #'
-#' An alternative to this function is to import your bson dump into a local mongodb
-#' server using the [mongo$import][mongo] function. This requires little memory
-#' and once data is in mongodb you can easily query and manipulate it using this
-#' package.
+#' It is enabled by default to simplify the individual data documents using the
+#' same rules as [jsonlite][fromJSON]. This converts nested lists into atomic
+#' vectors and data frames when possible, which makes data easier to work with in R.
+#'
+#' An alternative to this function is to import your BSON file into a local mongodb
+#' server using the [mongo$import()][mongo] function. This requires little memory
+#' and once data is in mongodb you can easily query and modify it.
 #'
 #' @export
 #' @useDynLib mongolite R_bson_reader_file
