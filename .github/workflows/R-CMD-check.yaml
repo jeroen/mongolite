@@ -23,6 +23,7 @@ jobs:
           - {os: windows-latest,  r: '4.1'}
           - {os: windows-latest,  r: '4.2'}
           - {os: windows-latest,  r: 'release'}
+          - {os: windows-2025,    r: 'devel'}
           - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
           - {os: ubuntu-latest,   r: 'oldrel-1'}
