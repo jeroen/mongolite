@@ -15,15 +15,9 @@ fi
 PKG_CONFIG_NAME="openssl"
 PKG_DEB_NAME="libssl-dev, libsasl2-dev"
 PKG_RPM_NAME="openssl-devel, cyrus-sasl-devel"
-PKG_CSW_NAME="libssl_dev, sasl_dev"
-PKG_BREW_NAME="openssl@1.1"
+PKG_BREW_NAME="openssl"
 PKG_TEST_FILE="src/tests/dependencies.c"
 SASL_LIBS="-lsasl2"
-
-# Special case for solaris
-if [ `uname` = "SunOS" ]; then
-  SASL_LIBS="-lsasl"
-fi
 
 # Default
 PKG_LIBS="-lssl -lcrypto $SASL_LIBS"
@@ -58,7 +52,7 @@ elif [ `uname` = "Darwin" ]; then
 fi
 
 # Apple has deprecated SASL but there is no alternative yet
-# NB: now unused because we use osx-Makevars
+# Currenlty unused because we use osx-Makevars
 if [ `uname` = "Darwin" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -Wno-deprecated-declarations"
 fi
@@ -88,7 +82,6 @@ if [ $? -ne 0 ]; then
   echo "Configuration failed to find SASL or OpenSSL. Try installing:"
   echo " * deb: $PKG_DEB_NAME (Debian, Ubuntu, etc)"
   echo " * rpm: $PKG_RPM_NAME (Fedora, CentOS, RHEL)"
-  echo " * csw: $PKG_CSW_NAME (Solaris)"
   echo " * brew: $PKG_BREW_NAME (Mac OSX)"
   echo "If $PKG_CONFIG_NAME is already installed, check that 'pkg-config' is in your"
   echo "PATH and PKG_CONFIG_PATH contains a $PKG_CONFIG_NAME.pc file. If pkg-config"
