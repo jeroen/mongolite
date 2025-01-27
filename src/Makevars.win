@@ -17,7 +17,7 @@ LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
 	bson/bson-value.o  bson/bson.o bson/bson-decimal128.o bson/bson-atomic.o \
 	jsonsl/jsonsl.o
 
-LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o mongoc/mongoc-buffer.o \
+LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o common/common-atomic.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
 	mongoc/mongoc-cluster.o mongoc/mongoc-collection.o mongoc/mongoc-counters.o \
 	mongoc/mongoc-cursor-array.o mongoc/mongoc-cursor.o mongoc/mongoc-database.o \
