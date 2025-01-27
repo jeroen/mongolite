@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,22 +19,19 @@
 #include "mongoc-write-concern-private.h"
 #include "mongoc-util-private.h"
 #include "mongoc-read-concern-private.h"
+#include <common-cmp-private.h>
 
-#define BSON_ERR(...)                                                       \
-   do {                                                                     \
-      bson_set_error (                                                      \
-         error, MONGOC_ERROR_BSON, MONGOC_ERROR_BSON_INVALID, __VA_ARGS__); \
-      return false;                                                         \
+#define BSON_ERR(...)                                                                    \
+   do {                                                                                  \
+      bson_set_error (error, MONGOC_ERROR_BSON, MONGOC_ERROR_BSON_INVALID, __VA_ARGS__); \
+      return false;                                                                      \
    } while (0)
 
 
-#define CONVERSION_ERR(...)                             \
-   do {                                                 \
-      bson_set_error (error,                            \
-                      MONGOC_ERROR_COMMAND,             \
-                      MONGOC_ERROR_COMMAND_INVALID_ARG, \
-                      __VA_ARGS__);                     \
-      return false;                                     \
+#define CONVERSION_ERR(...)                                                                        \
+   do {                                                                                            \
+      bson_set_error (error, MONGOC_ERROR_COMMAND, MONGOC_ERROR_COMMAND_INVALID_ARG, __VA_ARGS__); \
+      return false;                                                                                \
    } while (0)
 
 
@@ -52,21 +49,17 @@ _mongoc_timestamp_set (mongoc_timestamp_t *dst, mongoc_timestamp_t *src)
 }
 
 void
-_mongoc_timestamp_set_from_bson (mongoc_timestamp_t *timestamp,
-                                 bson_iter_t *iter)
+_mongoc_timestamp_set_from_bson (mongoc_timestamp_t *timestamp, bson_iter_t *iter)
 {
    bson_iter_timestamp (iter, &(timestamp->timestamp), &(timestamp->increment));
 }
 
 void
-_mongoc_timestamp_append (mongoc_timestamp_t *timestamp,
-                          bson_t *bson,
-                          char *key)
+_mongoc_timestamp_append (mongoc_timestamp_t *timestamp, bson_t *bson, char *key)
 {
    const size_t len = strlen (key);
-   BSON_ASSERT (bson_in_range_unsigned (int, len));
-   bson_append_timestamp (
-      bson, key, (int) len, timestamp->timestamp, timestamp->increment);
+   BSON_ASSERT (mcommon_in_range_unsigned (int, len));
+   bson_append_timestamp (bson, key, (int) len, timestamp->timestamp, timestamp->increment);
 }
 
 void
@@ -77,10 +70,7 @@ _mongoc_timestamp_clear (mongoc_timestamp_t *timestamp)
 }
 
 bool
-_mongoc_convert_document (mongoc_client_t *client,
-                          const bson_iter_t *iter,
-                          bson_t *doc,
-                          bson_error_t *error)
+_mongoc_convert_document (mongoc_client_t *client, const bson_iter_t *iter, bson_t *doc, bson_error_t *error)
 {
    uint32_t len;
    const uint8_t *data;
@@ -107,10 +97,7 @@ _mongoc_convert_document (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_array (mongoc_client_t *client,
-                       const bson_iter_t *iter,
-                       bson_t *doc,
-                       bson_error_t *error)
+_mongoc_convert_array (mongoc_client_t *client, const bson_iter_t *iter, bson_t *doc, bson_error_t *error)
 {
    uint32_t len;
    const uint8_t *data;
@@ -137,10 +124,7 @@ _mongoc_convert_array (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_int64_positive (mongoc_client_t *client,
-                                const bson_iter_t *iter,
-                                int64_t *num,
-                                bson_error_t *error)
+_mongoc_convert_int64_positive (mongoc_client_t *client, const bson_iter_t *iter, int64_t *num, bson_error_t *error)
 {
    int64_t i;
 
@@ -166,10 +150,7 @@ _mongoc_convert_int64_positive (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_int32_t (mongoc_client_t *client,
-                         const bson_iter_t *iter,
-                         int32_t *num,
-                         bson_error_t *error)
+_mongoc_convert_int32_t (mongoc_client_t *client, const bson_iter_t *iter, int32_t *num, bson_error_t *error)
 {
    int64_t i;
 
@@ -181,10 +162,7 @@ _mongoc_convert_int32_t (mongoc_client_t *client,
 
    i = bson_iter_as_int64 (iter);
    if (i > INT32_MAX || i < INT32_MIN) {
-      CONVERSION_ERR ("Invalid field \"%s\" in opts: %" PRId64
-                      " out of range for int32",
-                      bson_iter_key (iter),
-                      i);
+      CONVERSION_ERR ("Invalid field \"%s\" in opts: %" PRId64 " out of range for int32", bson_iter_key (iter), i);
    }
 
    *num = (int32_t) i;
@@ -193,10 +171,7 @@ _mongoc_convert_int32_t (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_int32_positive (mongoc_client_t *client,
-                                const bson_iter_t *iter,
-                                int32_t *num,
-                                bson_error_t *error)
+_mongoc_convert_int32_positive (mongoc_client_t *client, const bson_iter_t *iter, int32_t *num, bson_error_t *error)
 {
    int32_t i;
 
@@ -205,10 +180,7 @@ _mongoc_convert_int32_positive (mongoc_client_t *client,
    }
 
    if (i <= 0) {
-      CONVERSION_ERR (
-         "Invalid field \"%s\" in opts, should be greater than 0, not %d",
-         bson_iter_key (iter),
-         i);
+      CONVERSION_ERR ("Invalid field \"%s\" in opts, should be greater than 0, not %d", bson_iter_key (iter), i);
    }
 
    *num = i;
@@ -217,10 +189,7 @@ _mongoc_convert_int32_positive (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_bool (mongoc_client_t *client,
-                      const bson_iter_t *iter,
-                      bool *flag,
-                      bson_error_t *error)
+_mongoc_convert_bool (mongoc_client_t *client, const bson_iter_t *iter, bool *flag, bson_error_t *error)
 {
    BSON_UNUSED (client);
 
@@ -264,10 +233,7 @@ _mongoc_convert_timestamp (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_utf8 (mongoc_client_t *client,
-                      const bson_iter_t *iter,
-                      const char **str,
-                      bson_error_t *error)
+_mongoc_convert_utf8 (mongoc_client_t *client, const bson_iter_t *iter, const char **str, bson_error_t *error)
 {
    BSON_UNUSED (client);
 
@@ -338,10 +304,7 @@ _mongoc_convert_write_concern (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_server_id (mongoc_client_t *client,
-                           const bson_iter_t *iter,
-                           uint32_t *server_id,
-                           bson_error_t *error)
+_mongoc_convert_server_id (mongoc_client_t *client, const bson_iter_t *iter, uint32_t *server_id, bson_error_t *error)
 {
    int64_t tmp;
 
@@ -376,10 +339,7 @@ _mongoc_convert_read_concern (mongoc_client_t *client,
 }
 
 bool
-_mongoc_convert_hint (mongoc_client_t *client,
-                      const bson_iter_t *iter,
-                      bson_value_t *value,
-                      bson_error_t *error)
+_mongoc_convert_hint (mongoc_client_t *client, const bson_iter_t *iter, bson_value_t *value, bson_error_t *error)
 {
    BSON_UNUSED (client);
 

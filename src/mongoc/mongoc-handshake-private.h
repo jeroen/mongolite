@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,8 +69,7 @@ typedef enum {
    MONGOC_MD_FLAG_ENABLE_COMPRESSION = 18,
    MONGOC_MD_FLAG_ENABLE_COMPRESSION_SNAPPY = 19,
    MONGOC_MD_FLAG_ENABLE_COMPRESSION_ZLIB = 20,
-   MONGOC_MD_FLAG_ENABLE_SASL_GSSAPI_UNUSED =
-      21, /* CDRIVER-2654 removed this . */
+   MONGOC_MD_FLAG_ENABLE_SASL_GSSAPI_UNUSED = 21, /* CDRIVER-2654 removed this . */
    MONGOC_MD_FLAG_ENABLE_RES_NSEARCH = 22,
    MONGOC_MD_FLAG_ENABLE_RES_NDESTROY = 23,
    MONGOC_MD_FLAG_ENABLE_RES_NCLOSE = 24,
@@ -84,6 +83,7 @@ typedef enum {
    MONGOC_MD_FLAG_ENABLE_CLIENT_SIDE_ENCRYPTION = 32,
    MONGOC_MD_FLAG_ENABLE_MONGODB_AWS_AUTH = 33,
    MONGOC_MD_FLAG_ENABLE_SRV = 34,
+   MONGOC_MD_FLAG_HAVE_BCRYPT_PBKDF2 = 35,
    /* Add additional config flags here, above LAST_MONGOC_MD_FLAG. */
    LAST_MONGOC_MD_FLAG
 } mongoc_handshake_config_flag_bit_t;
@@ -145,13 +145,11 @@ typedef struct {
 } mongoc_handshake_sasl_supported_mechs_t;
 
 void
-_mongoc_handshake_append_sasl_supported_mechs (const mongoc_uri_t *uri,
-                                               bson_t *hello);
+_mongoc_handshake_append_sasl_supported_mechs (const mongoc_uri_t *uri, bson_t *hello);
 
 void
-_mongoc_handshake_parse_sasl_supported_mechs (
-   const bson_t *hello,
-   mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs);
+_mongoc_handshake_parse_sasl_supported_mechs (const bson_t *hello,
+                                              mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs);
 
 BSON_END_DECLS
 

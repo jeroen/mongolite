@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,7 @@ _mongoc_rand_bytes (uint8_t *buf, int num)
    NTSTATUS status = 0;
 
    if (!algorithm) {
-      status = BCryptOpenAlgorithmProvider (
-         &algorithm, BCRYPT_RNG_ALGORITHM, NULL, 0);
+      status = BCryptOpenAlgorithmProvider (&algorithm, BCRYPT_RNG_ALGORITHM, NULL, 0);
       if (!NT_SUCCESS (status)) {
          MONGOC_ERROR ("BCryptOpenAlgorithmProvider(): %ld", status);
          return 0;

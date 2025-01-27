@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,9 @@
 #ifdef MONGOC_STATIC
 #define MONGOC_API
 #elif defined(MONGOC_COMPILATION)
-#define MONGOC_API __declspec(dllexport)
+#define MONGOC_API __declspec (dllexport)
 #else
-#define MONGOC_API __declspec(dllimport)
+#define MONGOC_API __declspec (dllimport)
 #endif
 #define MONGOC_CALL __cdecl
 

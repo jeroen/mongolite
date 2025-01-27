@@ -169,15 +169,15 @@ bson_md5_process (bson_md5_t *md5, const uint8_t *data)
           * On little-endian machines, we can process properly aligned
           * data without copying it.
           */
-         if (!((data - (const uint8_t *) 0) & 3)) {
+         if (!(((uintptr_t) data) & 3u)) {
 /* data are properly aligned */
 #ifdef __clang__
-/*IGNORE*/ #pragma clang diagnostic push
-/*IGNORE*/ #pragma clang diagnostic ignored "-Wcast-align"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
 #endif
             X = (const uint32_t *) data;
 #ifdef __clang__
-/*IGNORE*/ #pragma clang diagnostic pop
+#pragma clang diagnostic pop
 #endif
          } else {
             /* not aligned */
@@ -376,10 +376,9 @@ mcommon_md5_append (bson_md5_t *pms, const uint8_t *data, uint32_t nbytes)
 void
 mcommon_md5_finish (bson_md5_t *pms, uint8_t digest[16])
 {
-   static const uint8_t pad[64] = {
-      0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+   static const uint8_t pad[64] = {0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                   0,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                   0,    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
    uint8_t data[8];
    int i;
 

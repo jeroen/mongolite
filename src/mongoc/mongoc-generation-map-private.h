@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,12 +32,10 @@ mongoc_generation_map_t *
 mongoc_generation_map_copy (const mongoc_generation_map_t *gm);
 
 uint32_t
-mongoc_generation_map_get (const mongoc_generation_map_t *gm,
-                           const bson_oid_t *key);
+mongoc_generation_map_get (const mongoc_generation_map_t *gm, const bson_oid_t *key);
 
 void
-mongoc_generation_map_increment (mongoc_generation_map_t *gm,
-                                 const bson_oid_t *key);
+mongoc_generation_map_increment (mongoc_generation_map_t *gm, const bson_oid_t *key);
 
 void
 mongoc_generation_map_destroy (mongoc_generation_map_t *gm);

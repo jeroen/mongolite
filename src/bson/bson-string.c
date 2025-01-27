@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,11 @@
 
 #include <bson/bson-compat.h>
 #include <bson/bson-config.h>
-#include <bson/bson-string.h>
+#include <common-cmp-private.h>
+#include <common-string-private.h>
 #include <bson/bson-memory.h>
 #include <bson/bson-utf8.h>
+#include <bson/bson-string-private.h>
 
 #ifdef BSON_HAVE_STRINGS_H
 #include <strings.h>
@@ -30,12 +32,54 @@
 #include <string.h>
 #endif
 
+// `bson_next_power_of_two_u32` returns 0 on overflow.
+static BSON_INLINE uint32_t
+bson_next_power_of_two_u32 (uint32_t v)
+{
+   BSON_ASSERT (v > 0);
+
+   // https://graphics.stanford.edu/%7Eseander/bithacks.html#RoundUpPowerOf2
+   v--;
+   v |= v >> 1;
+   v |= v >> 2;
+   v |= v >> 4;
+   v |= v >> 8;
+   v |= v >> 16;
+   v++;
+
+   return v;
+}
+
+// `bson_string_ensure_space` ensures `string` has enough room for `needed` + a null terminator.
+static void
+bson_string_ensure_space (bson_string_t *string, uint32_t needed)
+{
+   BSON_ASSERT_PARAM (string);
+   BSON_ASSERT (needed <= UINT32_MAX - 1u);
+   needed += 1u; // Add one for trailing NULL byte.
+   if (string->alloc >= needed) {
+      return;
+   }
+   // Get the next largest power of 2 if possible.
+   uint32_t alloc = bson_next_power_of_two_u32 (needed);
+   if (alloc == 0) {
+      // Overflowed: saturate at UINT32_MAX.
+      alloc = UINT32_MAX;
+   }
+   if (!string->str) {
+      string->str = bson_malloc (alloc);
+   } else {
+      string->str = bson_realloc (string->str, alloc);
+   }
+   string->alloc = alloc;
+}
+
 /*
  *--------------------------------------------------------------------------
  *
  * bson_string_new --
  *
- *       Create a new bson_string_t.
+ *       Create a new bson_string_t from an existing char *.
  *
  *       bson_string_t is a power-of-2 allocation growing string. Every
  *       time data is appended the next power of two size is chosen for
@@ -63,23 +107,56 @@ bson_string_new (const char *str) /* IN */
    bson_string_t *ret;
 
    ret = bson_malloc0 (sizeof *ret);
-   ret->len = str ? (int) strlen (str) : 0;
-   ret->alloc = ret->len + 1;
-
-   if (!bson_is_power_of_two (ret->alloc)) {
-      ret->alloc = (uint32_t) bson_next_power_of_two ((size_t) ret->alloc);
-   }
-
-   BSON_ASSERT (ret->alloc >= 1);
-
-   ret->str = bson_malloc (ret->alloc);
-
+   const size_t len_sz = str == NULL ? 0u : strlen (str);
+   BSON_ASSERT (mcommon_in_range_unsigned (uint32_t, len_sz));
+   const uint32_t len_u32 = (uint32_t) len_sz;
+   bson_string_ensure_space (ret, len_u32);
    if (str) {
-      memcpy (ret->str, str, ret->len);
+      memcpy (ret->str, str, len_sz);
    }
 
-   ret->str[ret->len] = '\0';
+   ret->str[len_u32] = '\0';
+   ret->len = len_u32;
+   return ret;
+}
 
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _bson_string_alloc --
+ *
+ *       Create an empty bson_string_t and allocate memory for it.
+ *
+ *       The amount of memory allocated will be the next power-of-two if the
+ *       specified size is not already a power-of-two.
+ *
+ * Parameters:
+ *       @size: Size of the string to allocate
+ *
+ * Returns:
+ *       A newly allocated bson_string_t that should be freed with
+ *       bson_string_free().
+ *
+ * Side effects:
+ *       None.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+bson_string_t *
+_bson_string_alloc (const size_t size)
+{
+   BSON_ASSERT (size < UINT32_MAX);
+
+   bson_string_t *ret;
+
+   ret = bson_malloc0 (sizeof *ret);
+
+   bson_string_ensure_space (ret, (uint32_t) size);
+
+   BSON_ASSERT (ret->alloc > 0);
+   ret->len = 0;
+   ret->str[ret->len] = '\0';
    return ret;
 }
 
@@ -108,6 +185,41 @@ bson_string_free (bson_string_t *string, /* IN */
 /*
  *--------------------------------------------------------------------------
  *
+ * _bson_string_append_ex --
+ *
+ *       Append the UTF-8 string @str of given length @len to @string.
+ *
+ * Returns:
+ *       None.
+ *
+ * Side effects:
+ *       None.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_bson_string_append_ex (bson_string_t *string, /* IN */
+                        const char *str,       /* IN */
+                        const size_t len)      /* IN */
+{
+   BSON_ASSERT (string);
+   BSON_ASSERT (str);
+
+   BSON_ASSERT (mcommon_in_range_unsigned (uint32_t, len));
+   const uint32_t len_u32 = (uint32_t) len;
+   BSON_ASSERT (len_u32 <= UINT32_MAX - string->len);
+   const uint32_t new_len = len_u32 + string->len;
+   bson_string_ensure_space (string, new_len);
+   memcpy (string->str + string->len, str, len);
+   string->str[new_len] = '\0';
+   string->len = new_len;
+}
+
+
+/*
+ *--------------------------------------------------------------------------
+ *
  * bson_string_append --
  *
  *       Append the UTF-8 string @str to @string.
@@ -125,25 +237,9 @@ void
 bson_string_append (bson_string_t *string, /* IN */
                     const char *str)       /* IN */
 {
-   uint32_t len;
-
-   BSON_ASSERT (string);
-   BSON_ASSERT (str);
-
-   len = (uint32_t) strlen (str);
-
-   if ((string->alloc - string->len - 1) < len) {
-      string->alloc += len;
-      if (!bson_is_power_of_two (string->alloc)) {
-         string->alloc =
-            (uint32_t) bson_next_power_of_two ((size_t) string->alloc);
-      }
-      string->str = bson_realloc (string->str, string->alloc);
-   }
-
-   memcpy (string->str + string->len, str, len);
-   string->len += len;
-   string->str[string->len] = '\0';
+   BSON_ASSERT_PARAM (string);
+   BSON_ASSERT_PARAM (str);
+   _bson_string_append_ex (string, str, strlen (str));
 }
 
 
@@ -177,7 +273,7 @@ bson_string_append_c (bson_string_t *string, /* IN */
    if (BSON_UNLIKELY (string->alloc == (string->len + 1))) {
       cc[0] = c;
       cc[1] = '\0';
-      bson_string_append (string, cc);
+      mcommon_string_append (string, cc);
       return;
    }
 
@@ -216,7 +312,7 @@ bson_string_append_unichar (bson_string_t *string,  /* IN */
 
    if (len <= 6) {
       str[len] = '\0';
-      bson_string_append (string, str);
+      mcommon_string_append (string, str);
    }
 }
 
@@ -249,7 +345,7 @@ bson_string_append_printf (bson_string_t *string, const char *format, ...)
    va_start (args, format);
    ret = bson_strdupv_printf (format, args);
    va_end (args);
-   bson_string_append (string, ret);
+   mcommon_string_append (string, ret);
    bson_free (ret);
 }
 
@@ -262,7 +358,7 @@ bson_string_append_printf (bson_string_t *string, const char *format, ...)
  *       Truncate the string @string to @len bytes.
  *
  *       The underlying memory will be released via realloc() down to
- *       the minimum required size specified by @len.
+ *       the minimum required size (at power-of-two boundary) specified by @len.
  *
  * Returns:
  *       None.
@@ -277,19 +373,17 @@ void
 bson_string_truncate (bson_string_t *string, /* IN */
                       uint32_t len)          /* IN */
 {
-   uint32_t alloc;
-
-   BSON_ASSERT (string);
-   BSON_ASSERT (len < INT_MAX);
-
-   alloc = len + 1;
-
-   if (alloc < 16) {
-      alloc = 16;
+   BSON_ASSERT_PARAM (string);
+   if (len == string->len) {
+      return;
    }
-
-   if (!bson_is_power_of_two (alloc)) {
-      alloc = (uint32_t) bson_next_power_of_two ((size_t) alloc);
+   uint32_t needed = len;
+   BSON_ASSERT (needed < UINT32_MAX);
+   needed += 1u; // Add one for trailing NULL byte.
+   uint32_t alloc = bson_next_power_of_two_u32 (needed);
+   if (alloc == 0) {
+      // Overflowed: saturate at UINT32_MAX.
+      alloc = UINT32_MAX;
    }
 
    string->str = bson_realloc (string->str, alloc);
@@ -728,8 +822,7 @@ bson_ascii_strtoll (const char *s, char **e, int base)
    }
 
    /* from here down, inspired by NetBSD's strtoll */
-   if ((base == 0 || base == 16) && c == '0' &&
-       (tok[1] == 'x' || tok[1] == 'X')) {
+   if ((base == 0 || base == 16) && c == '0' && (tok[1] == 'x' || tok[1] == 'X')) {
       tok += 2;
       c = *tok;
       base = 16;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
  *
  * MONGOC minor version component (e.g. 2 if %MONGOC_VERSION is 1.2.3)
  */
-#define MONGOC_MINOR_VERSION (26)
+#define MONGOC_MINOR_VERSION (29)
 
 
 /**
@@ -62,7 +62,7 @@
  *
  * MONGOC version.
  */
-#define MONGOC_VERSION (1.26.2)
+#define MONGOC_VERSION (1.29.2)
 
 
 /**
@@ -71,7 +71,7 @@
  * MONGOC version, encoded as a string, useful for printing and
  * concatenation.
  */
-#define MONGOC_VERSION_S "1.26.2"
+#define MONGOC_VERSION_S "1.29.2"
 
 
 /**

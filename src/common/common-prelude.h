@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION) && \
-   !defined(BSON_COMPILATION) && !defined(BSON_INSIDE)
+#if !defined(MONGOC_INSIDE) && !defined(MONGOC_COMPILATION) && !defined(BSON_COMPILATION) && !defined(BSON_INSIDE)
 #error "Only <mongoc/mongoc.h> or <bson/bson.h> can be included directly."
 #endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,11 +35,7 @@ BSON_BEGIN_DECLS
 
 
 BSON_EXPORT (void)
-bson_set_error (bson_error_t *error,
-                uint32_t domain,
-                uint32_t code,
-                const char *format,
-                ...) BSON_GNUC_PRINTF (4, 5);
+bson_set_error (bson_error_t *error, uint32_t domain, uint32_t code, const char *format, ...) BSON_GNUC_PRINTF (4, 5);
 BSON_EXPORT (char *)
 bson_strerror_r (int err_code, char *buf, size_t buflen);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 #include <string.h>
 #include <time.h>
 
-#include <bson/bson-atomic.h>
+#include <common-atomic-private.h>
 #include <bson/bson-clock.h>
 #include <bson/bson-context.h>
 #include <bson/bson-context-private.h>
@@ -61,14 +61,10 @@ void
 _bson_context_set_oid_seq32 (bson_context_t *context, /* IN */
                              bson_oid_t *oid)         /* OUT */
 {
-   uint32_t seq = (uint32_t) bson_atomic_int32_fetch_add (
-      (DECL_ATOMIC_INTEGRAL_INT32 *) &context->seq32,
-      1,
-      bson_memory_order_seq_cst);
+   uint32_t seq = (uint32_t) mcommon_atomic_int32_fetch_add (
+      (DECL_ATOMIC_INTEGRAL_INT32 *) &context->seq32, 1, mcommon_memory_order_seq_cst);
    seq = BSON_UINT32_TO_BE (seq);
-   memcpy (&oid->bytes[BSON_OID_SEQ32_OFFSET],
-           ((uint8_t *) &seq) + 1,
-           BSON_OID_SEQ32_SIZE);
+   memcpy (&oid->bytes[BSON_OID_SEQ32_OFFSET], ((uint8_t *) &seq) + 1, BSON_OID_SEQ32_SIZE);
 }
 
 
@@ -76,8 +72,8 @@ void
 _bson_context_set_oid_seq64 (bson_context_t *context, /* IN */
                              bson_oid_t *oid)         /* OUT */
 {
-   uint64_t seq = (uint64_t) bson_atomic_int64_fetch_add (
-      (int64_t *) &context->seq64, 1, bson_memory_order_seq_cst);
+   uint64_t seq =
+      (uint64_t) mcommon_atomic_int64_fetch_add ((int64_t *) &context->seq64, 1, mcommon_memory_order_seq_cst);
 
    seq = BSON_UINT64_TO_BE (seq);
    memcpy (&oid->bytes[BSON_OID_SEQ64_OFFSET], &seq, BSON_OID_SEQ64_SIZE);
@@ -98,9 +94,7 @@ _bson_context_get_hostname (char out[HOST_NAME_MAX])
 {
    if (gethostname (out, HOST_NAME_MAX) != 0) {
       if (errno == ENAMETOOLONG) {
-         fprintf (stderr,
-                  "hostname exceeds %d characters, truncating.",
-                  HOST_NAME_MAX);
+         fprintf (stderr, "hostname exceeds %d characters, truncating.", HOST_NAME_MAX);
       } else {
          fprintf (stderr, "unable to get hostname: %d", errno);
       }
@@ -160,10 +154,7 @@ _sip_round (uint64_t *v0, uint64_t *v1, uint64_t *v2, uint64_t *v3)
 }
 
 void
-_siphash (const void *in,
-          const size_t inlen,
-          const uint64_t key[2],
-          uint64_t digest[2])
+_siphash (const void *in, const size_t inlen, const uint64_t key[2], uint64_t digest[2])
 {
    const unsigned char *ni = (const unsigned char *) in;
    const unsigned char *kk = (const unsigned char *) key;
@@ -288,8 +279,8 @@ _bson_context_init_random (bson_context_t *context, bool init_seq)
    bson_gettimeofday (&rand_params.time);
    rand_params.pid = _bson_getpid ();
    _bson_context_get_hostname (rand_params.hostname);
-   rand_params.rand_call_counter = bson_atomic_int64_fetch_add (
-      &s_rand_call_counter, 1, bson_memory_order_seq_cst);
+   rand_params.rand_call_counter =
+      mcommon_atomic_int64_fetch_add (&s_rand_call_counter, 1, mcommon_memory_order_seq_cst);
 
    /* Generate a SipHash key. We do not care about secrecy or determinism, only
     * uniqueness. */
@@ -334,14 +325,11 @@ _bson_context_set_oid_rand (bson_context_t *context, bson_oid_t *oid)
        * after a call to fork() */
       uint64_t now_pid = _bson_getpid ();
       if (now_pid != context->pid) {
-         _bson_context_init_random (
-            context, false /* Do not update the sequence counters */);
+         _bson_context_init_random (context, false /* Do not update the sequence counters */);
       }
    }
    /* Copy the stored randomness into the OID */
-   memcpy (oid->bytes + BSON_OID_RANDOMESS_OFFSET,
-           &context->randomness,
-           BSON_OID_RANDOMNESS_SIZE);
+   memcpy (oid->bytes + BSON_OID_RANDOMESS_OFFSET, &context->randomness, BSON_OID_RANDOMNESS_SIZE);
 }
 
 

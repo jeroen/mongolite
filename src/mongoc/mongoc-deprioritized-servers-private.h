@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,18 +33,13 @@ mongoc_deprioritized_servers_t *
 mongoc_deprioritized_servers_new (void);
 
 void
-mongoc_deprioritized_servers_destroy (
-   mongoc_deprioritized_servers_t *ds);
+mongoc_deprioritized_servers_destroy (mongoc_deprioritized_servers_t *ds);
 
 void
-mongoc_deprioritized_servers_add (
-   mongoc_deprioritized_servers_t *ds,
-   const mongoc_server_description_t *sd);
+mongoc_deprioritized_servers_add (mongoc_deprioritized_servers_t *ds, const mongoc_server_description_t *sd);
 
 bool
-mongoc_deprioritized_servers_contains (
-   const mongoc_deprioritized_servers_t *ds,
-   const mongoc_server_description_t *sd);
+mongoc_deprioritized_servers_contains (const mongoc_deprioritized_servers_t *ds, const mongoc_server_description_t *sd);
 
 BSON_END_DECLS
 

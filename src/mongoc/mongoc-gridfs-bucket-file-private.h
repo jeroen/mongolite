@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,14 +54,10 @@ typedef struct {
 } mongoc_gridfs_bucket_file_t;
 
 ssize_t
-_mongoc_gridfs_bucket_file_writev (mongoc_gridfs_bucket_file_t *file,
-                                   const mongoc_iovec_t *iov,
-                                   size_t iovcnt);
+_mongoc_gridfs_bucket_file_writev (mongoc_gridfs_bucket_file_t *file, const mongoc_iovec_t *iov, size_t iovcnt);
 
 ssize_t
-_mongoc_gridfs_bucket_file_readv (mongoc_gridfs_bucket_file_t *file,
-                                  mongoc_iovec_t *iov,
-                                  size_t iovcnt);
+_mongoc_gridfs_bucket_file_readv (mongoc_gridfs_bucket_file_t *file, mongoc_iovec_t *iov, size_t iovcnt);
 
 bool
 _mongoc_gridfs_bucket_file_save (mongoc_gridfs_bucket_file_t *file);

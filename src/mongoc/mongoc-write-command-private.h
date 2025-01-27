@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,15 +105,19 @@ typedef enum {
 void
 _mongoc_write_command_destroy (mongoc_write_command_t *command);
 void
-_mongoc_write_command_init (bson_t *doc,
-                            mongoc_write_command_t *command,
-                            const char *collection);
+_mongoc_write_command_init (bson_t *doc, mongoc_write_command_t *command, const char *collection);
 void
 _mongoc_write_command_init_insert (mongoc_write_command_t *command,
                                    const bson_t *document,
                                    const bson_t *cmd_opts,
                                    mongoc_bulk_write_flags_t flags,
                                    int64_t operation_id);
+void
+_mongoc_write_command_init_insert_one_idl (mongoc_write_command_t *command,
+                                           const bson_t *document,
+                                           const bson_t *cmd_opts,
+                                           bson_t *insert_id,
+                                           int64_t operation_id);
 void
 _mongoc_write_command_init_insert_idl (mongoc_write_command_t *command,
                                        const bson_t *document,
@@ -148,8 +152,7 @@ _mongoc_write_command_init_update_idl (mongoc_write_command_t *command,
                                        const bson_t *opts,
                                        int64_t operation_id);
 void
-_mongoc_write_command_insert_append (mongoc_write_command_t *command,
-                                     const bson_t *document);
+_mongoc_write_command_insert_append (mongoc_write_command_t *command, const bson_t *document);
 void
 _mongoc_write_command_update_append (mongoc_write_command_t *command,
                                      const bson_t *selector,
@@ -157,9 +160,7 @@ _mongoc_write_command_update_append (mongoc_write_command_t *command,
                                      const bson_t *opts);
 
 void
-_mongoc_write_command_delete_append (mongoc_write_command_t *command,
-                                     const bson_t *selector,
-                                     const bson_t *opts);
+_mongoc_write_command_delete_append (mongoc_write_command_t *command, const bson_t *selector, const bson_t *opts);
 
 void
 _mongoc_write_command_execute (mongoc_write_command_t *command,
@@ -182,8 +183,7 @@ _mongoc_write_command_execute_idl (mongoc_write_command_t *command,
                                    mongoc_write_result_t *result);
 void
 _mongoc_write_result_init (mongoc_write_result_t *result);
-#define MONGOC_WRITE_RESULT_COMPLETE(_result, ...) \
-   _mongoc_write_result_complete (_result, __VA_ARGS__, NULL)
+#define MONGOC_WRITE_RESULT_COMPLETE(_result, ...) _mongoc_write_result_complete (_result, __VA_ARGS__, NULL)
 bool
 _mongoc_write_result_complete (mongoc_write_result_t *result,
                                int32_t error_api_version,
@@ -199,9 +199,7 @@ mongoc_write_err_type_t
 _mongoc_write_error_get_type (bson_t *reply);
 
 bool
-_mongoc_write_error_update_if_unsupported_storage_engine (bool cmd_ret,
-                                                          bson_error_t *cmd_err,
-                                                          bson_t *reply);
+_mongoc_write_error_update_if_unsupported_storage_engine (bool cmd_ret, bson_error_t *cmd_err, bson_t *reply);
 
 BSON_END_DECLS
 

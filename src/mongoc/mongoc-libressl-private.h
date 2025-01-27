@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,9 @@ BSON_BEGIN_DECLS
 
 
 bool
-mongoc_libressl_setup_ca (mongoc_stream_tls_libressl_t *libressl,
-                          mongoc_ssl_opt_t *opt);
+mongoc_libressl_setup_ca (mongoc_stream_tls_libressl_t *libressl, mongoc_ssl_opt_t *opt);
 bool
-mongoc_libressl_setup_certificate (mongoc_stream_tls_libressl_t *libressl,
-                                   mongoc_ssl_opt_t *opt);
+mongoc_libressl_setup_certificate (mongoc_stream_tls_libressl_t *libressl, mongoc_ssl_opt_t *opt);
 
 BSON_END_DECLS
 

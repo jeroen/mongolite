@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,7 @@ MONGOC_EXPORT (mongoc_stream_t *)
 mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
                                         const char *host,
                                         mongoc_ssl_opt_t *opt,
-                                        int client)
-   BSON_GNUC_WARN_UNUSED_RESULT;
+                                        int client) BSON_GNUC_WARN_UNUSED_RESULT;
 
 BSON_END_DECLS
 

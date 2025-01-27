@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,10 +37,7 @@ struct _mongoc_gridfs_t {
 
 
 mongoc_gridfs_t *
-_mongoc_gridfs_new (mongoc_client_t *client,
-                    const char *db,
-                    const char *prefix,
-                    bson_error_t *error);
+_mongoc_gridfs_new (mongoc_client_t *client, const char *db, const char *prefix, bson_error_t *error);
 
 
 BSON_END_DECLS

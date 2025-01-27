@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,14 +37,10 @@ mcd_rpc_message_check_ok (mcd_rpc_message *rpc,
                           bson_error_t *error /* OUT */,
                           bson_t *error_doc /* OUT */);
 bool
-_mongoc_cmd_check_ok (const bson_t *doc,
-                      int32_t error_api_version,
-                      bson_error_t *error);
+_mongoc_cmd_check_ok (const bson_t *doc, int32_t error_api_version, bson_error_t *error);
 
 bool
-_mongoc_cmd_check_ok_no_wce (const bson_t *doc,
-                             int32_t error_api_version,
-                             bson_error_t *error);
+_mongoc_cmd_check_ok_no_wce (const bson_t *doc, int32_t error_api_version, bson_error_t *error);
 
 void
 mcd_rpc_message_egress (const mcd_rpc_message *rpc);

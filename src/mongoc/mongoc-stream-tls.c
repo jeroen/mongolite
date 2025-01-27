@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,8 @@
 #include "mongoc-stream-tls-secure-channel.h"
 #endif
 #include "mongoc-stream-tls.h"
+#include <common-macros-private.h> // BEGIN_IGNORE_DEPRECATIONS
+#include <common-cmp-private.h>
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "stream-tls"
@@ -53,14 +55,10 @@
  * Performs TLS handshake dance
  */
 bool
-mongoc_stream_tls_handshake (mongoc_stream_t *stream,
-                             const char *host,
-                             int32_t timeout_msec,
-                             int *events,
-                             bson_error_t *error)
+mongoc_stream_tls_handshake (
+   mongoc_stream_t *stream, const char *host, int32_t timeout_msec, int *events, bson_error_t *error)
 {
-   mongoc_stream_tls_t *stream_tls =
-      (mongoc_stream_tls_t *) mongoc_stream_get_tls_stream (stream);
+   mongoc_stream_tls_t *stream_tls = (mongoc_stream_tls_t *) mongoc_stream_get_tls_stream (stream);
 
    BSON_ASSERT (stream_tls);
    BSON_ASSERT (stream_tls->handshake);
@@ -71,10 +69,7 @@ mongoc_stream_tls_handshake (mongoc_stream_t *stream,
 }
 
 bool
-mongoc_stream_tls_handshake_block (mongoc_stream_t *stream,
-                                   const char *host,
-                                   int32_t timeout_msec,
-                                   bson_error_t *error)
+mongoc_stream_tls_handshake_block (mongoc_stream_t *stream, const char *host, int32_t timeout_msec, bson_error_t *error)
 {
    int events;
    ssize_t ret = 0;
@@ -98,8 +93,7 @@ mongoc_stream_tls_handshake_block (mongoc_stream_t *stream,
    do {
       events = 0;
 
-      if (mongoc_stream_tls_handshake (
-             stream, host, timeout_msec, &events, error)) {
+      if (mongoc_stream_tls_handshake (stream, host, timeout_msec, &events, error)) {
          return true;
       }
 
@@ -112,14 +106,11 @@ mongoc_stream_tls_handshake_block (mongoc_stream_t *stream,
             const int64_t now = bson_get_monotonic_time ();
             const int64_t remaining = expire - now;
             if (remaining < 0) {
-               bson_set_error (error,
-                               MONGOC_ERROR_STREAM,
-                               MONGOC_ERROR_STREAM_SOCKET,
-                               "TLS handshake timed out.");
+               bson_set_error (error, MONGOC_ERROR_STREAM, MONGOC_ERROR_STREAM_SOCKET, "TLS handshake timed out.");
                return false;
             } else {
                const int64_t msec = remaining / 1000;
-               BSON_ASSERT (bson_in_range_signed (int32_t, msec));
+               BSON_ASSERT (mcommon_in_range_signed (int32_t, msec));
                timeout_msec = (int32_t) msec;
             }
          }
@@ -128,10 +119,7 @@ mongoc_stream_tls_handshake_block (mongoc_stream_t *stream,
    } while (events && ret > 0);
 
    if (error && !error->code) {
-      bson_set_error (error,
-                      MONGOC_ERROR_STREAM,
-                      MONGOC_ERROR_STREAM_SOCKET,
-                      "TLS handshake failed.");
+      bson_set_error (error, MONGOC_ERROR_STREAM, MONGOC_ERROR_STREAM_SOCKET, "TLS handshake failed.");
    }
    return false;
 }
@@ -142,8 +130,7 @@ mongoc_stream_tls_handshake_block (mongoc_stream_t *stream,
 bool
 mongoc_stream_tls_do_handshake (mongoc_stream_t *stream, int32_t timeout_msec)
 {
-   mongoc_stream_tls_t *stream_tls =
-      (mongoc_stream_tls_t *) mongoc_stream_get_tls_stream (stream);
+   mongoc_stream_tls_t *stream_tls = (mongoc_stream_tls_t *) mongoc_stream_get_tls_stream (stream);
 
    BSON_UNUSED (timeout_msec);
 
@@ -162,8 +149,7 @@ mongoc_stream_tls_do_handshake (mongoc_stream_t *stream, int32_t timeout_msec)
 bool
 mongoc_stream_tls_check_cert (mongoc_stream_t *stream, const char *host)
 {
-   mongoc_stream_tls_t *stream_tls =
-      (mongoc_stream_tls_t *) mongoc_stream_get_tls_stream (stream);
+   mongoc_stream_tls_t *stream_tls = (mongoc_stream_tls_t *) mongoc_stream_get_tls_stream (stream);
 
    BSON_UNUSED (host);
 
@@ -202,10 +188,7 @@ mongoc_stream_tls_check_cert (mongoc_stream_t *stream, const char *host)
  */
 
 mongoc_stream_t *
-mongoc_stream_tls_new_with_hostname (mongoc_stream_t *base_stream,
-                                     const char *host,
-                                     mongoc_ssl_opt_t *opt,
-                                     int client)
+mongoc_stream_tls_new_with_hostname (mongoc_stream_t *base_stream, const char *host, mongoc_ssl_opt_t *opt, int client)
 {
    BSON_ASSERT (base_stream);
 
@@ -225,10 +208,11 @@ mongoc_stream_tls_new_with_hostname (mongoc_stream_t *base_stream,
 #if defined(MONGOC_ENABLE_SSL_OPENSSL)
    return mongoc_stream_tls_openssl_new (base_stream, host, opt, client);
 #elif defined(MONGOC_ENABLE_SSL_LIBRESSL)
+   BEGIN_IGNORE_DEPRECATIONS
    return mongoc_stream_tls_libressl_new (base_stream, host, opt, client);
+   END_IGNORE_DEPRECATIONS
 #elif defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT)
-   return mongoc_stream_tls_secure_transport_new (
-      base_stream, host, opt, client);
+   return mongoc_stream_tls_secure_transport_new (base_stream, host, opt, client);
 #elif defined(MONGOC_ENABLE_SSL_SECURE_CHANNEL)
    return mongoc_stream_tls_secure_channel_new (base_stream, host, opt, client);
 #else
@@ -236,10 +220,58 @@ mongoc_stream_tls_new_with_hostname (mongoc_stream_t *base_stream,
 #endif
 }
 
+#if defined(MONGOC_ENABLE_SSL_OPENSSL) && OPENSSL_VERSION_NUMBER >= 0x10100000L
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_stream_tls_new_with_hostname_and_openssl_context --
+ *
+ *       Creates a new mongoc_stream_tls_t to communicate with a remote
+ *       server using a TLS stream, using an existing OpenSSL context.
+ *
+ *       @ssl_ctx is the global OpenSSL context for the mongoc_client_t
+ *       associated with this function call.
+ *
+ *       @host the hostname we are connected to and to verify the
+ *       server certificate against
+ *
+ *       @base_stream should be a stream that will become owned by the
+ *       resulting tls stream. It will be used for raw I/O.
+ *
+ * Returns:
+ *       NULL on failure, otherwise a mongoc_stream_t.
+ *
+ * Side effects:
+ *       None.
+ *
+ *--------------------------------------------------------------------------
+ */
+
 mongoc_stream_t *
-mongoc_stream_tls_new (mongoc_stream_t *base_stream,
-                       mongoc_ssl_opt_t *opt,
-                       int client)
+mongoc_stream_tls_new_with_hostname_and_openssl_context (
+   mongoc_stream_t *base_stream, const char *host, mongoc_ssl_opt_t *opt, int client, SSL_CTX *ssl_ctx)
+{
+   BSON_ASSERT (base_stream);
+
+   /* !client is only used for testing,
+    * when the streams are pretending to be the server */
+   if (!client || opt->weak_cert_validation) {
+      opt->allow_invalid_hostname = true;
+   }
+
+#ifndef _WIN32
+   /* Silly check for Unix Domain Sockets */
+   if (!host || (host[0] == '/' && !access (host, F_OK))) {
+      opt->allow_invalid_hostname = true;
+   }
+#endif
+
+   return mongoc_stream_tls_openssl_new_with_context (base_stream, host, opt, client, ssl_ctx);
+}
+#endif
+
+mongoc_stream_t *
+mongoc_stream_tls_new (mongoc_stream_t *base_stream, mongoc_ssl_opt_t *opt, int client)
 {
    return mongoc_stream_tls_new_with_hostname (base_stream, NULL, opt, client);
 }

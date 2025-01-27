@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 MongoDB Inc.
+ * Copyright 2009-present MongoDB, Inc.
  * Licensed under the Apache License, Version 2.0 (the "License");
  *
  * you may not use this file except in compliance with the License.
@@ -20,44 +20,10 @@
 /* strcasecmp on windows */
 #include "mongoc-util-private.h"
 #include "utlist.h"
-
-/*
- *--------------------------------------------------------------------------
- *
- * _mongoc_host_list_push --
- *
- *       Add a host to the front of the list and return it.
- *
- * Side effects:
- *       None.
- *
- *--------------------------------------------------------------------------
- */
-mongoc_host_list_t *
-_mongoc_host_list_push (const char *host,
-                        uint16_t port,
-                        int family,
-                        mongoc_host_list_t *next)
-{
-   mongoc_host_list_t *h;
-
-   BSON_ASSERT (host);
-
-   h = bson_malloc0 (sizeof (mongoc_host_list_t));
-   bson_strncpy (h->host, host, sizeof h->host);
-   h->port = port;
-   bson_snprintf (
-      h->host_and_port, sizeof h->host_and_port, "%s:%hu", host, port);
-
-   h->family = family;
-   h->next = next;
-
-   return h;
-}
+#include <common-cmp-private.h>
 
 static mongoc_host_list_t *
-_mongoc_host_list_find_host_and_port (mongoc_host_list_t *hosts,
-                                      const char *host_and_port)
+_mongoc_host_list_find_host_and_port (mongoc_host_list_t *hosts, const char *host_and_port)
 {
    mongoc_host_list_t *iter;
    LL_FOREACH (hosts, iter)
@@ -86,8 +52,7 @@ _mongoc_host_list_find_host_and_port (mongoc_host_list_t *hosts,
  *--------------------------------------------------------------------------
  */
 void
-_mongoc_host_list_upsert (mongoc_host_list_t **list,
-                          const mongoc_host_list_t *new_host)
+_mongoc_host_list_upsert (mongoc_host_list_t **list, const mongoc_host_list_t *new_host)
 {
    mongoc_host_list_t *link = NULL;
    mongoc_host_list_t *next_link = NULL;
@@ -161,19 +126,15 @@ _mongoc_host_list_length (const mongoc_host_list_t *list)
  *--------------------------------------------------------------------------
  */
 bool
-_mongoc_host_list_compare_one (const mongoc_host_list_t *host_a,
-                               const mongoc_host_list_t *host_b)
+_mongoc_host_list_compare_one (const mongoc_host_list_t *host_a, const mongoc_host_list_t *host_b)
 {
-   return (0 == strcasecmp (host_a->host_and_port, host_b->host_and_port) &&
-           host_a->family == host_b->family);
+   return (0 == strcasecmp (host_a->host_and_port, host_b->host_and_port) && host_a->family == host_b->family);
 }
 
 bool
-_mongoc_host_list_contains_one (mongoc_host_list_t *host_list,
-                                mongoc_host_list_t *host)
+_mongoc_host_list_contains_one (mongoc_host_list_t *host_list, mongoc_host_list_t *host)
 {
-   return NULL !=
-          _mongoc_host_list_find_host_and_port (host_list, host->host_and_port);
+   return NULL != _mongoc_host_list_find_host_and_port (host_list, host->host_and_port);
 }
 
 
@@ -220,9 +181,7 @@ _mongoc_host_list_from_string (mongoc_host_list_t *link_, const char *address)
 }
 
 bool
-_mongoc_host_list_from_string_with_err (mongoc_host_list_t *link_,
-                                        const char *address,
-                                        bson_error_t *error)
+_mongoc_host_list_from_string_with_err (mongoc_host_list_t *link_, const char *address, bson_error_t *error)
 {
    char *close_bracket;
    char *sport;
@@ -257,10 +216,8 @@ _mongoc_host_list_from_string_with_err (mongoc_host_list_t *link_,
       }
 
       if (*address != '[') {
-         bson_set_error (error,
-                         MONGOC_ERROR_COMMAND,
-                         MONGOC_ERROR_COMMAND_INVALID_ARG,
-                         "Missing matching bracket \"[\"");
+         bson_set_error (
+            error, MONGOC_ERROR_COMMAND, MONGOC_ERROR_COMMAND_INVALID_ARG, "Missing matching bracket \"[\"");
          return false;
       }
 
@@ -283,10 +240,7 @@ _mongoc_host_list_from_string_with_err (mongoc_host_list_t *link_,
       }
 
       if (!mongoc_parse_port (&port, sport + 1)) {
-         bson_set_error (error,
-                         MONGOC_ERROR_COMMAND,
-                         MONGOC_ERROR_COMMAND_INVALID_ARG,
-                         "Port could not be parsed");
+         bson_set_error (error, MONGOC_ERROR_COMMAND, MONGOC_ERROR_COMMAND_INVALID_ARG, "Port could not be parsed");
          return false;
       }
 
@@ -319,14 +273,16 @@ _mongoc_host_list_from_hostport_with_err (mongoc_host_list_t *link_,
                                           uint16_t port,
                                           bson_error_t *error)
 {
+   BSON_ASSERT (host);
+   BSON_ASSERT (link_);
    size_t host_len = strlen (host);
-   link_->port = port;
+   *link_ = (mongoc_host_list_t){
+      .next = NULL,
+      .port = port,
+   };
 
    if (host_len == 0) {
-      bson_set_error (error,
-                      MONGOC_ERROR_STREAM,
-                      MONGOC_ERROR_STREAM_NAME_RESOLUTION,
-                      "Empty hostname in URI");
+      bson_set_error (error, MONGOC_ERROR_STREAM, MONGOC_ERROR_STREAM_NAME_RESOLUTION, "Empty hostname in URI");
       return false;
    }
 
@@ -348,22 +304,18 @@ _mongoc_host_list_from_hostport_with_err (mongoc_host_list_t *link_,
       // Check that IPv6 literal is two less than the max to account for `[` and
       // `]` added below.
       if (host_len > BSON_HOST_NAME_MAX - 2) {
-         bson_set_error (
-            error,
-            MONGOC_ERROR_STREAM,
-            MONGOC_ERROR_STREAM_NAME_RESOLUTION,
-            "IPv6 literal provided in URI is too long, max is %d chars",
-            BSON_HOST_NAME_MAX - 2);
+         bson_set_error (error,
+                         MONGOC_ERROR_STREAM,
+                         MONGOC_ERROR_STREAM_NAME_RESOLUTION,
+                         "IPv6 literal provided in URI is too long, max is %d chars",
+                         BSON_HOST_NAME_MAX - 2);
          return false;
       }
 
       mongoc_lowercase (link_->host, link_->host);
-      int req = bson_snprintf (link_->host_and_port,
-                               sizeof link_->host_and_port,
-                               "[%s]:%" PRIu16,
-                               link_->host,
-                               link_->port);
-      BSON_ASSERT (bson_in_range_size_t_signed (req));
+      int req =
+         bson_snprintf (link_->host_and_port, sizeof link_->host_and_port, "[%s]:%" PRIu16, link_->host, link_->port);
+      BSON_ASSERT (mcommon_in_range_size_t_signed (req));
       // Use `<`, not `<=` to account for NULL byte.
       BSON_ASSERT ((size_t) req < sizeof link_->host_and_port);
    } else if (strchr (host, '/') && strstr (host, ".sock")) {
@@ -374,24 +326,18 @@ _mongoc_host_list_from_hostport_with_err (mongoc_host_list_t *link_,
       link_->family = AF_UNSPEC;
 
       mongoc_lowercase (link_->host, link_->host);
-      int req = bson_snprintf (link_->host_and_port,
-                               sizeof link_->host_and_port,
-                               "%s:%" PRIu16,
-                               link_->host,
-                               link_->port);
-      BSON_ASSERT (bson_in_range_size_t_signed (req));
+      int req =
+         bson_snprintf (link_->host_and_port, sizeof link_->host_and_port, "%s:%" PRIu16, link_->host, link_->port);
+      BSON_ASSERT (mcommon_in_range_size_t_signed (req));
       // Use `<`, not `<=` to account for NULL byte.
       BSON_ASSERT ((size_t) req < sizeof link_->host_and_port);
    }
 
-   link_->next = NULL;
    return true;
 }
 
 void
-_mongoc_host_list_remove_host (mongoc_host_list_t **hosts,
-                               const char *host,
-                               uint16_t port)
+_mongoc_host_list_remove_host (mongoc_host_list_t **hosts, const char *host, uint16_t port)
 {
    mongoc_host_list_t *current;
    mongoc_host_list_t *prev = NULL;

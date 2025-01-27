@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,18 +70,12 @@ struct _mongoc_change_stream_t {
 };
 
 mongoc_change_stream_t *
-_mongoc_change_stream_new_from_collection (const mongoc_collection_t *coll,
-                                           const bson_t *pipeline,
-                                           const bson_t *opts);
+_mongoc_change_stream_new_from_collection (const mongoc_collection_t *coll, const bson_t *pipeline, const bson_t *opts);
 
 mongoc_change_stream_t *
-_mongoc_change_stream_new_from_database (const mongoc_database_t *db,
-                                         const bson_t *pipeline,
-                                         const bson_t *opts);
+_mongoc_change_stream_new_from_database (const mongoc_database_t *db, const bson_t *pipeline, const bson_t *opts);
 
 mongoc_change_stream_t *
-_mongoc_change_stream_new_from_client (mongoc_client_t *client,
-                                       const bson_t *pipeline,
-                                       const bson_t *opts);
+_mongoc_change_stream_new_from_client (mongoc_client_t *client, const bson_t *pipeline, const bson_t *opts);
 
 #endif /* MONGOC_CHANGE_STREAM_PRIVATE_H */

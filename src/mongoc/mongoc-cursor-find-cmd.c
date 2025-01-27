@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,8 +33,7 @@ _prime (mongoc_cursor_t *cursor)
    cursor->operation_id = ++cursor->client->cluster.operation_id;
    /* construct { find: "<collection>", filter: {<filter>} } */
    _mongoc_cursor_prepare_find_command (cursor, &data->filter, &find_cmd);
-   _mongoc_cursor_response_refresh (
-      cursor, &find_cmd, &cursor->opts, &data->response);
+   _mongoc_cursor_response_refresh (cursor, &find_cmd, &cursor->opts, &data->response);
    bson_destroy (&find_cmd);
    return IN_BATCH;
 }
@@ -63,8 +62,7 @@ _get_next_batch (mongoc_cursor_t *cursor)
       return DONE;
    }
    _mongoc_cursor_prepare_getmore_command (cursor, &getmore_cmd);
-   _mongoc_cursor_response_refresh (
-      cursor, &getmore_cmd, NULL /* opts */, &data->response);
+   _mongoc_cursor_response_refresh (cursor, &getmore_cmd, NULL /* opts */, &data->response);
    bson_destroy (&getmore_cmd);
    return IN_BATCH;
 }

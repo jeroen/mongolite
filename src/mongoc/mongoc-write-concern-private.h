@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,8 +42,7 @@ struct _mongoc_write_concern_t {
 
 
 mongoc_write_concern_t *
-_mongoc_write_concern_new_from_iter (const bson_iter_t *iter,
-                                     bson_error_t *error);
+_mongoc_write_concern_new_from_iter (const bson_iter_t *iter, bson_error_t *error);
 const bson_t *
 _mongoc_write_concern_get_bson (mongoc_write_concern_t *write_concern);
 bool

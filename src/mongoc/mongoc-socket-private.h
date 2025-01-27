@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,7 @@ struct _mongoc_socket_t {
 };
 
 mongoc_socket_t *
-mongoc_socket_accept_ex (mongoc_socket_t *sock,
-                         int64_t expire_at,
-                         uint16_t *port);
+mongoc_socket_accept_ex (mongoc_socket_t *sock, int64_t expire_at, uint16_t *port);
 
 BSON_END_DECLS
 
