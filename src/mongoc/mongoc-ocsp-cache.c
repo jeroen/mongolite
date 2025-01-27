@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,11 +101,8 @@ _cmp_time (ASN1_TIME *a, ASN1_TIME *b)
 #endif
 
 void
-_mongoc_ocsp_cache_set_resp (OCSP_CERTID *id,
-                             int cert_status,
-                             int reason,
-                             ASN1_GENERALIZEDTIME *this_update,
-                             ASN1_GENERALIZEDTIME *next_update)
+_mongoc_ocsp_cache_set_resp (
+   OCSP_CERTID *id, int cert_status, int reason, ASN1_GENERALIZEDTIME *this_update, ASN1_GENERALIZEDTIME *next_update)
 {
    cache_entry_list_t *entry = NULL;
    ENTRY;

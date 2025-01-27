@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,9 +37,7 @@ MONGOC_EXPORT (bool)
 mongoc_change_stream_next (mongoc_change_stream_t *, const bson_t **);
 
 MONGOC_EXPORT (bool)
-mongoc_change_stream_error_document (const mongoc_change_stream_t *,
-                                     bson_error_t *,
-                                     const bson_t **);
+mongoc_change_stream_error_document (const mongoc_change_stream_t *, bson_error_t *, const bson_t **);
 
 BSON_END_DECLS
 

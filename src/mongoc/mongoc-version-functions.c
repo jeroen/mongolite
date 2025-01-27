@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,9 +70,7 @@ mongoc_get_version (void)
  * version.
  */
 bool
-mongoc_check_version (int required_major,
-                      int required_minor,
-                      int required_micro)
+mongoc_check_version (int required_major, int required_minor, int required_micro)
 {
    return MONGOC_CHECK_VERSION (required_major, required_minor, required_micro);
 }

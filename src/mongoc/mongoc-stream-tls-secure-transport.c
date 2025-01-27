@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 #include "mongoc-stream-tls-private.h"
 #include "mongoc-stream-private.h"
 #include "mongoc-stream-tls-secure-transport-private.h"
+#include <common-string-private.h>
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "stream-tls-secure_transport"
@@ -44,8 +45,7 @@ static void
 _mongoc_stream_tls_secure_transport_destroy (mongoc_stream_t *stream)
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
 
    ENTRY;
    BSON_ASSERT (secure_transport);
@@ -84,8 +84,7 @@ _mongoc_stream_tls_secure_transport_close (mongoc_stream_t *stream)
 {
    int ret = 0;
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
 
    ENTRY;
    BSON_ASSERT (secure_transport);
@@ -98,8 +97,7 @@ static int
 _mongoc_stream_tls_secure_transport_flush (mongoc_stream_t *stream)
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
 
    ENTRY;
    BSON_ASSERT (secure_transport);
@@ -107,14 +105,11 @@ _mongoc_stream_tls_secure_transport_flush (mongoc_stream_t *stream)
 }
 
 static ssize_t
-_mongoc_stream_tls_secure_transport_write (mongoc_stream_t *stream,
-                                           char *buf,
-                                           size_t buf_len)
+_mongoc_stream_tls_secure_transport_write (mongoc_stream_t *stream, char *buf, size_t buf_len)
 {
    OSStatus status;
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
    ssize_t write_ret;
    int64_t now;
    int64_t expire = 0;
@@ -126,8 +121,7 @@ _mongoc_stream_tls_secure_transport_write (mongoc_stream_t *stream,
       expire = bson_get_monotonic_time () + (tls->timeout_msec * 1000UL);
    }
 
-   status = SSLWrite (
-      secure_transport->ssl_ctx_ref, buf, buf_len, (size_t *) &write_ret);
+   status = SSLWrite (secure_transport->ssl_ctx_ref, buf, buf_len, (size_t *) &write_ret);
 
    switch (status) {
    case errSSLWouldBlock:
@@ -167,8 +161,7 @@ _mongoc_stream_tls_secure_transport_writev (mongoc_stream_t *stream,
                                             int32_t timeout_msec)
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
    char buf[MONGOC_STREAM_TLS_BUFFER_SIZE];
    ssize_t ret = 0;
    ssize_t child_ret;
@@ -204,9 +197,7 @@ _mongoc_stream_tls_secure_transport_writev (mongoc_stream_t *stream,
       iov_pos = 0;
 
       while (iov_pos < iov[i].iov_len) {
-         if (buf_head != buf_tail ||
-             ((i + 1 < iovcnt) &&
-              ((buf_end - buf_tail) > (iov[i].iov_len - iov_pos)))) {
+         if (buf_head != buf_tail || ((i + 1 < iovcnt) && ((buf_end - buf_tail) > (iov[i].iov_len - iov_pos)))) {
             /* If we have either of:
              *   - buffered bytes already
              *   - another iovec to send after this one and we don't have more
@@ -241,8 +232,7 @@ _mongoc_stream_tls_secure_transport_writev (mongoc_stream_t *stream,
             /* We get here if we buffered some bytes and filled the buffer, or
              * if we didn't buffer and have to send out of the iovec */
 
-            child_ret = _mongoc_stream_tls_secure_transport_write (
-               stream, to_write, to_write_len);
+            child_ret = _mongoc_stream_tls_secure_transport_write (stream, to_write, to_write_len);
 
             if (child_ret < 0) {
                RETURN (ret);
@@ -264,8 +254,7 @@ _mongoc_stream_tls_secure_transport_writev (mongoc_stream_t *stream,
    if (buf_head != buf_tail) {
       /* If we have any bytes buffered, send */
 
-      child_ret = _mongoc_stream_tls_secure_transport_write (
-         stream, buf_head, buf_tail - buf_head);
+      child_ret = _mongoc_stream_tls_secure_transport_write (stream, buf_head, buf_tail - buf_head);
 
       if (child_ret < 0) {
          RETURN (child_ret);
@@ -284,15 +273,11 @@ _mongoc_stream_tls_secure_transport_writev (mongoc_stream_t *stream,
 
 /* This function is copypasta of _mongoc_stream_tls_openssl_readv */
 static ssize_t
-_mongoc_stream_tls_secure_transport_readv (mongoc_stream_t *stream,
-                                           mongoc_iovec_t *iov,
-                                           size_t iovcnt,
-                                           size_t min_bytes,
-                                           int32_t timeout_msec)
+_mongoc_stream_tls_secure_transport_readv (
+   mongoc_stream_t *stream, mongoc_iovec_t *iov, size_t iovcnt, size_t min_bytes, int32_t timeout_msec)
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
    ssize_t ret = 0;
    size_t i;
    size_t read_ret;
@@ -331,10 +316,8 @@ _mongoc_stream_tls_secure_transport_readv (mongoc_stream_t *stream,
             to_read = remaining_buf_size;
          }
 
-         OSStatus status = SSLRead (secure_transport->ssl_ctx_ref,
-                                    (char *) iov[i].iov_base + iov_pos,
-                                    to_read,
-                                    &read_ret);
+         OSStatus status =
+            SSLRead (secure_transport->ssl_ctx_ref, (char *) iov[i].iov_base + iov_pos, to_read, &read_ret);
 
          if (status != noErr) {
             RETURN (-1);
@@ -375,28 +358,22 @@ _mongoc_stream_tls_secure_transport_readv (mongoc_stream_t *stream,
 }
 
 static int
-_mongoc_stream_tls_secure_transport_setsockopt (mongoc_stream_t *stream,
-                                                int level,
-                                                int optname,
-                                                void *optval,
-                                                mongoc_socklen_t optlen)
+_mongoc_stream_tls_secure_transport_setsockopt (
+   mongoc_stream_t *stream, int level, int optname, void *optval, mongoc_socklen_t optlen)
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
 
    ENTRY;
    BSON_ASSERT (secure_transport);
-   RETURN (mongoc_stream_setsockopt (
-      tls->base_stream, level, optname, optval, optlen));
+   RETURN (mongoc_stream_setsockopt (tls->base_stream, level, optname, optval, optlen));
 }
 
 static mongoc_stream_t *
 _mongoc_stream_tls_secure_transport_get_base_stream (mongoc_stream_t *stream)
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
 
    ENTRY;
    BSON_ASSERT (secure_transport);
@@ -405,12 +382,10 @@ _mongoc_stream_tls_secure_transport_get_base_stream (mongoc_stream_t *stream)
 
 
 static bool
-_mongoc_stream_tls_secure_transport_check_closed (
-   mongoc_stream_t *stream) /* IN */
+_mongoc_stream_tls_secure_transport_check_closed (mongoc_stream_t *stream) /* IN */
 {
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
 
    ENTRY;
    BSON_ASSERT (secure_transport);
@@ -418,22 +393,14 @@ _mongoc_stream_tls_secure_transport_check_closed (
 }
 
 static void
-_set_error_from_osstatus (OSStatus status,
-                          const char *prefix,
-                          bson_error_t *error)
+_set_error_from_osstatus (OSStatus status, const char *prefix, bson_error_t *error)
 {
    CFStringRef err;
    char *err_str;
 
    err = SecCopyErrorMessageString (status, NULL);
    err_str = _mongoc_cfstringref_to_cstring (err);
-   bson_set_error (error,
-                   MONGOC_ERROR_STREAM,
-                   MONGOC_ERROR_STREAM_SOCKET,
-                   "%s: %s (%d)",
-                   prefix,
-                   err_str,
-                   status);
+   bson_set_error (error, MONGOC_ERROR_STREAM, MONGOC_ERROR_STREAM_SOCKET, "%s: %s (%d)", prefix, err_str, status);
 
    bson_free (err_str);
    CFRelease (err);
@@ -443,36 +410,35 @@ _set_error_from_osstatus (OSStatus status,
 static char *
 explain_trust_result (SecTrustRef trust, SecTrustResultType trust_result)
 {
-   bson_string_t *reason;
+   mcommon_string_t *reason;
    CFArrayRef cfprops = NULL;
    CFIndex count, i;
 
-   reason = bson_string_new ("");
+   reason = mcommon_string_new ("");
    switch (trust_result) {
    case kSecTrustResultDeny:
-      bson_string_append (reason, "Certificate trust denied");
+      mcommon_string_append (reason, "Certificate trust denied");
       break;
    case kSecTrustResultRecoverableTrustFailure:
-      bson_string_append (reason, "Certificate trust failure");
+      mcommon_string_append (reason, "Certificate trust failure");
       break;
    case kSecTrustResultFatalTrustFailure:
-      bson_string_append (reason, "Certificate trust fatal failure");
+      mcommon_string_append (reason, "Certificate trust fatal failure");
       break;
    case kSecTrustResultInvalid:
-      bson_string_append (reason, "Certificate trust evaluation failure");
+      mcommon_string_append (reason, "Certificate trust evaluation failure");
       break;
    default:
-      bson_string_append_printf (
-         reason, "Certificate trust failure #%d", (int) trust_result);
+      mcommon_string_append_printf (reason, "Certificate trust failure #%d", (int) trust_result);
       break;
    }
-   bson_string_append (reason, ": ");
+   mcommon_string_append (reason, ": ");
 
    cfprops = SecTrustCopyProperties (trust);
    /* This contains an array of dictionaries, each representing a cert in the
     * chain. Append the first failure reason found. */
    if (!cfprops) {
-      bson_string_append (reason, "Unable to retreive cause for trust failure");
+      mcommon_string_append (reason, "Unable to retreive cause for trust failure");
       goto done;
    }
 
@@ -485,7 +451,7 @@ explain_trust_result (SecTrustRef trust, SecTrustResultType trust_result)
 
       elem = CFArrayGetValueAtIndex (cfprops, i);
       if (CFGetTypeID (elem) != CFDictionaryGetTypeID ()) {
-         bson_string_append (reason, "Unable to parse cause for trust failure");
+         mcommon_string_append (reason, "Unable to parse cause for trust failure");
          goto done;
       }
 
@@ -495,24 +461,24 @@ explain_trust_result (SecTrustRef trust, SecTrustResultType trust_result)
          continue;
       }
       if (CFGetTypeID (reason_elem) != CFStringGetTypeID ()) {
-         bson_string_append (reason, "Unable to parse trust failure error");
+         mcommon_string_append (reason, "Unable to parse trust failure error");
          goto done;
       }
       reason_str = _mongoc_cfstringref_to_cstring (reason_elem);
       if (reason_str) {
-         bson_string_append (reason, reason_str);
+         mcommon_string_append (reason, reason_str);
          bson_free (reason_str);
          goto done;
       } else {
-         bson_string_append (reason, "Unable to express trust failure error");
+         mcommon_string_append (reason, "Unable to express trust failure error");
          goto done;
       }
    }
 
-   bson_string_append (reason, "No trust failure reason available");
+   mcommon_string_append (reason, "No trust failure reason available");
 done:
    CFReleaseSafe (cfprops);
-   return bson_string_free (reason, false);
+   return mcommon_string_free (reason, false);
 }
 
 /* Returns a boolean indicating success. If false is returned, then an error is
@@ -528,22 +494,19 @@ _verify_peer (mongoc_stream_t *stream, bson_error_t *error)
    SecPolicyRef rev_policy = NULL;
    SecTrustResultType trust_result;
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
    bool ret = false;
 
    status = SSLCopyPeerTrust (secure_transport->ssl_ctx_ref, &trust);
    if (status != noErr) {
-      _set_error_from_osstatus (
-         status, "Certificate validation errored", error);
+      _set_error_from_osstatus (status, "Certificate validation errored", error);
       goto fail;
    }
 
    status = SecTrustCopyPolicies (trust, &policies);
 
    if (status != noErr) {
-      _set_error_from_osstatus (
-         status, "Certificate validation errored", error);
+      _set_error_from_osstatus (status, "Certificate validation errored", error);
       goto fail;
    }
 
@@ -559,8 +522,7 @@ _verify_peer (mongoc_stream_t *stream, bson_error_t *error)
    status = SecTrustSetPolicies (trust, policies_mutable);
 
    if (status != noErr) {
-      _set_error_from_osstatus (
-         status, "Certificate validation errored", error);
+      _set_error_from_osstatus (status, "Certificate validation errored", error);
       goto fail;
    }
 
@@ -569,19 +531,13 @@ _verify_peer (mongoc_stream_t *stream, bson_error_t *error)
     * addressed. */
    status = SecTrustEvaluate (trust, &trust_result);
    if (status != noErr) {
-      _set_error_from_osstatus (
-         status, "Certificate validation errored", error);
+      _set_error_from_osstatus (status, "Certificate validation errored", error);
       goto fail;
    }
 
-   if (trust_result != kSecTrustResultProceed &&
-       trust_result != kSecTrustResultUnspecified) {
+   if (trust_result != kSecTrustResultProceed && trust_result != kSecTrustResultUnspecified) {
       char *reason = explain_trust_result (trust, trust_result);
-      bson_set_error (error,
-                      MONGOC_ERROR_STREAM,
-                      MONGOC_ERROR_STREAM_SOCKET,
-                      "TLS handshake failed (%s)",
-                      reason);
+      bson_set_error (error, MONGOC_ERROR_STREAM, MONGOC_ERROR_STREAM_SOCKET, "TLS handshake failed (%s)", reason);
       bson_free (reason);
       goto fail;
    }
@@ -603,8 +559,7 @@ mongoc_stream_tls_secure_transport_handshake (mongoc_stream_t *stream,
 {
    OSStatus ret = 0;
    mongoc_stream_tls_t *tls = (mongoc_stream_tls_t *) stream;
-   mongoc_stream_tls_secure_transport_t *secure_transport =
-      (mongoc_stream_tls_secure_transport_t *) tls->ctx;
+   mongoc_stream_tls_secure_transport_t *secure_transport = (mongoc_stream_tls_secure_transport_t *) tls->ctx;
 
    ENTRY;
    BSON_ASSERT (secure_transport);
@@ -612,8 +567,7 @@ mongoc_stream_tls_secure_transport_handshake (mongoc_stream_t *stream,
    ret = SSLHandshake (secure_transport->ssl_ctx_ref);
 
    if (ret == errSSLServerAuthCompleted) {
-      if (!tls->ssl_opts.weak_cert_validation &&
-          !_verify_peer (stream, error)) {
+      if (!tls->ssl_opts.weak_cert_validation && !_verify_peer (stream, error)) {
          *events = 0;
          RETURN (false);
       }
@@ -673,14 +627,12 @@ mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
       RETURN (NULL);
    }
    if (opt->crl_file) {
-      MONGOC_ERROR (
-         "Setting mongoc_ssl_opt_t.crl_file has no effect when built "
-         "against Secure Transport");
+      MONGOC_ERROR ("Setting mongoc_ssl_opt_t.crl_file has no effect when built "
+                    "against Secure Transport");
       RETURN (NULL);
    }
 
-   secure_transport = (mongoc_stream_tls_secure_transport_t *) bson_malloc0 (
-      sizeof *secure_transport);
+   secure_transport = (mongoc_stream_tls_secure_transport_t *) bson_malloc0 (sizeof *secure_transport);
 
    tls = (mongoc_stream_tls_t *) bson_malloc0 (sizeof *tls);
    tls->parent.type = MONGOC_STREAM_TLS;
@@ -691,8 +643,7 @@ mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
    tls->parent.writev = _mongoc_stream_tls_secure_transport_writev;
    tls->parent.readv = _mongoc_stream_tls_secure_transport_readv;
    tls->parent.setsockopt = _mongoc_stream_tls_secure_transport_setsockopt;
-   tls->parent.get_base_stream =
-      _mongoc_stream_tls_secure_transport_get_base_stream;
+   tls->parent.get_base_stream = _mongoc_stream_tls_secure_transport_get_base_stream;
    tls->parent.check_closed = _mongoc_stream_tls_secure_transport_check_closed;
    tls->parent.timed_out = _mongoc_stream_tls_secure_channel_timed_out;
    tls->parent.should_retry = _mongoc_stream_tls_secure_channel_should_retry;
@@ -702,23 +653,17 @@ mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
    tls->timeout_msec = -1;
 
    secure_transport->ssl_ctx_ref =
-      SSLCreateContext (kCFAllocatorDefault,
-                        client ? kSSLClientSide : kSSLServerSide,
-                        kSSLStreamType);
+      SSLCreateContext (kCFAllocatorDefault, client ? kSSLClientSide : kSSLServerSide, kSSLStreamType);
 
-   SSLSetIOFuncs (secure_transport->ssl_ctx_ref,
-                  mongoc_secure_transport_read,
-                  mongoc_secure_transport_write);
+   SSLSetIOFuncs (secure_transport->ssl_ctx_ref, mongoc_secure_transport_read, mongoc_secure_transport_write);
    SSLSetProtocolVersionMin (secure_transport->ssl_ctx_ref, kTLSProtocol1);
 
-   if (opt->pem_file &&
-       !mongoc_secure_transport_setup_certificate (secure_transport, opt)) {
+   if (opt->pem_file && !mongoc_secure_transport_setup_certificate (secure_transport, opt)) {
       mongoc_stream_destroy ((mongoc_stream_t *) tls);
       RETURN (NULL);
    }
 
-   if (opt->ca_file &&
-       !mongoc_secure_transport_setup_ca (secure_transport, opt)) {
+   if (opt->ca_file && !mongoc_secure_transport_setup_ca (secure_transport, opt)) {
       mongoc_stream_destroy ((mongoc_stream_t *) tls);
       RETURN (NULL);
    }
@@ -729,13 +674,10 @@ mongoc_stream_tls_secure_transport_new (mongoc_stream_t *base_stream,
    if (client) {
       /* This option has SSL_Handshake stop before it verifies peer cert. Set
        * this since we verify peer cert manually later. */
-      SSLSetSessionOption (secure_transport->ssl_ctx_ref,
-                           kSSLSessionOptionBreakOnServerAuth,
-                           true);
+      SSLSetSessionOption (secure_transport->ssl_ctx_ref, kSSLSessionOptionBreakOnServerAuth, true);
    } else if (!opt->allow_invalid_hostname) {
       /* used only in mock_server_t tests */
-      SSLSetClientSideAuthenticate (secure_transport->ssl_ctx_ref,
-                                    kAlwaysAuthenticate);
+      SSLSetClientSideAuthenticate (secure_transport->ssl_ctx_ref, kAlwaysAuthenticate);
    }
 
    if (!opt->allow_invalid_hostname) {

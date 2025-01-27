@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,10 +46,9 @@
 #define MONGOC_COMPILER_VERSION MONGOC_EVALUATE_STR (_MSC_VER)
 #elif defined(__PGI)
 #define MONGOC_COMPILER "Portland PGCC"
-#define MONGOC_COMPILER_VERSION                                     \
-   MONGOC_EVALUATE_STR (__PGIC__)                                   \
-   "." MONGOC_EVALUATE_STR (__PGIC_MINOR) "." MONGOC_EVALUATE_STR ( \
-      __PGIC_PATCHLEVEL__)
+#define MONGOC_COMPILER_VERSION   \
+   MONGOC_EVALUATE_STR (__PGIC__) \
+   "." MONGOC_EVALUATE_STR (__PGIC_MINOR) "." MONGOC_EVALUATE_STR (__PGIC_PATCHLEVEL__)
 #elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
 #define MONGOC_COMPILER "Solaris Studio"
 #define MONGOC_COMPILER_VERSION MONGOC_EVALUATE_STR (__SUNPRO_C)

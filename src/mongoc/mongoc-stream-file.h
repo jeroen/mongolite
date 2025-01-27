@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,9 +32,7 @@ typedef struct _mongoc_stream_file_t mongoc_stream_file_t;
 MONGOC_EXPORT (mongoc_stream_t *)
 mongoc_stream_file_new (int fd) BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (mongoc_stream_t *)
-mongoc_stream_file_new_for_path (const char *path,
-                                 int flags,
-                                 int mode) BSON_GNUC_WARN_UNUSED_RESULT;
+mongoc_stream_file_new_for_path (const char *path, int flags, int mode) BSON_GNUC_WARN_UNUSED_RESULT;
 MONGOC_EXPORT (int)
 mongoc_stream_file_get_fd (mongoc_stream_file_t *stream);
 

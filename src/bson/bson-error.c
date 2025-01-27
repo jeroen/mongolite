@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 #include <bson/bson-config.h>
 #include <bson/bson-error.h>
 #include <bson/bson-memory.h>
-#include <bson/bson-string.h>
+#include <common-string-private.h>
 #include <bson/bson-types.h>
 
 // See `bson_strerror_r()` definition below.
@@ -130,6 +130,7 @@ bson_strerror_r (int err_code,                    /* IN */
    // required) by the POSIX spec (see:
    // https://pubs.opengroup.org/onlinepubs/9699919799/functions/strerror.html#tag_16_574_08).
    (void) strerror_r (err_code, buf, buflen);
+   ret = buf;
 #elif defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 700
    // The behavior (of `strerror_l`) is undefined if the locale argument to
    // `strerror_l()` is the special locale object LC_GLOBAL_LOCALE or is not a

@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -282,8 +282,7 @@ mcd_duration_compare (mcd_duration left, mcd_duration right)
 static BSON_INLINE mcd_duration
 mcd_duration_clamp (mcd_duration dur, mcd_duration min, mcd_duration max)
 {
-   BSON_ASSERT (mcd_duration_compare (min, max) <= 0 &&
-                "Invalid min-max range given to mcd_duration_clamp()");
+   BSON_ASSERT (mcd_duration_compare (min, max) <= 0 && "Invalid min-max range given to mcd_duration_clamp()");
    if (mcd_duration_compare (dur, min) < 0) {
       // The duration is less than the minimum
       return min;

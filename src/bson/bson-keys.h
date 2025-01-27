@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,10 +29,7 @@ BSON_BEGIN_DECLS
 
 
 BSON_EXPORT (size_t)
-bson_uint32_to_string (uint32_t value,
-                       const char **strptr,
-                       char *str,
-                       size_t size);
+bson_uint32_to_string (uint32_t value, const char **strptr, char *str, size_t size);
 
 
 BSON_END_DECLS

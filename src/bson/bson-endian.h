@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,6 @@
 #ifndef BSON_ENDIAN_H
 #define BSON_ENDIAN_H
 
-
-#if defined(__sun)
-#include <sys/byteorder.h>
-#endif
-
 #include <bson/bson-config.h>
 #include <bson/bson-macros.h>
 #include <bson/bson-compat.h>
@@ -36,13 +31,7 @@ BSON_BEGIN_DECLS
 #define BSON_BIG_ENDIAN 4321
 #define BSON_LITTLE_ENDIAN 1234
 
-
-#if defined(__sun)
-#define BSON_UINT16_SWAP_LE_BE(v) BSWAP_16 ((uint16_t) v)
-#define BSON_UINT32_SWAP_LE_BE(v) BSWAP_32 ((uint32_t) v)
-#define BSON_UINT64_SWAP_LE_BE(v) BSWAP_64 ((uint64_t) v)
-#elif defined(__clang__) && defined(__clang_major__) &&  \
-   defined(__clang_minor__) && (__clang_major__ >= 3) && \
+#if defined(__clang__) && defined(__clang_major__) && defined(__clang_minor__) && (__clang_major__ >= 3) && \
    (__clang_minor__ >= 1)
 #if __has_builtin(__builtin_bswap16)
 #define BSON_UINT16_SWAP_LE_BE(v) __builtin_bswap16 (v)
@@ -156,8 +145,7 @@ __bson_uint16_swap_slow (uint16_t v) /* IN */
 static BSON_INLINE uint32_t
 __bson_uint32_swap_slow (uint32_t v) /* IN */
 {
-   return ((v & 0x000000FFU) << 24) | ((v & 0x0000FF00U) << 8) |
-          ((v & 0x00FF0000U) >> 8) | ((v & 0xFF000000U) >> 24);
+   return ((v & 0x000000FFU) << 24) | ((v & 0x0000FF00U) << 8) | ((v & 0x00FF0000U) >> 8) | ((v & 0xFF000000U) >> 24);
 }
 
 
@@ -180,14 +168,10 @@ __bson_uint32_swap_slow (uint32_t v) /* IN */
 static BSON_INLINE uint64_t
 __bson_uint64_swap_slow (uint64_t v) /* IN */
 {
-   return ((v & 0x00000000000000FFULL) << 56) |
-          ((v & 0x000000000000FF00ULL) << 40) |
-          ((v & 0x0000000000FF0000ULL) << 24) |
-          ((v & 0x00000000FF000000ULL) << 8) |
-          ((v & 0x000000FF00000000ULL) >> 8) |
-          ((v & 0x0000FF0000000000ULL) >> 24) |
-          ((v & 0x00FF000000000000ULL) >> 40) |
-          ((v & 0xFF00000000000000ULL) >> 56);
+   return ((v & 0x00000000000000FFULL) << 56) | ((v & 0x000000000000FF00ULL) << 40) |
+          ((v & 0x0000000000FF0000ULL) << 24) | ((v & 0x00000000FF000000ULL) << 8) |
+          ((v & 0x000000FF00000000ULL) >> 8) | ((v & 0x0000FF0000000000ULL) >> 24) |
+          ((v & 0x00FF000000000000ULL) >> 40) | ((v & 0xFF00000000000000ULL) >> 56);
 }
 
 

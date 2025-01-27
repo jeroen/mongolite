@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-present MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,8 @@ BSON_BEGIN_DECLS
 
 #define MONGOC_HANDSHAKE_APPNAME_MAX 128
 
-MONGOC_EXPORT (bool) 
-mongoc_handshake_data_append (const char *driver_name,
-                              const char *driver_version,
-                              const char *platform);
+MONGOC_EXPORT (bool)
+mongoc_handshake_data_append (const char *driver_name, const char *driver_version, const char *platform);
 
 BSON_END_DECLS
 

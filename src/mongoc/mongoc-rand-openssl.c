@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ _mongoc_rand_bytes (uint8_t *buf, int num)
    struct timeval tv;
 
    bson_gettimeofday (&tv);
-   RAND_add (&tv, sizeof(tv), 0.0);
+   RAND_add (&tv, sizeof (tv), 0.0);
 #endif
 
    return RAND_bytes (buf, num);

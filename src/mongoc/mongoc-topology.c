@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,14 +36,14 @@
 #include "utlist.h"
 
 #include <stdint.h>
+#include <common-string-private.h>
+#include <common-cmp-private.h>
 
 static void
-_topology_collect_errors (const mongoc_topology_description_t *topology,
-                          bson_error_t *error_out);
+_topology_collect_errors (const mongoc_topology_description_t *topology, bson_error_t *error_out);
 
 static bool
-_mongoc_topology_reconcile_add_nodes (mongoc_server_description_t *sd,
-                                      mongoc_topology_scanner_t *scanner)
+_mongoc_topology_reconcile_add_nodes (mongoc_server_description_t *sd, mongoc_topology_scanner_t *scanner)
 {
    mongoc_topology_scanner_node_t *node;
 
@@ -66,8 +66,7 @@ _mongoc_topology_reconcile_add_nodes (mongoc_server_description_t *sd,
  * Not called for multi threaded monitoring.
  */
 void
-mongoc_topology_reconcile (const mongoc_topology_t *topology,
-                           mongoc_topology_description_t *td)
+mongoc_topology_reconcile (const mongoc_topology_t *topology, mongoc_topology_description_t *td)
 {
    mongoc_set_t *servers;
    mongoc_server_description_t *sd;
@@ -99,8 +98,7 @@ _mongoc_topology_update_no_lock (uint32_t id,
                                  mongoc_topology_description_t *td,
                                  const bson_error_t *error /* IN */)
 {
-   mongoc_topology_description_handle_hello (
-      td, id, hello_response, rtt_msec, error);
+   mongoc_topology_description_handle_hello (td, id, hello_response, rtt_msec, error);
 
    /* return false if server removed from topology */
    return mongoc_topology_description_server_by_id (td, id, NULL) != NULL;
@@ -119,9 +117,7 @@ _mongoc_topology_update_no_lock (uint32_t id,
  */
 
 void
-_mongoc_topology_scanner_setup_err_cb (uint32_t id,
-                                       void *data,
-                                       const bson_error_t *error /* IN */)
+_mongoc_topology_scanner_setup_err_cb (uint32_t id, void *data, const bson_error_t *error /* IN */)
 {
    mongoc_topology_t *topology = BSON_ASSERT_PTR_INLINE (data);
 
@@ -133,8 +129,7 @@ _mongoc_topology_scanner_setup_err_cb (uint32_t id,
       // Use `mc_tpld_unsafe_get_mutable` to get a mutable topology description
       // without locking. This function only applies to single-threaded clients.
       mongoc_topology_description_t *td = mc_tpld_unsafe_get_mutable (topology);
-      mongoc_topology_description_handle_hello (
-         td, id, NULL /* hello reply */, -1 /* rtt_msec */, error);
+      mongoc_topology_description_handle_hello (td, id, NULL /* hello reply */, -1 /* rtt_msec */, error);
    }
 }
 
@@ -153,11 +148,8 @@ _mongoc_topology_scanner_setup_err_cb (uint32_t id,
  */
 
 void
-_mongoc_topology_scanner_cb (uint32_t id,
-                             const bson_t *hello_response,
-                             int64_t rtt_msec,
-                             void *data,
-                             const bson_error_t *error /* IN */)
+_mongoc_topology_scanner_cb (
+   uint32_t id, const bson_t *hello_response, int64_t rtt_msec, void *data, const bson_error_t *error /* IN */)
 {
    mongoc_topology_t *const topology = BSON_ASSERT_PTR_INLINE (data);
    mongoc_server_description_t *sd;
@@ -180,8 +172,7 @@ _mongoc_topology_scanner_cb (uint32_t id,
       /* Server monitoring: When a server check fails due to a network error
        * (including a network timeout), the client MUST clear its connection
        * pool for the server */
-      _mongoc_topology_description_clear_connection_pool (
-         td, id, &kZeroServiceId);
+      _mongoc_topology_description_clear_connection_pool (td, id, &kZeroServiceId);
    }
 
    /* Server Discovery and Monitoring Spec: "Once a server is connected, the
@@ -205,9 +196,7 @@ _mongoc_topology_scanner_cb (uint32_t id,
 }
 
 static void
-_server_session_init (mongoc_server_session_t *session,
-                      mongoc_topology_t *unused,
-                      bson_error_t *error)
+_server_session_init (void *session, void *unused, bson_error_t *error)
 {
    BSON_UNUSED (unused);
 
@@ -215,8 +204,7 @@ _server_session_init (mongoc_server_session_t *session,
 }
 
 static void
-_server_session_destroy (mongoc_server_session_t *session,
-                         mongoc_topology_t *unused)
+_server_session_destroy (void *session, void *unused)
 {
    BSON_UNUSED (unused);
 
@@ -224,11 +212,13 @@ _server_session_destroy (mongoc_server_session_t *session,
 }
 
 static int
-_server_session_should_prune (mongoc_server_session_t *session,
-                              mongoc_topology_t *topo)
+_server_session_should_prune (const void *session_vp, void *topo_vp)
 {
-   BSON_ASSERT_PARAM (session);
-   BSON_ASSERT_PARAM (topo);
+   BSON_ASSERT_PARAM (session_vp);
+   BSON_ASSERT_PARAM (topo_vp);
+
+   const mongoc_server_session_t *const session = session_vp;
+   mongoc_topology_t *const topo = topo_vp;
 
    /** If "dirty" (i.e. contains a network error), it should be dropped */
    if (session->dirty) {
@@ -263,9 +253,7 @@ _tpld_destroy_and_free (void *tpl_descr)
 }
 
 const mongoc_host_list_t **
-_mongoc_apply_srv_max_hosts (const mongoc_host_list_t *hl,
-                             size_t max_hosts,
-                             size_t *hl_array_size)
+_mongoc_apply_srv_max_hosts (const mongoc_host_list_t *hl, size_t max_hosts, size_t *hl_array_size)
 {
    const mongoc_host_list_t **hl_array;
 
@@ -299,8 +287,7 @@ _mongoc_apply_srv_max_hosts (const mongoc_host_list_t *hl,
     * Drivers SHOULD use the `Fisher-Yates shuffle` for randomization. */
    for (size_t idx = hl_size - 1u; idx > 0u; --idx) {
       /* 0 <= swap_pos <= idx */
-      const size_t swap_pos =
-         _mongoc_rand_size_t (0u, idx, _mongoc_simple_rand_size_t);
+      const size_t swap_pos = _mongoc_rand_size_t (0u, idx);
 
       const mongoc_host_list_t *tmp = hl_array[swap_pos];
       hl_array[swap_pos] = hl_array[idx];
@@ -323,20 +310,18 @@ _detect_nongenuine_host (const char *host)
    mongoc_lowercase (host, host_lowercase);
 
    if (mongoc_ends_with (host_lowercase, ".cosmos.azure.com")) {
-      MONGOC_INFO (
-         "You appear to be connected to a CosmosDB cluster. For more "
-         "information regarding feature compatibility and support please "
-         "visit https://www.mongodb.com/supportability/cosmosdb");
+      MONGOC_INFO ("You appear to be connected to a CosmosDB cluster. For more "
+                   "information regarding feature compatibility and support please "
+                   "visit https://www.mongodb.com/supportability/cosmosdb");
       bson_free (host_lowercase);
       return true;
    }
 
    if (mongoc_ends_with (host_lowercase, ".docdb.amazonaws.com") ||
        mongoc_ends_with (host_lowercase, ".docdb-elastic.amazonaws.com")) {
-      MONGOC_INFO (
-         "You appear to be connected to a DocumentDB cluster. For more "
-         "information regarding feature compatibility and support please "
-         "visit https://www.mongodb.com/supportability/documentdb");
+      MONGOC_INFO ("You appear to be connected to a DocumentDB cluster. For more "
+                   "information regarding feature compatibility and support please "
+                   "visit https://www.mongodb.com/supportability/documentdb");
       bson_free (host_lowercase);
       return true;
    }
@@ -396,34 +381,34 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
    _detect_nongenuine_hosts (uri);
 
 #ifndef MONGOC_ENABLE_CRYPTO
-   if (mongoc_uri_get_option_as_bool (
-          uri, MONGOC_URI_RETRYWRITES, MONGOC_DEFAULT_RETRYWRITES)) {
+   if (mongoc_uri_get_option_as_bool (uri, MONGOC_URI_RETRYWRITES, MONGOC_DEFAULT_RETRYWRITES)) {
       /* retryWrites requires sessions, which require crypto - just warn */
-      MONGOC_WARNING (
-         "retryWrites not supported without an SSL crypto library");
+      MONGOC_WARNING ("retryWrites not supported without an SSL crypto library");
    }
 #endif
 
    topology = (mongoc_topology_t *) bson_malloc0 (sizeof *topology);
+   // Check if requested to use TCP for SRV lookup.
+   {
+      char *srv_prefer_tcp = _mongoc_getenv ("MONGOC_EXPERIMENTAL_SRV_PREFER_TCP");
+      if (srv_prefer_tcp) {
+         topology->srv_prefer_tcp = true;
+      }
+      bson_free (srv_prefer_tcp);
+   }
    topology->usleep_fn = mongoc_usleep_default_impl;
-   topology->session_pool =
-      mongoc_server_session_pool_new_with_params (_server_session_init,
-                                                  _server_session_destroy,
-                                                  _server_session_should_prune,
-                                                  topology);
+   topology->session_pool = mongoc_server_session_pool_new_with_params (
+      _server_session_init, _server_session_destroy, _server_session_should_prune, topology);
 
    topology->valid = false;
 
-   const int32_t heartbeat_default =
-      single_threaded ? MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_SINGLE_THREADED
-                      : MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_MULTI_THREADED;
+   const int32_t heartbeat_default = single_threaded ? MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_SINGLE_THREADED
+                                                     : MONGOC_TOPOLOGY_HEARTBEAT_FREQUENCY_MS_MULTI_THREADED;
 
-   const int32_t heartbeat = mongoc_uri_get_option_as_int32 (
-      uri, MONGOC_URI_HEARTBEATFREQUENCYMS, heartbeat_default);
+   const int32_t heartbeat = mongoc_uri_get_option_as_int32 (uri, MONGOC_URI_HEARTBEATFREQUENCYMS, heartbeat_default);
 
-   topology->_shared_descr_._sptr_ = mongoc_shared_ptr_create (
-      BSON_ALIGNED_ALLOC0 (mongoc_topology_description_t),
-      _tpld_destroy_and_free);
+   topology->_shared_descr_._sptr_ =
+      mongoc_shared_ptr_create (BSON_ALIGNED_ALLOC0 (mongoc_topology_description_t), _tpld_destroy_and_free);
    td = mc_tpld_unsafe_get_mutable (topology);
    mongoc_topology_description_init (td, heartbeat);
 
@@ -442,23 +427,19 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
        *
        *   "The serverSelectionTryOnce option MUST be true by default."
        */
-      topology->server_selection_try_once = mongoc_uri_get_option_as_bool (
-         uri, MONGOC_URI_SERVERSELECTIONTRYONCE, true);
+      topology->server_selection_try_once =
+         mongoc_uri_get_option_as_bool (uri, MONGOC_URI_SERVERSELECTIONTRYONCE, true);
    } else {
       topology->server_selection_try_once = false;
    }
 
    topology->server_selection_timeout_msec = mongoc_uri_get_option_as_int32 (
-      topology->uri,
-      MONGOC_URI_SERVERSELECTIONTIMEOUTMS,
-      MONGOC_TOPOLOGY_SERVER_SELECTION_TIMEOUT_MS);
+      topology->uri, MONGOC_URI_SERVERSELECTIONTIMEOUTMS, MONGOC_TOPOLOGY_SERVER_SELECTION_TIMEOUT_MS);
 
    /* tests can override this */
-   topology->min_heartbeat_frequency_msec =
-      MONGOC_TOPOLOGY_MIN_HEARTBEAT_FREQUENCY_MS;
+   topology->min_heartbeat_frequency_msec = MONGOC_TOPOLOGY_MIN_HEARTBEAT_FREQUENCY_MS;
 
-   topology->local_threshold_msec =
-      mongoc_uri_get_local_threshold_option (topology->uri);
+   topology->local_threshold_msec = mongoc_uri_get_local_threshold_option (topology->uri);
 
    /* Total time allowed to check a server is connectTimeoutMS.
     * Server Discovery And Monitoring Spec:
@@ -468,17 +449,14 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
     *   socketTimeoutMS to the connectTimeoutMS."
     */
    topology->connect_timeout_msec =
-      mongoc_uri_get_option_as_int32 (topology->uri,
-                                      MONGOC_URI_CONNECTTIMEOUTMS,
-                                      MONGOC_DEFAULT_CONNECTTIMEOUTMS);
+      mongoc_uri_get_option_as_int32 (topology->uri, MONGOC_URI_CONNECTTIMEOUTMS, MONGOC_DEFAULT_CONNECTTIMEOUTMS);
 
    topology->scanner_state = MONGOC_TOPOLOGY_SCANNER_OFF;
-   topology->scanner =
-      mongoc_topology_scanner_new (topology->uri,
-                                   _mongoc_topology_scanner_setup_err_cb,
-                                   _mongoc_topology_scanner_cb,
-                                   topology,
-                                   topology->connect_timeout_msec);
+   topology->scanner = mongoc_topology_scanner_new (topology->uri,
+                                                    _mongoc_topology_scanner_setup_err_cb,
+                                                    _mongoc_topology_scanner_cb,
+                                                    topology,
+                                                    topology->connect_timeout_msec);
 
    bson_mutex_init (&topology->tpld_modification_mtx);
    mongoc_cond_init (&topology->cond_client);
@@ -507,16 +485,15 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
        * lookup fails, SRV polling will still start when background monitoring
        * starts. */
       topology->srv_polling_last_scan_ms = bson_get_monotonic_time () / 1000;
-      topology->srv_polling_rescan_interval_ms =
-         MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS;
+      _mongoc_topology_set_srv_polling_rescan_interval_ms (topology, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
 
       /* a mongodb+srv URI. try SRV lookup, if no error then also try TXT */
-      prefixed_hostname = bson_strdup_printf (
-         "_%s._tcp.%s", mongoc_uri_get_srv_service_name (uri), srv_hostname);
+      prefixed_hostname = bson_strdup_printf ("_%s._tcp.%s", mongoc_uri_get_srv_service_name (uri), srv_hostname);
       if (!topology->rr_resolver (prefixed_hostname,
                                   MONGOC_RR_SRV,
                                   &rr_data,
                                   MONGOC_RR_DEFAULT_BUFFER_SIZE,
+                                  topology->srv_prefer_tcp,
                                   &topology->scanner->error)) {
          GOTO (srv_fail);
       }
@@ -528,28 +505,26 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
                                   MONGOC_RR_TXT,
                                   &rr_data,
                                   MONGOC_RR_DEFAULT_BUFFER_SIZE,
+                                  topology->srv_prefer_tcp,
                                   &topology->scanner->error)) {
          GOTO (srv_fail);
       }
 
       /* Use rr_data to update the topology's URI. */
       if (rr_data.txt_record_opts &&
-          !mongoc_uri_parse_options (topology->uri,
-                                     rr_data.txt_record_opts,
-                                     true /* from_dns */,
-                                     &topology->scanner->error)) {
+          !mongoc_uri_parse_options (
+             topology->uri, rr_data.txt_record_opts, true /* from_dns */, &topology->scanner->error)) {
          GOTO (srv_fail);
       }
 
-      if (!mongoc_uri_init_with_srv_host_list (
-             topology->uri, rr_data.hosts, &topology->scanner->error)) {
+      if (!mongoc_uri_init_with_srv_host_list (topology->uri, rr_data.hosts, &topology->scanner->error)) {
          GOTO (srv_fail);
       }
 
       topology->srv_polling_last_scan_ms = bson_get_monotonic_time () / 1000;
       /* TODO (CDRIVER-4047) use BSON_MIN */
-      topology->srv_polling_rescan_interval_ms = BSON_MAX (
-         rr_data.min_ttl * 1000, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
+      int64_t new_iv = BSON_MAX (rr_data.min_ttl * 1000, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
+      _mongoc_topology_set_srv_polling_rescan_interval_ms (topology, new_iv);
 
       topology->valid = true;
    srv_fail:
@@ -564,8 +539,7 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
       topology->valid = false;
    }
 
-   td->max_hosts =
-      mongoc_uri_get_option_as_int32 (uri, MONGOC_URI_SRVMAXHOSTS, 0);
+   td->max_hosts = mongoc_uri_get_option_as_int32 (uri, MONGOC_URI_SRVMAXHOSTS, 0);
 
    if (td->max_hosts < 0) {
       topology->valid = false;
@@ -584,17 +558,13 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
     *     - otherwise, if the seed list has a single host, initialize to SINGLE
     *   - everything else gets initialized to UNKNOWN
     */
-   has_directconnection =
-      mongoc_uri_has_option (uri, MONGOC_URI_DIRECTCONNECTION);
-   directconnection =
-      has_directconnection &&
-      mongoc_uri_get_option_as_bool (uri, MONGOC_URI_DIRECTCONNECTION, false);
+   has_directconnection = mongoc_uri_has_option (uri, MONGOC_URI_DIRECTCONNECTION);
+   directconnection = has_directconnection && mongoc_uri_get_option_as_bool (uri, MONGOC_URI_DIRECTCONNECTION, false);
    hl = mongoc_uri_get_hosts (topology->uri);
    /* If loadBalanced is enabled, directConnection is disabled. This was
     * validated in mongoc_uri_finalize_loadbalanced, which is called by
     * mongoc_uri_finalize. */
-   if (mongoc_uri_get_option_as_bool (
-          topology->uri, MONGOC_URI_LOADBALANCED, false)) {
+   if (mongoc_uri_get_option_as_bool (topology->uri, MONGOC_URI_LOADBALANCED, false)) {
       init_type = MONGOC_TOPOLOGY_LOAD_BALANCED;
       if (topology->single_threaded) {
          /* Cooldown only applies to server monitoring for single-threaded
@@ -646,9 +616,8 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
 
    size_t hl_array_size = 0u;
 
-   BSON_ASSERT (bson_in_range_signed (size_t, td->max_hosts));
-   const mongoc_host_list_t *const *hl_array =
-      _mongoc_apply_srv_max_hosts (hl, (size_t) td->max_hosts, &hl_array_size);
+   BSON_ASSERT (mcommon_in_range_signed (size_t, td->max_hosts));
+   const mongoc_host_list_t *const *hl_array = _mongoc_apply_srv_max_hosts (hl, (size_t) td->max_hosts, &hl_array_size);
 
    for (size_t idx = 0u; idx < hl_array_size; ++idx) {
       const mongoc_host_list_t *const elem = hl_array[idx];
@@ -676,18 +645,15 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
 void
 mongoc_topology_set_apm_callbacks (mongoc_topology_t *topology,
                                    mongoc_topology_description_t *td,
-                                   mongoc_apm_callbacks_t *callbacks,
+                                   mongoc_apm_callbacks_t const *callbacks,
                                    void *context)
 {
    if (callbacks) {
-      memcpy (&td->apm_callbacks, callbacks, sizeof (mongoc_apm_callbacks_t));
-      memcpy (&topology->scanner->apm_callbacks,
-              callbacks,
-              sizeof (mongoc_apm_callbacks_t));
+      td->apm_callbacks = *callbacks;
+      topology->scanner->apm_callbacks = *callbacks;
    } else {
-      memset (&td->apm_callbacks, 0, sizeof (mongoc_apm_callbacks_t));
-      memset (
-         &topology->scanner->apm_callbacks, 0, sizeof (mongoc_apm_callbacks_t));
+      td->apm_callbacks = (mongoc_apm_callbacks_t){0};
+      topology->scanner->apm_callbacks = (mongoc_apm_callbacks_t){0};
    }
 
    td->apm_context = context;
@@ -739,16 +705,14 @@ mongoc_topology_destroy (mongoc_topology_t *topology)
    if (topology->valid) {
       /* Do not emit a topology_closed event. A topology opening event was not
        * emitted. */
-      _mongoc_topology_description_monitor_closed (
-         mc_tpld_unsafe_get_const (topology));
+      _mongoc_topology_description_monitor_closed (mc_tpld_unsafe_get_const (topology));
    }
 
    mongoc_uri_destroy (topology->uri);
    mongoc_shared_ptr_reset_null (&topology->_shared_descr_._sptr_);
    mongoc_topology_scanner_destroy (topology->scanner);
    mongoc_server_session_pool_free (topology->session_pool);
-   bson_free (topology->clientSideEncryption.autoOptions.extraOptions
-                 .cryptSharedLibPath);
+   bson_free (topology->clientSideEncryption.autoOptions.extraOptions.cryptSharedLibPath);
 
    mongoc_cond_destroy (&topology->cond_client);
    bson_mutex_destroy (&topology->tpld_modification_mtx);
@@ -857,8 +821,7 @@ mongoc_topology_rescan_srv (mongoc_topology_t *topology)
    BSON_ASSERT (mongoc_topology_should_rescan_srv (topology));
 
    srv_hostname = mongoc_uri_get_srv_hostname (topology->uri);
-   scan_time_ms = topology->srv_polling_last_scan_ms +
-                  topology->srv_polling_rescan_interval_ms;
+   scan_time_ms = topology->srv_polling_last_scan_ms + _mongoc_topology_get_srv_polling_rescan_interval_ms (topology);
    if (bson_get_monotonic_time () / 1000 < scan_time_ms) {
       /* Query SRV no more frequently than srv_polling_rescan_interval_ms. */
       return;
@@ -868,34 +831,31 @@ mongoc_topology_rescan_srv (mongoc_topology_t *topology)
 
    /* Go forth and query... */
    prefixed_hostname =
-      bson_strdup_printf ("_%s._tcp.%s",
-                          mongoc_uri_get_srv_service_name (topology->uri),
-                          srv_hostname);
+      bson_strdup_printf ("_%s._tcp.%s", mongoc_uri_get_srv_service_name (topology->uri), srv_hostname);
 
    ret = topology->rr_resolver (prefixed_hostname,
                                 MONGOC_RR_SRV,
                                 &rr_data,
                                 MONGOC_RR_DEFAULT_BUFFER_SIZE,
+                                topology->srv_prefer_tcp,
                                 &topology->scanner->error);
 
    td = mc_tpld_take_ref (topology);
    topology->srv_polling_last_scan_ms = bson_get_monotonic_time () / 1000;
    if (!ret) {
       /* Failed querying, soldier on and try again next time. */
-      topology->srv_polling_rescan_interval_ms = td.ptr->heartbeat_msec;
+      _mongoc_topology_set_srv_polling_rescan_interval_ms (topology, td.ptr->heartbeat_msec);
       MONGOC_ERROR ("SRV polling error: %s", topology->scanner->error.message);
       GOTO (done);
    }
 
    /* TODO (CDRIVER-4047) use BSON_MIN */
-   topology->srv_polling_rescan_interval_ms = BSON_MAX (
-      rr_data.min_ttl * 1000, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
+   const int64_t new_iv = BSON_MAX (rr_data.min_ttl * 1000, MONGOC_TOPOLOGY_MIN_RESCAN_SRV_INTERVAL_MS);
+   _mongoc_topology_set_srv_polling_rescan_interval_ms (topology, new_iv);
 
    tdmod = mc_tpld_modify_begin (topology);
-   if (!mongoc_topology_apply_scanned_srv_hosts (topology->uri,
-                                                 tdmod.new_td,
-                                                 rr_data.hosts,
-                                                 &topology->scanner->error)) {
+   if (!mongoc_topology_apply_scanned_srv_hosts (
+          topology->uri, tdmod.new_td, rr_data.hosts, &topology->scanner->error)) {
       MONGOC_ERROR ("%s", topology->scanner->error.message);
       /* Special case when DNS returns zero records successfully or no valid
        * hosts exist.
@@ -906,7 +866,7 @@ mongoc_topology_rescan_srv (mongoc_topology_t *topology)
        * to heartbeatFrequencyMS until at least one verified SRV record is
        * obtained."
        */
-      topology->srv_polling_rescan_interval_ms = td.ptr->heartbeat_msec;
+      _mongoc_topology_set_srv_polling_rescan_interval_ms (topology, td.ptr->heartbeat_msec);
    }
    mc_tpld_modify_commit (tdmod);
 
@@ -972,8 +932,7 @@ mongoc_topology_scan_once (mongoc_topology_t *topology, bool obey_cooldown)
  *--------------------------------------------------------------------------
  */
 void
-_mongoc_topology_do_blocking_scan (mongoc_topology_t *topology,
-                                   bson_error_t *error)
+_mongoc_topology_do_blocking_scan (mongoc_topology_t *topology, bson_error_t *error)
 {
    BSON_ASSERT (topology->single_threaded);
    _mongoc_handshake_freeze ();
@@ -1000,21 +959,17 @@ mongoc_topology_compatible (const mongoc_topology_description_t *td,
       return true;
    }
 
-   const int64_t max_staleness_seconds =
-      mongoc_read_prefs_get_max_staleness_seconds (read_prefs);
+   const int64_t max_staleness_seconds = mongoc_read_prefs_get_max_staleness_seconds (read_prefs);
 
    if (max_staleness_seconds != MONGOC_NO_MAX_STALENESS) {
       /* shouldn't happen if we've properly enforced wire version */
       if (!mongoc_topology_description_all_sds_have_write_date (td)) {
-         bson_set_error (error,
-                         MONGOC_ERROR_COMMAND,
-                         MONGOC_ERROR_PROTOCOL_BAD_WIRE_VERSION,
-                         "Not all servers have lastWriteDate");
+         bson_set_error (
+            error, MONGOC_ERROR_COMMAND, MONGOC_ERROR_PROTOCOL_BAD_WIRE_VERSION, "Not all servers have lastWriteDate");
          return false;
       }
 
-      if (!_mongoc_topology_description_validate_max_staleness (
-             td, max_staleness_seconds, error)) {
+      if (!_mongoc_topology_description_validate_max_staleness (td, max_staleness_seconds, error)) {
          return false;
       }
    }
@@ -1024,9 +979,7 @@ mongoc_topology_compatible (const mongoc_topology_description_t *td,
 
 
 static void
-_mongoc_server_selection_error (const char *msg,
-                                const bson_error_t *scanner_error,
-                                bson_error_t *error)
+_mongoc_server_selection_error (const char *msg, const bson_error_t *scanner_error, bson_error_t *error)
 {
    if (scanner_error && scanner_error->code) {
       bson_set_error (error,
@@ -1036,11 +989,7 @@ _mongoc_server_selection_error (const char *msg,
                       msg,
                       scanner_error->message);
    } else {
-      bson_set_error (error,
-                      MONGOC_ERROR_SERVER_SELECTION,
-                      MONGOC_ERROR_SERVER_SELECTION_FAILURE,
-                      "%s",
-                      msg);
+      bson_set_error (error, MONGOC_ERROR_SERVER_SELECTION, MONGOC_ERROR_SERVER_SELECTION_FAILURE, "%s", msg);
    }
 }
 
@@ -1052,16 +1001,13 @@ mongoc_topology_select (mongoc_topology_t *topology,
                         bool *must_use_primary,
                         bson_error_t *error)
 {
-   uint32_t server_id = mongoc_topology_select_server_id (
-      topology, optype, read_prefs, must_use_primary, NULL, error);
+   uint32_t server_id = mongoc_topology_select_server_id (topology, optype, read_prefs, must_use_primary, NULL, error);
 
    if (server_id) {
       /* new copy of the server description */
       mongoc_server_description_t *ret;
       mc_shared_tpld td = mc_tpld_take_ref (topology);
-      mongoc_server_description_t const *sd =
-         mongoc_topology_description_server_by_id_const (
-            td.ptr, server_id, error);
+      mongoc_server_description_t const *sd = mongoc_topology_description_server_by_id_const (td.ptr, server_id, error);
       ret = mongoc_server_description_new_copy (sd);
       mc_tpld_drop_ref (&td);
       return ret;
@@ -1075,8 +1021,7 @@ mongoc_topology_select (mongoc_topology_t *topology,
  * Successful post-condition: On a single threaded client, a connection will
  * have been established. */
 static uint32_t
-_mongoc_topology_select_server_id_loadbalanced (mongoc_topology_t *topology,
-                                                bson_error_t *error)
+_mongoc_topology_select_server_id_loadbalanced (mongoc_topology_t *topology, bson_error_t *error)
 {
    mongoc_server_description_t const *selected_server;
    int32_t selected_server_id;
@@ -1093,17 +1038,15 @@ _mongoc_topology_select_server_id_loadbalanced (mongoc_topology_t *topology,
       mc_tpld_modify_commit (tdmod);
       mc_tpld_renew_ref (&td, topology);
    }
-   selected_server =
-      mongoc_topology_description_select (td.ptr,
-                                          MONGOC_SS_WRITE,
-                                          NULL /* read prefs */,
-                                          NULL /* chosen read mode */,
-                                          NULL /* deprioritized servers */,
-                                          0 /* local threshold */);
+   selected_server = mongoc_topology_description_select (td.ptr,
+                                                         MONGOC_SS_WRITE,
+                                                         NULL /* read prefs */,
+                                                         NULL /* chosen read mode */,
+                                                         NULL /* deprioritized servers */,
+                                                         0 /* local threshold */);
 
    if (!selected_server) {
-      _mongoc_server_selection_error (
-         "No suitable server found in load balanced deployment", NULL, error);
+      _mongoc_server_selection_error ("No suitable server found in load balanced deployment", NULL, error);
       selected_server_id = 0;
       goto done;
    }
@@ -1117,13 +1060,9 @@ _mongoc_topology_select_server_id_loadbalanced (mongoc_topology_t *topology,
    /* If this is a single threaded topology, we must ensure that a connection is
     * available to this server. Wrapping drivers make the assumption that
     * successful server selection implies a connection is available. */
-   node =
-      mongoc_topology_scanner_get_node (topology->scanner, selected_server_id);
+   node = mongoc_topology_scanner_get_node (topology->scanner, selected_server_id);
    if (!node) {
-      _mongoc_server_selection_error (
-         "Topology scanner in invalid state; cannot find load balancer",
-         NULL,
-         error);
+      _mongoc_server_selection_error ("Topology scanner in invalid state; cannot find load balancer", NULL, error);
       selected_server_id = 0;
       goto done;
    }
@@ -1170,8 +1109,7 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
                                   const mongoc_deprioritized_servers_t *ds,
                                   bson_error_t *error)
 {
-   static const char *timeout_msg =
-      "No suitable servers found: `serverSelectionTimeoutMS` expired";
+   static const char *timeout_msg = "No suitable servers found: `serverSelectionTimeoutMS` expired";
 
    mongoc_topology_scanner_t *ts;
    int r;
@@ -1184,6 +1122,9 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
    int64_t heartbeat_msec;
    uint32_t server_id;
    mc_shared_tpld td = mc_tpld_take_ref (topology);
+
+   mcommon_string_t *topology_type = mcommon_string_new (". Topology type: ");
+   mcommon_string_append (topology_type, mongoc_topology_description_type (td.ptr));
 
    /* These names come from the Server Selection Spec pseudocode */
    int64_t loop_start;  /* when we entered this function */
@@ -1206,8 +1147,7 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
    }
 
    if (td.ptr->type == MONGOC_TOPOLOGY_LOAD_BALANCED) {
-      server_id =
-         _mongoc_topology_select_server_id_loadbalanced (topology, error);
+      server_id = _mongoc_topology_select_server_id_loadbalanced (topology, error);
       goto done;
    }
 
@@ -1215,16 +1155,14 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
    local_threshold_ms = topology->local_threshold_msec;
    try_once = topology->server_selection_try_once;
    loop_start = loop_end = bson_get_monotonic_time ();
-   expire_at =
-      loop_start + ((int64_t) topology->server_selection_timeout_msec * 1000);
+   expire_at = loop_start + ((int64_t) topology->server_selection_timeout_msec * 1000);
 
    if (topology->single_threaded) {
       if (!td.ptr->opened) {
          // Use `mc_tpld_unsafe_get_mutable` to get a mutable topology
          // description without locking. This block only applies to
          // single-threaded clients.
-         _mongoc_topology_description_monitor_opening (
-            mc_tpld_unsafe_get_mutable (topology));
+         _mongoc_topology_description_monitor_opening (mc_tpld_unsafe_get_mutable (topology));
          mc_tpld_renew_ref (&td, topology);
       }
 
@@ -1239,16 +1177,11 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
       for (;;) {
          if (topology->stale) {
             /* how soon are we allowed to scan? */
-            scan_ready = topology->last_scan +
-                         topology->min_heartbeat_frequency_msec * 1000;
+            scan_ready = topology->last_scan + topology->min_heartbeat_frequency_msec * 1000;
 
             if (scan_ready > expire_at && !try_once) {
                /* selection timeout will expire before min heartbeat passes */
-               _mongoc_server_selection_error (
-                  "No suitable servers found: "
-                  "`serverselectiontimeoutms` timed out",
-                  &scanner_error,
-                  error);
+               _mongoc_server_selection_error (timeout_msg, &scanner_error, error);
 
                server_id = 0;
                goto done;
@@ -1256,12 +1189,8 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
 
             sleep_usec = scan_ready - loop_end;
             if (sleep_usec > 0) {
-               if (try_once &&
-                   mongoc_topology_scanner_in_cooldown (ts, scan_ready)) {
-                  _mongoc_server_selection_error (
-                     "No servers yet eligible for rescan",
-                     &scanner_error,
-                     error);
+               if (try_once && mongoc_topology_scanner_in_cooldown (ts, scan_ready)) {
+                  _mongoc_server_selection_error ("No servers yet eligible for rescan", &scanner_error, error);
 
                   server_id = 0;
                   goto done;
@@ -1284,12 +1213,7 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
          }
 
          selected_server =
-            mongoc_topology_description_select (td.ptr,
-                                                optype,
-                                                read_prefs,
-                                                must_use_primary,
-                                                ds,
-                                                local_threshold_ms);
+            mongoc_topology_description_select (td.ptr, optype, read_prefs, must_use_primary, ds, local_threshold_ms);
 
          if (selected_server) {
             server_id = selected_server->id;
@@ -1301,9 +1225,7 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
          if (try_once) {
             if (tried_once) {
                _mongoc_server_selection_error (
-                  "No suitable servers found (`serverSelectionTryOnce` set)",
-                  &scanner_error,
-                  error);
+                  "No suitable servers found (`serverSelectionTryOnce` set)", &scanner_error, error);
 
                server_id = 0;
                goto done;
@@ -1313,8 +1235,7 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
 
             if (loop_end > expire_at) {
                /* no time left in server_selection_timeout_msec */
-               _mongoc_server_selection_error (
-                  timeout_msg, &scanner_error, error);
+               _mongoc_server_selection_error (timeout_msg, &scanner_error, error);
 
                server_id = 0;
                goto done;
@@ -1334,8 +1255,8 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
          goto done;
       }
 
-      selected_server = mongoc_topology_description_select (
-         td.ptr, optype, read_prefs, must_use_primary, ds, local_threshold_ms);
+      selected_server =
+         mongoc_topology_description_select (td.ptr, optype, read_prefs, must_use_primary, ds, local_threshold_ms);
 
       if (selected_server) {
          server_id = selected_server->id;
@@ -1350,8 +1271,8 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
       /* Now that we have the lock, check again, since a scan may have
        * occurred while we were waiting on the lock. */
       mc_tpld_renew_ref (&td, topology);
-      selected_server = mongoc_topology_description_select (
-         td.ptr, optype, read_prefs, must_use_primary, ds, local_threshold_ms);
+      selected_server =
+         mongoc_topology_description_select (td.ptr, optype, read_prefs, must_use_primary, ds, local_threshold_ms);
       if (selected_server) {
          server_id = selected_server->id;
          bson_mutex_unlock (&topology->tpld_modification_mtx);
@@ -1359,16 +1280,13 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
       }
 
       /* Still nothing. Request that the scanner do a scan now. */
-      TRACE (
-         "server selection requesting an immediate scan, want %s",
-         _mongoc_read_mode_as_str (mongoc_read_prefs_get_mode (read_prefs)));
+      TRACE ("server selection requesting an immediate scan, want %s",
+             _mongoc_read_mode_as_str (mongoc_read_prefs_get_mode (read_prefs)));
       _mongoc_topology_request_scan (topology);
 
-      TRACE ("server selection about to wait for %" PRId64 "ms",
-             (expire_at - loop_start) / 1000);
-      r = mongoc_cond_timedwait (&topology->cond_client,
-                                 &topology->tpld_modification_mtx,
-                                 (expire_at - loop_start) / 1000);
+      TRACE ("server selection about to wait for %" PRId64 "ms", (expire_at - loop_start) / 1000);
+      r = mongoc_cond_timedwait (
+         &topology->cond_client, &topology->tpld_modification_mtx, (expire_at - loop_start) / 1000);
       TRACE ("%s", "server selection awake");
       /* Refresh our topology handle */
       mc_tpld_renew_ref (&td, topology);
@@ -1408,15 +1326,20 @@ mongoc_topology_select_server_id (mongoc_topology_t *topology,
    }
 
 done:
+   if (error && server_id == 0) {
+      /* server_id set to zero indicates that an error has occured and that `error` is initialized */
+      if (error->domain == MONGOC_ERROR_SERVER_SELECTION) {
+         _mongoc_error_append (error, topology_type->str);
+      }
+   }
+   mcommon_string_free (topology_type, true);
    mc_tpld_drop_ref (&td);
    return server_id;
 }
 
 
 mongoc_host_list_t *
-_mongoc_topology_host_by_id (const mongoc_topology_description_t *td,
-                             uint32_t id,
-                             bson_error_t *error)
+_mongoc_topology_host_by_id (const mongoc_topology_description_t *td, uint32_t id, bson_error_t *error)
 {
    mongoc_server_description_t const *sd;
    mongoc_host_list_t *host = NULL;
@@ -1440,8 +1363,7 @@ _mongoc_topology_request_scan (mongoc_topology_t *topology)
 }
 
 bool
-_mongoc_topology_update_from_handshake (mongoc_topology_t *topology,
-                                        const mongoc_server_description_t *sd)
+_mongoc_topology_update_from_handshake (mongoc_topology_t *topology, const mongoc_server_description_t *sd)
 {
    bool has_server;
    mc_tpld_modification tdmod;
@@ -1459,11 +1381,8 @@ _mongoc_topology_update_from_handshake (mongoc_topology_t *topology,
    tdmod = mc_tpld_modify_begin (topology);
 
    /* return false if server was removed from topology */
-   has_server = _mongoc_topology_update_no_lock (sd->id,
-                                                 &sd->last_hello_response,
-                                                 sd->round_trip_time_msec,
-                                                 tdmod.new_td,
-                                                 NULL);
+   has_server =
+      _mongoc_topology_update_no_lock (sd->id, &sd->last_hello_response, sd->round_trip_time_msec, tdmod.new_td, NULL);
 
    /* if pooled, wake threads waiting in mongoc_topology_server_by_id */
    mongoc_cond_broadcast (&topology->cond_client);
@@ -1487,8 +1406,7 @@ _mongoc_topology_update_from_handshake (mongoc_topology_t *topology,
  */
 
 void
-_mongoc_topology_update_last_used (mongoc_topology_t *topology,
-                                   uint32_t server_id)
+_mongoc_topology_update_last_used (mongoc_topology_t *topology, uint32_t server_id)
 {
    mongoc_topology_scanner_node_t *node;
 
@@ -1538,8 +1456,7 @@ _mongoc_topology_set_appname (mongoc_topology_t *topology, const char *appname)
  */
 
 void
-_mongoc_topology_update_cluster_time (mongoc_topology_t *topology,
-                                      const bson_t *reply)
+_mongoc_topology_update_cluster_time (mongoc_topology_t *topology, const bson_t *reply)
 {
    bson_iter_t iter;
    bson_iter_t child;
@@ -1552,8 +1469,7 @@ _mongoc_topology_update_cluster_time (mongoc_topology_t *topology,
       return;
    }
 
-   if (!BSON_ITER_HOLDS_DOCUMENT (&iter) ||
-       !bson_iter_recurse (&iter, &child)) {
+   if (!BSON_ITER_HOLDS_DOCUMENT (&iter) || !bson_iter_recurse (&iter, &child)) {
       MONGOC_ERROR ("Can't parse $clusterTime");
       return;
    }
@@ -1570,18 +1486,15 @@ _mongoc_topology_update_cluster_time (mongoc_topology_t *topology,
     *
     * Check that the cluster time has actually changed from what we have on
     * record before opening a topology modification to update it. */
-   if (bson_empty (&td.ptr->cluster_time) ||
-       _mongoc_cluster_time_greater (&cluster_time, &td.ptr->cluster_time)) {
+   if (bson_empty (&td.ptr->cluster_time) || _mongoc_cluster_time_greater (&cluster_time, &td.ptr->cluster_time)) {
       mc_tpld_modification tdmod = mc_tpld_modify_begin (topology);
       /* Check again if we need to update the cluster time, since it may have
        * been updated behind our back. */
       if (bson_empty (&tdmod.new_td->cluster_time) ||
-          _mongoc_cluster_time_greater (&cluster_time,
-                                        &tdmod.new_td->cluster_time)) {
+          _mongoc_cluster_time_greater (&cluster_time, &tdmod.new_td->cluster_time)) {
          bson_destroy (&tdmod.new_td->cluster_time);
          bson_copy_to (&cluster_time, &tdmod.new_td->cluster_time);
-         _mongoc_topology_scanner_set_cluster_time (
-            topology->scanner, &tdmod.new_td->cluster_time);
+         _mongoc_topology_scanner_set_cluster_time (topology->scanner, &tdmod.new_td->cluster_time);
          mc_tpld_modify_commit (tdmod);
       } else {
          mc_tpld_modify_drop (tdmod);
@@ -1603,8 +1516,7 @@ _mongoc_topology_update_cluster_time (mongoc_topology_t *topology,
  */
 
 mongoc_server_session_t *
-_mongoc_topology_pop_server_session (mongoc_topology_t *topology,
-                                     bson_error_t *error)
+_mongoc_topology_pop_server_session (mongoc_topology_t *topology, bson_error_t *error)
 {
    int64_t timeout;
    mongoc_server_session_t *ss = NULL;
@@ -1620,13 +1532,12 @@ _mongoc_topology_pop_server_session (mongoc_topology_t *topology,
    if (!loadbalanced && timeout == MONGOC_NO_SESSIONS) {
       /* if needed, connect and check for session timeout again */
       if (!mongoc_topology_description_has_data_node (td.ptr)) {
-         if (!mongoc_topology_select_server_id (
-                topology,
-                MONGOC_SS_READ,
-                NULL /* read prefs */,
-                NULL /* chosen read mode */,
-                NULL /* deprioritized servers */,
-                error)) {
+         if (!mongoc_topology_select_server_id (topology,
+                                                MONGOC_SS_READ,
+                                                NULL /* read prefs */,
+                                                NULL /* chosen read mode */,
+                                                NULL /* deprioritized servers */,
+                                                error)) {
             ss = NULL;
             goto done;
          }
@@ -1638,10 +1549,8 @@ _mongoc_topology_pop_server_session (mongoc_topology_t *topology,
       }
 
       if (timeout == MONGOC_NO_SESSIONS) {
-         bson_set_error (error,
-                         MONGOC_ERROR_CLIENT,
-                         MONGOC_ERROR_CLIENT_SESSION_FAILURE,
-                         "Server does not support sessions");
+         bson_set_error (
+            error, MONGOC_ERROR_CLIENT, MONGOC_ERROR_CLIENT_SESSION_FAILURE, "Server does not support sessions");
          ss = NULL;
          goto done;
       }
@@ -1665,15 +1574,14 @@ done:
  */
 
 void
-_mongoc_topology_push_server_session (mongoc_topology_t *topology,
-                                      mongoc_server_session_t *server_session)
+_mongoc_topology_push_server_session (mongoc_topology_t *topology, mongoc_server_session_t *server_session)
 {
    ENTRY;
 
    /**
     * ! note:
     * At time of writing, this diverges from the spec:
-    * https://github.com/mongodb/specifications/blob/df6be82f865e9b72444488fd62ae1eb5fca18569/source/sessions/driver-sessions.rst#algorithm-to-return-a-serversession-instance-to-the-server-session-pool
+    * https://github.com/mongodb/specifications/blob/master/source/sessions/driver-sessions.md#algorithm-to-return-a-serversession-instance-to-the-server-session-pool
     *
     * The spec notes that before returning a session, we should first inspect
     * the back of the pool for expired items and delete them. In this case, we
@@ -1716,15 +1624,13 @@ _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd)
    /* Only end up to 10'000 sessions */
    const int ENDED_SESSION_PRUNING_LIMIT = 10000;
    int i = 0;
-   mongoc_server_session_t *ss =
-      mongoc_server_session_pool_get_existing (topology->session_pool);
+   mongoc_server_session_t *ss = mongoc_server_session_pool_get_existing (topology->session_pool);
 
    bson_init (cmd);
    BSON_APPEND_ARRAY_BUILDER_BEGIN (cmd, "endSessions", &ar);
 
    for (; i < ENDED_SESSION_PRUNING_LIMIT && ss != NULL;
-        ++i,
-        ss = mongoc_server_session_pool_get_existing (topology->session_pool)) {
+        ++i, ss = mongoc_server_session_pool_get_existing (topology->session_pool)) {
       bson_array_builder_append_document (ar, &ss->lsid);
       mongoc_server_session_pool_drop (topology->session_pool, ss);
    }
@@ -1741,8 +1647,7 @@ _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd)
 }
 
 void
-_mongoc_topology_dup_handshake_cmd (const mongoc_topology_t *topology,
-                                    bson_t *copy_into)
+_mongoc_topology_dup_handshake_cmd (const mongoc_topology_t *topology, bson_t *copy_into)
 {
    _mongoc_topology_scanner_dup_handshake_cmd (topology->scanner, copy_into);
 }
@@ -1761,8 +1666,7 @@ _find_topology_version (const bson_t *reply, bson_t *topology_version)
    const uint8_t *bytes;
    uint32_t len;
 
-   if (!bson_iter_init_find (&iter, reply, "topologyVersion") ||
-       !BSON_ITER_HOLDS_DOCUMENT (&iter)) {
+   if (!bson_iter_init_find (&iter, reply, "topologyVersion") || !BSON_ITER_HOLDS_DOCUMENT (&iter)) {
       bson_init (topology_version);
       return;
    }
@@ -1790,8 +1694,7 @@ _handle_sdam_app_error_command (mongoc_topology_t *topology,
 
    BSON_UNUSED (td);
 
-   if (_mongoc_cmd_check_ok_no_wce (
-          reply, MONGOC_ERROR_API_VERSION_2, &cmd_error)) {
+   if (_mongoc_cmd_check_ok_no_wce (reply, MONGOC_ERROR_API_VERSION_2, &cmd_error)) {
       /* No error. */
       return false;
    }
@@ -1806,21 +1709,18 @@ _handle_sdam_app_error_command (mongoc_topology_t *topology,
     * version of the server than we have stored in the topology description.
     */
    _find_topology_version (reply, &incoming_topology_version);
-   if (mongoc_server_description_topology_version_cmp (
-          &sd->topology_version, &incoming_topology_version) >= 0) {
+   if (mongoc_server_description_topology_version_cmp (&sd->topology_version, &incoming_topology_version) >= 0) {
       /* The server description is greater or equal, ignore the error. */
       bson_destroy (&incoming_topology_version);
       return false;
    }
 
-   should_clear_pool = (max_wire_version <= WIRE_VERSION_4_0 ||
-                        _mongoc_error_is_shutdown (&cmd_error));
+   should_clear_pool = (max_wire_version <= WIRE_VERSION_4_0 || _mongoc_error_is_shutdown (&cmd_error));
 
    tdmod = mc_tpld_modify_begin (topology);
 
    /* Get the server handle again, which might have been removed. */
-   mut_sd =
-      mongoc_topology_description_server_by_id (tdmod.new_td, server_id, NULL);
+   mut_sd = mongoc_topology_description_server_by_id (tdmod.new_td, server_id, NULL);
 
    if (!mut_sd) {
       /* Server was already removed/invalidated */
@@ -1831,8 +1731,7 @@ _handle_sdam_app_error_command (mongoc_topology_t *topology,
 
    /* Check the topology version a second time, now that we have an exclusive
     * lock on the latest topology description. */
-   if (mongoc_server_description_topology_version_cmp (
-          &mut_sd->topology_version, &incoming_topology_version) >= 0) {
+   if (mongoc_server_description_topology_version_cmp (&mut_sd->topology_version, &incoming_topology_version) >= 0) {
       /* The server description is greater or equal, ignore the error. */
       mc_tpld_modify_drop (tdmod);
       bson_destroy (&incoming_topology_version);
@@ -1847,8 +1746,7 @@ _handle_sdam_app_error_command (mongoc_topology_t *topology,
    }
 
    /* Overwrite the topology version. */
-   mongoc_server_description_set_topology_version (mut_sd,
-                                                   &incoming_topology_version);
+   mongoc_server_description_set_topology_version (mut_sd, &incoming_topology_version);
 
    /* SDAM: When handling a "not primary" or "node is recovering" error, the
     * client MUST clear the server's connection pool if and only if the error
@@ -1856,8 +1754,7 @@ _handle_sdam_app_error_command (mongoc_topology_t *topology,
     * < 4.2.
     */
    if (should_clear_pool) {
-      _mongoc_topology_description_clear_connection_pool (
-         tdmod.new_td, server_id, service_id);
+      _mongoc_topology_description_clear_connection_pool (tdmod.new_td, server_id, service_id);
       pool_cleared = true;
    }
 
@@ -1867,8 +1764,7 @@ _handle_sdam_app_error_command (mongoc_topology_t *topology,
     * current ServerDescription's topologyVersion it MUST replace the
     * server's description with a ServerDescription of type Unknown.
     */
-   mongoc_topology_description_invalidate_server (
-      tdmod.new_td, server_id, &cmd_error);
+   mongoc_topology_description_invalidate_server (tdmod.new_td, server_id, &cmd_error);
 
    if (topology->single_threaded) {
       /* SDAM: For single-threaded clients, in the case of a "not primary" or
@@ -1911,8 +1807,7 @@ _mongoc_topology_handle_app_error (mongoc_topology_t *topology,
    mc_shared_tpld td = mc_tpld_take_ref (topology);
 
    /* Start by checking every condition in which we should ignore the error */
-   sd = mongoc_topology_description_server_by_id_const (
-      td.ptr, server_id, &server_selection_error);
+   sd = mongoc_topology_description_server_by_id_const (td.ptr, server_id, &server_selection_error);
 
    if (!sd) {
       /* The server was already removed from the topology. Ignore error. */
@@ -1938,34 +1833,24 @@ _mongoc_topology_handle_app_error (mongoc_topology_t *topology,
 
    /* Do something with the error */
    if (type == MONGOC_SDAM_APP_ERROR_COMMAND) {
-      cleared_pool = _handle_sdam_app_error_command (topology,
-                                                     td.ptr,
-                                                     server_id,
-                                                     generation,
-                                                     service_id,
-                                                     sd,
-                                                     max_wire_version,
-                                                     reply);
+      cleared_pool = _handle_sdam_app_error_command (
+         topology, td.ptr, server_id, generation, service_id, sd, max_wire_version, reply);
    } else {
       /* Invalidate the server that saw the error. */
       mc_tpld_modification tdmod = mc_tpld_modify_begin (topology);
-      sd = mongoc_topology_description_server_by_id_const (
-         tdmod.new_td, server_id, NULL);
+      sd = mongoc_topology_description_server_by_id_const (tdmod.new_td, server_id, NULL);
       /* Check if the server has already been invalidated */
       if (!sd || generation < mc_tpl_sd_get_generation (sd, service_id)) {
          mc_tpld_modify_drop (tdmod);
          goto ignore_error;
       }
       /* Mark server as unknown. */
-      mongoc_topology_description_invalidate_server (
-         tdmod.new_td, server_id, why);
+      mongoc_topology_description_invalidate_server (tdmod.new_td, server_id, why);
       /* Clear the connection pool */
-      _mongoc_topology_description_clear_connection_pool (
-         tdmod.new_td, server_id, service_id);
+      _mongoc_topology_description_clear_connection_pool (tdmod.new_td, server_id, service_id);
       cleared_pool = true;
       if (!topology->single_threaded) {
-         _mongoc_topology_background_monitoring_cancel_check (topology,
-                                                              server_id);
+         _mongoc_topology_background_monitoring_cancel_check (topology, server_id);
       }
       mc_tpld_modify_commit (tdmod);
    }
@@ -1982,14 +1867,13 @@ ignore_error: /* <- Jump taken if we should ignore the error */
  * servers that were removed from the topology.
  */
 static void
-_topology_collect_errors (const mongoc_topology_description_t *td,
-                          bson_error_t *error_out)
+_topology_collect_errors (const mongoc_topology_description_t *td, bson_error_t *error_out)
 {
    const mongoc_server_description_t *server_description;
-   bson_string_t *error_message;
+   mcommon_string_t *error_message;
 
    memset (error_out, 0, sizeof (bson_error_t));
-   error_message = bson_string_new ("");
+   error_message = mcommon_string_new ("");
 
    for (size_t i = 0u; i < mc_tpld_servers_const (td)->items_len; i++) {
       const bson_error_t *error;
@@ -1998,41 +1882,29 @@ _topology_collect_errors (const mongoc_topology_description_t *td,
       error = &server_description->error;
       if (error->code) {
          if (error_message->len > 0) {
-            bson_string_append_c (error_message, ' ');
+            mcommon_string_append_c (error_message, ' ');
          }
-         bson_string_append_printf (
-            error_message, "[%s]", server_description->error.message);
+         mcommon_string_append_printf (error_message, "[%s]", server_description->error.message);
          /* The last error's code and domain wins. */
          error_out->code = error->code;
          error_out->domain = error->domain;
       }
    }
 
-   bson_strncpy ((char *) &error_out->message,
-                 error_message->str,
-                 sizeof (error_out->message));
-   bson_string_free (error_message, true);
+   bson_strncpy ((char *) &error_out->message, error_message->str, sizeof (error_out->message));
+   mcommon_string_free (error_message, true);
 }
 
 void
-_mongoc_topology_set_rr_resolver (mongoc_topology_t *topology,
-                                  _mongoc_rr_resolver_fn rr_resolver)
+_mongoc_topology_set_rr_resolver (mongoc_topology_t *topology, _mongoc_rr_resolver_fn rr_resolver)
 {
    topology->rr_resolver = rr_resolver;
 }
 
-void
-_mongoc_topology_set_srv_polling_rescan_interval_ms (
-   mongoc_topology_t *topology, int64_t val)
-{
-   topology->srv_polling_rescan_interval_ms = val;
-}
-
 uint32_t
-_mongoc_topology_get_connection_pool_generation (
-   const mongoc_topology_description_t *td,
-   uint32_t server_id,
-   const bson_oid_t *service_id)
+_mongoc_topology_get_connection_pool_generation (const mongoc_topology_description_t *td,
+                                                 uint32_t server_id,
+                                                 const bson_oid_t *service_id)
 {
    const mongoc_server_description_t *sd;
    bson_error_t error;
@@ -2055,7 +1927,7 @@ mc_tpld_modify_begin (mongoc_topology_t *tpl)
    mongoc_topology_description_t *new_td;
    bson_mutex_lock (&tpl->tpld_modification_mtx);
    prev_td = mc_tpld_take_ref (tpl);
-   new_td = mongoc_topology_description_new_copy (prev_td.ptr),
+   new_td = mongoc_topology_description_new_copy (prev_td.ptr);
    mc_tpld_drop_ref (&prev_td);
    return (mc_tpld_modification){
       .new_td = new_td,
@@ -2066,12 +1938,9 @@ mc_tpld_modify_begin (mongoc_topology_t *tpl)
 void
 mc_tpld_modify_commit (mc_tpld_modification mod)
 {
-   mongoc_shared_ptr old_sptr =
-      mongoc_shared_ptr_copy (mod.topology->_shared_descr_._sptr_);
-   mongoc_shared_ptr new_sptr =
-      mongoc_shared_ptr_create (mod.new_td, _tpld_destroy_and_free);
-   mongoc_atomic_shared_ptr_store (&mod.topology->_shared_descr_._sptr_,
-                                   new_sptr);
+   mongoc_shared_ptr old_sptr = mongoc_shared_ptr_copy (mod.topology->_shared_descr_._sptr_);
+   mongoc_shared_ptr new_sptr = mongoc_shared_ptr_create (mod.new_td, _tpld_destroy_and_free);
+   mongoc_atomic_shared_ptr_store (&mod.topology->_shared_descr_._sptr_, new_sptr);
    bson_mutex_unlock (&mod.topology->tpld_modification_mtx);
    mongoc_shared_ptr_reset_null (&new_sptr);
    mongoc_shared_ptr_reset_null (&old_sptr);

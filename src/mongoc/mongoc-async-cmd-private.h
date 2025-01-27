@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 MongoDB, Inc.
+ * Copyright 2009-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,11 +97,7 @@ mongoc_async_cmd_run (mongoc_async_cmd_t *acmd);
 
 #ifdef MONGOC_ENABLE_SSL
 int
-mongoc_async_cmd_tls_setup (mongoc_stream_t *stream,
-                            int *events,
-                            void *ctx,
-                            int32_t timeout_msec,
-                            bson_error_t *error);
+mongoc_async_cmd_tls_setup (mongoc_stream_t *stream, int *events, void *ctx, int32_t timeout_msec, bson_error_t *error);
 #endif
 
 BSON_END_DECLS
