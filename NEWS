@@ -1,3 +1,7 @@
+3.0.0
+ - Update vendored mongo-c-driver to 1.29.2
+ - On Windows we need Win-7 and therefore R-4.2 or newer
+
 2.8.2
  - Add function bson_read() to read mongodb dumps
 
