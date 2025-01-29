@@ -18,7 +18,7 @@ Imports:
 License: Apache License 2.0
 URL: https://jeroen.r-universe.dev/mongolite
 BugReports: https://github.com/jeroen/mongolite/issues
-SystemRequirements: OpenSSL, Cyrus SASL (aka libsasl2)
+SystemRequirements: On Linux: OpenSSL, Cyrus SASL (aka libsasl2)
 RoxygenNote: 7.3.2.9000
 Roxygen: list(markdown = TRUE)
 Suggests:
