@@ -52,7 +52,7 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o common/common-atomic.o mongo
 	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o utf8proc/utf8proc.o
 
 LIBKMS=kms/hexlify.o kms/kms_crypto_windows.o kms/kms_kv_list.o kms/kms_request.o \
-	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \
+	kms/kms_response.o kms/kms_b64.o kms/kms_decrypt_request.o kms/kms_message.o \
 	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o	\
 	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o \
 	kms/kms_kmip_response_parser.o
