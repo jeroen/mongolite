@@ -25,10 +25,8 @@ SEXP R_date_as_char(SEXP x){
 }
 
 SEXP R_json_to_bson(SEXP json){
-  bson_t *b;
   bson_error_t err;
-
-  b = bson_new_from_json ((uint8_t*)  Rf_translateCharUTF8(Rf_asChar(json)), -1, &err);
+  bson_t *b = bson_new_from_json ((uint8_t*)  Rf_translateCharUTF8(Rf_asChar(json)), -1, &err);
   if(!b)
     stop(err.message);
 
@@ -185,12 +183,11 @@ SEXP ConvertBinary(bson_iter_t* iter){
 }
 
 SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter){
-  SEXP ret;
   int count = 0;
   while(bson_iter_next(counter)){
     count++;
   }
-  PROTECT(ret = Rf_allocVector(VECSXP, count));
+  SEXP ret = PROTECT(Rf_allocVector(VECSXP, count));
   for (int i = 0; bson_iter_next(iter); i++) {
     SET_VECTOR_ELT(ret, i, ConvertValue(iter));
   }
@@ -199,14 +196,12 @@ SEXP ConvertArray(bson_iter_t* iter, bson_iter_t* counter){
 }
 
 SEXP ConvertObject(bson_iter_t* iter, bson_iter_t* counter){
-  SEXP names;
-  SEXP ret;
   int count = 0;
   while(bson_iter_next(counter)){
     count++;
   }
-  PROTECT(ret = Rf_allocVector(VECSXP, count));
-  PROTECT(names = Rf_allocVector(STRSXP, count));
+  SEXP ret = PROTECT(Rf_allocVector(VECSXP, count));
+  SEXP names = PROTECT(Rf_allocVector(STRSXP, count));
   for (int i = 0; bson_iter_next(iter); i++) {
     SET_STRING_ELT(names, i, Rf_mkChar(bson_iter_key(iter)));
     SET_VECTOR_ELT(ret, i, ConvertValue(iter));
