@@ -4,7 +4,7 @@ PKG_CPPFLAGS=-I. -Icommon -Ikms -Iutf8proc \
 	-DMONGOC_COMPILATION -DMONGOC_HAVE_SASL_CLIENT_DONE \
 	-DMONGOC_ENABLE_SSL_SECURE_TRANSPORT -DMONGOC_ENABLE_CRYPTO_COMMON_CRYPTO \
 	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_COMMON_CRYPTO \
-	-D_DARWIN_C_SOURCE
+	-D_DARWIN_C_SOURCE -D_XOPEN_SOURCE=700
 
 LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
