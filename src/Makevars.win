@@ -64,13 +64,11 @@ STATLIB = mongoc/libstatmongoc.a
 # PKG_CFLAGS= -Wall -pedantic
 #all: clean
 
-all: $(SHLIB)
+all: $(SHLIB) cleanup
 
 $(SHLIB): $(STATLIB)
 
 $(STATLIB): $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
 
-clean:
-	rm -f $(SHLIB) $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(OBJECTS) $(LIBKMS)
-
-.PHONY: all clean
+cleanup: $(SHLIB)
+	rm -f $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
