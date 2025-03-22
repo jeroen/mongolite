@@ -20,6 +20,7 @@ jobs:
         config:
           - {os: macos-13,        r: 'release'}
           - {os: macos-14,        r: 'release'}
+          - {os: macos-14,        r: 'next'}
           - {os: windows-latest,  r: '4.2'}
           - {os: windows-latest,  r: '4.3'}
           - {os: windows-latest,  r: 'release'}
@@ -49,3 +50,5 @@ jobs:
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
+        env:
+          MAKEFLAGS: -j4
