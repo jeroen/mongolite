@@ -1,22 +1,33 @@
+PKG_CONFIG ?= $(BINPREF)pkg-config
+OPENSSL_LIBS := $(shell $(PKG_CONFIG) --libs openssl)
+
+ifneq ($(OPENSSL_LIBS),)
+$(info using OpenSSL from Rtools)
+OPENSSL_CFLAGS := $(shell $(PKG_CONFIG) --cflags openssl)
+else
+RWINLIB = ../windows/libssl
+TARGET = lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH)
+OPENSSL_CFLAGS = -I$(RWINLIB)/include
+OPENSSL_LIBS = -L$(RWINLIB)/$(TARGET) -L$(RWINLIB)/lib -lssl -lcrypto -lws2_32 -lgdi32 -lcrypt32
+endif
+
 PKG_CPPFLAGS = \
-	-I. -Icommon -Ikms -Iutf8proc \
+	$(OPENSSL_CFLAGS)	-I. -Icommon -Ikms -Iutf8proc \
 	-DBSON_COMPILATION -DMONGOC_COMPILATION \
-	-DMONGOC_ENABLE_SSL_SECURE_CHANNEL -DMONGOC_ENABLE_CRYPTO_CNG \
-	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_CNG \
+	-DKMS_MESSAGE_ENABLE_CRYPTO -DKMS_MESSAGE_ENABLE_CRYPTO_LIBCRYPTO \
 	-DMONGOC_HAVE_SASL_CLIENT_DONE -D__USE_MINGW_ANSI_STDIO \
 	-DKMS_MESSAGE_LITTLE_ENDIAN -DUTF8PROC_STATIC \
 	-DMONGOC_HAVE_BCRYPT_PBKDF2
 
 PKG_LIBS = \
-	-L. -Lmongoc -lstatmongoc \
-	-lbcrypt -lgdi32 -lcrypt32 -lbcrypt -lws2_32 -lsecur32 -ldnsapi -lz
+	-L. -Lmongoc -lstatmongoc $(OPENSSL_LIBS) \
+	-lbcrypt -lsecur32 -ldnsapi -lz
 
 LIBBSON=bson/bcon.o bson/bson-clock.o bson/bson-context.o common/common-md5.o \
 	bson/bson-error.o bson/bson-iso8601.o bson/bson-iter.o bson/bson-json.o \
 	bson/bson-keys.o bson/bson-md5.o bson/bson-memory.o bson/bson-oid.o \
 	bson/bson-reader.o bson/bson-string.o bson/bson-timegm.o bson/bson-utf8.o \
-	bson/bson-value.o  bson/bson.o bson/bson-decimal128.o bson/bson-atomic.o \
-	jsonsl/jsonsl.o
+	bson/bson-value.o bson/bson.o bson/bson-decimal128.o jsonsl/jsonsl.o
 
 LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o common/common-atomic.o mongoc/mongoc-buffer.o \
 	mongoc/mongoc-bulk-operation.o mongoc/mongoc-client-pool.o mongoc/mongoc-client.o \
@@ -25,7 +36,7 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o common/common-atomic.o mongo
 	mongoc/mongoc-gridfs-file-list.o mongoc/mongoc-gridfs-file-page.o \
 	mongoc/mongoc-gridfs-file.o mongoc/mongoc-gridfs.o mongoc/mongoc-index.o \
 	mongoc/mongoc-stream-gridfs.o mongoc/mongoc-init.o mongoc/mongoc-list.o mongoc/mongoc-log.o \
-	mongoc/mongoc-rand-cng.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
+	mongoc/mongoc-rand-openssl.o mongoc/mongoc-read-prefs.o mongoc/mongoc-rpc.o \
 	mongoc/mongoc-sasl.o mongoc/mongoc-scram.o mongoc/mongoc-socket.o mongoc/mongoc-ssl.o \
 	mongoc/mongoc-stream-buffered.o	mongoc/mongoc-stream-socket.o mongoc/mongoc-stream-tls.o \
 	mongoc/mongoc-stream.o mongoc/mongoc-uri.o mongoc/mongoc-util.o \
@@ -34,13 +45,14 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o common/common-atomic.o mongo
 	mongoc/mongoc-set.o mongoc/mongoc-server-description.o mongoc/mongoc-topology-description.o \
 	mongoc/mongoc-topology.o mongoc/mongoc-topology-scanner.o mongoc/mongoc-version-functions.o \
 	mongoc/mongoc-memcmp.o mongoc/mongoc-server-stream.o mongoc/mongoc-find-and-modify.o \
-	mongoc/mongoc-read-concern.o mongoc/mongoc-secure-channel.o mongoc/mongoc-apm.o \
-	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-common-crypto.o mongoc/mongoc-crypto-cng.o mongoc/mongoc-handshake.o \
-	mongoc/mongoc-stream-tls-secure-channel.o \
-	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o mongoc/mongoc-stream-file.o mongoc/mcd-rpc.o mongoc/mongoc-deprioritized-servers.o \
-	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o \
 	mongoc/mongoc-compression.o \
 	mongoc/mongoc-sspi.o mongoc/mongoc-cluster-sspi.o mongoc/mongoc-queue.o \
+	mongoc/mongoc-read-concern.o mongoc/mongoc-openssl.o mongoc/mongoc-apm.o \
+	mongoc/mongoc-crypto.o mongoc/mongoc-crypto-common-crypto.o mongoc/mongoc-crypto-openssl.o mongoc/mongoc-handshake.o \
+	mongoc/mongoc-stream-tls-openssl.o mongoc/mongoc-stream-tls-openssl-bio.o \
+	mongoc/mongoc-cluster-sasl.o mongoc/mongoc-cmd.o \
+	mongoc/mongoc-change-stream.o mongoc/mongoc-client-session.o \
+	mongoc/mongoc-stream-file.o mongoc/mcd-rpc.o mongoc/mongoc-deprioritized-servers.o \
 	mongoc/mongoc-opts.o mongoc/mongoc-opts-helpers.o \
 	mongoc/mongoc-cursor-cmd.o mongoc/mongoc-cursor-cmd-deprecated.o \
 	mongoc/mongoc-cursor-find.o mongoc/mongoc-cursor-find-cmd.o mongoc/mongoc-cursor-find-opquery.o \
@@ -52,11 +64,10 @@ LIBMONGOC=mongoc/mongoc-array.o common/common-b64.o common/common-atomic.o mongo
 	mongoc/mongoc-shared.o mongoc/mongoc-ts-pool.o utf8proc/utf8proc.o \
 	mongoc/mongoc-structured-log.o mongoc/mongoc-log-and-monitor-private.o common/common-oid.o common/common-json.o common/common-string.o
 
-LIBKMS=kms/hexlify.o kms/kms_crypto_windows.o kms/kms_kv_list.o kms/kms_request.o \
-	kms/kms_response.o kms/kms_b64.o kms/kms_decrypt_request.o kms/kms_message.o \
-	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o	\
-	kms/kms_encrypt_request.o kms/kms_port.o kms/kms_request_str.o kms/sort.o \
-	kms/kms_kmip_response_parser.o
+LIBKMS=kms/hexlify.o kms/kms_kv_list.o kms/kms_request.o \
+	kms/kms_response.o kms/kms_b64.o kms/kms_crypto_libcrypto.o kms/kms_decrypt_request.o kms/kms_message.o \
+	kms/kms_request_opt.o kms/kms_response_parser.o kms/kms_caller_identity_request.o \
+	kms/kms_encrypt_request.o kms/kms_request_str.o kms/sort.o kms/kms_port.o kms/kms_kmip_response_parser.o
 
 STATLIB = mongoc/libstatmongoc.a
 
@@ -64,11 +75,17 @@ STATLIB = mongoc/libstatmongoc.a
 # PKG_CFLAGS= -Wall -pedantic
 #all: clean
 
-all: $(SHLIB) cleanup
+all: cleanup
+
+# Needed for parallel make
+$(OBJECTS): | $(RWINLIB)
 
 $(SHLIB): $(STATLIB)
 
 $(STATLIB): $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
+
+$(RWINLIB):
+	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
 
 cleanup: $(SHLIB)
 	@rm -f $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS)

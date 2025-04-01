@@ -1,3 +1,6 @@
+4.0.0
+ - Windows: switch back to OpenSSL because SecureChannel is flaky.
+
 3.1.2
  - Cleanup after build, fix parallel make
 

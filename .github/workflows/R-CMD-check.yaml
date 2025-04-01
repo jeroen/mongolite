@@ -23,7 +23,7 @@ jobs:
           - {os: macos-14,        r: 'next'}
           - {os: windows-latest,  r: '4.2'}
           - {os: windows-latest,  r: '4.3'}
-          - {os: windows-latest,  r: 'release'}
+          - {os: windows-latest,  r: '4.4'}
           - {os: windows-2025,    r: 'devel'}
           - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
