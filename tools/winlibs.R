@@ -1,5 +1,5 @@
-if(!file.exists("../windows/libssl/include/openssl/pem.h")){
-  unlink("../windows", recursive = TRUE)
+if(!file.exists("../.deps/libssl/include/openssl/pem.h")){
+  unlink("../.deps", recursive = TRUE)
   url <- if(grepl("aarch", R.version$platform)){
     "https://github.com/r-windows/bundles/releases/download/openssl-3.4.0/openssl-3.4.0-clang-aarch64.tar.xz"
   } else if(grepl("clang", Sys.getenv('R_COMPILED_BY'))){
@@ -10,9 +10,9 @@ if(!file.exists("../windows/libssl/include/openssl/pem.h")){
     "https://github.com/rwinlib/openssl/archive/v3.1.1.tar.gz"
   }
   download.file(url, basename(url), quiet = TRUE)
-  dir.create("../windows", showWarnings = FALSE)
-  untar(basename(url), exdir = "../windows", tar = 'internal')
+  dir.create("../.deps", showWarnings = FALSE)
+  untar(basename(url), exdir = "../.deps", tar = 'internal')
   unlink(basename(url))
-  setwd("../windows")
+  setwd("../.deps")
   file.rename(list.files(), 'libssl')
 }

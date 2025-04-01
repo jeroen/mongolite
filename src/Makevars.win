@@ -5,10 +5,9 @@ ifneq ($(OPENSSL_LIBS),)
 $(info using OpenSSL from Rtools)
 OPENSSL_CFLAGS := $(shell $(PKG_CONFIG) --cflags openssl)
 else
-RWINLIB = ../windows/libssl
-TARGET = lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH)
+RWINLIB = ../.deps/libssl
 OPENSSL_CFLAGS = -I$(RWINLIB)/include
-OPENSSL_LIBS = -L$(RWINLIB)/$(TARGET) -L$(RWINLIB)/lib -lssl -lcrypto -lws2_32 -lgdi32 -lcrypt32
+OPENSSL_LIBS = -L$(RWINLIB)/lib -lssl -lcrypto -lws2_32 -lgdi32 -lcrypt32
 endif
 
 PKG_CPPFLAGS = \
@@ -88,4 +87,4 @@ $(RWINLIB):
 	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R"
 
 cleanup: $(SHLIB)
-	@rm -f $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
+	@rm -Rf $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
