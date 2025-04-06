@@ -61,7 +61,9 @@ all: $(SHLIB) cleanup
 $(SHLIB): $(STATLIB)
 
 $(STATLIB): $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
-	$(AR) rcs $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
 
 cleanup: $(SHLIB)
 	@rm -f $(STATLIB) $(LIBBSON) $(LIBMONGOC) $(LIBKMS)
+
+%.a:
+	@$(AR) crs $@ $^ && $(STRIP_STATIC_LIB) $@ || true
