@@ -277,10 +277,10 @@ mongo_object <- function(col, verbose, orig){
       mongo_collection_command_simple(col, command, simplify)
     }
 
-    index <- function(add = NULL, remove = NULL){
+    index <- function(add = NULL, remove = NULL, isUnique=F){
       check_col()
       if(length(add))
-        mongo_collection_create_index(col, add);
+        mongo_collection_create_index(col, add, isUnique);
 
       if(length(remove))
         mongo_collection_drop_index(col, remove);
