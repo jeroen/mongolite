@@ -21,7 +21,7 @@ mongo_to_json <- function(x, digits = 9, POSIXt = "mongo", raw = "mongo", always
   jsonlite:::asJSON(x, digits = digits, POSIXt = POSIXt, raw = raw, always_decimal = always_decimal, no_dots = TRUE, ...)
 }
 
-mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE){
+mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE, flat = FALSE){
 
   # Type validation
   stopifnot(is.null(handler) || is.function(handler))
@@ -30,37 +30,53 @@ mongo_stream_in <- function(cur, handler = NULL, pagesize = 1000, verbose = TRUE
 
   # Default handler appends to big list
   count <- 0
-  cb <- if(is.null(handler)){
+  if (is.null(handler)) {
     out <- new.env()
-    function(x){
-      if(length(x)){
-        count <<- count + length(x)
-        out[[as.character(count)]] <<- x
-      }
-    }
-  } else {
-    function(x){
-      handler(post_process(x))
-      count <<- count + length(x)
-    }
   }
 
   # Read data page by page
   repeat {
-    page <- mongo_cursor_next_page(cur, pagesize)
-    if(length(page)){
-      cb(page)
-      if(verbose)
-        cat("\r Found", count, "records...")
+    if (flat) {
+      page <- mongo_cursor_next_page_flattened(cur, pagesize)
+      new <- length(page[[1]])
+    } else {
+      page <- mongo_cursor_next_page(cur, pagesize)
+      new <- length(page)
     }
-    if(length(page) < pagesize)
+    if (new) {
+      count <- count + new
+      if (is.null(handler)) {
+        out[[as.character(count)]] <- page
+      } else {
+        handler(post_process(page))
+      }
+    }
+    if (verbose) cat("\r Found", count, "records...")
+    if(new < pagesize)
       break
   }
 
   if(is.null(handler)){
     if(verbose) cat("\r Imported", count, "records. Simplifying into dataframe...\n")
     out <- as.list(out, sorted = FALSE)
-    post_process(unlist(out[order(as.numeric(names(out)))], FALSE, FALSE))
+    out <- out[order(as.numeric(names(out)))]
+    if (flat) {
+      if (requireNamespace("dplyr", quietly = TRUE)) {
+        out <- dplyr::bind_rows(out)
+      } else if (requireNamespace("data.table", quietly = TRUE)) {
+        out <- data.table::rbindlist(out, fill = TRUE)
+      } else {
+        # TODO: This is much, much slower. We might consider bundling an
+        # rbindlist implementation suited to the inputs instead.
+        out <- lapply(out, as.data.frame, stringsAsFactors = FALSE)
+        out <- do.call("rbind", out)
+      }
+      # For compatibility with jsonlite:::simplifyDataFrame():
+      attr(out, "row.names") <- seq_len(nrow(out))
+      out
+    } else {
+      post_process(unlist(out, FALSE, FALSE))
+    }
   } else {
     invisible()
   }

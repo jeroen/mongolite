@@ -168,10 +168,10 @@ mongo_object <- function(col, verbose, orig){
       }
     }
 
-    find <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0, handler = NULL, pagesize = 1000){
+    find <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0, handler = NULL, pagesize = 1000, flat = FALSE){
       check_col()
       cur <- mongo_collection_find(col, query = query, sort = sort, fields = fields, skip = skip, limit = limit)
-      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose)
+      mongo_stream_in(cur, handler = handler, pagesize = pagesize, verbose = verbose, flat = flat)
     }
 
     iterate <- function(query = '{}', fields = '{"_id":0}', sort = '{}', skip = 0, limit = 0) {
