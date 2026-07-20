@@ -1,3 +1,6 @@
+4.1.0
+ - Update mongo-c-driver to 2.3.3
+
 4.0.0
  - Windows: switch to OpenSSL because SecureChannel is unreliable (#266)
 

@@ -19,18 +19,20 @@
 #ifndef MONGOC_WRITE_CONCERN_PRIVATE_H
 #define MONGOC_WRITE_CONCERN_PRIVATE_H
 
+#include <mongoc/mongoc-write-concern.h> // IWYU pragma: export
+
+//
+
 #include <bson/bson.h>
 
 
 BSON_BEGIN_DECLS
 
 
-#define MONGOC_WRITE_CONCERN_FSYNC_DEFAULT -1
 #define MONGOC_WRITE_CONCERN_JOURNAL_DEFAULT -1
 
 
 struct _mongoc_write_concern_t {
-   int8_t fsync_; /* deprecated */
    int8_t journal;
    int32_t w;
    int64_t wtimeout;
@@ -42,11 +44,11 @@ struct _mongoc_write_concern_t {
 
 
 mongoc_write_concern_t *
-_mongoc_write_concern_new_from_iter (const bson_iter_t *iter, bson_error_t *error);
+_mongoc_write_concern_new_from_iter(const bson_iter_t *iter, bson_error_t *error);
 const bson_t *
-_mongoc_write_concern_get_bson (mongoc_write_concern_t *write_concern);
+_mongoc_write_concern_get_bson(mongoc_write_concern_t *write_concern);
 bool
-_mongoc_parse_wc_err (const bson_t *doc, bson_error_t *error);
+_mongoc_parse_wc_err(const bson_t *doc, bson_error_t *error);
 
 BSON_END_DECLS
 

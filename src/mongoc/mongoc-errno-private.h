@@ -20,10 +20,12 @@
 #define MONGOC_ERRNO_PRIVATE_H
 
 #include <bson/bson.h>
-#include <errno.h>
+
+#include <errno.h> // IWYU pragma: export
+
 #ifdef _WIN32
-#include <winsock2.h>
 #include <winerror.h>
+#include <winsock2.h>
 #endif
 
 

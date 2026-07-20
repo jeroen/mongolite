@@ -22,3 +22,4 @@
 ^gridfs.rmd
 ^configure.log$
 ^\.github$
+^\.claude$
