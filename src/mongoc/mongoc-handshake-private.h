@@ -20,9 +20,15 @@
 #ifndef MONGOC_HANDSHAKE_PRIVATE_H
 #define MONGOC_HANDSHAKE_PRIVATE_H
 
+#include <mongoc/mongoc-handshake.h> // IWYU pragma: export
+
+//
+
 #include <mongoc/mongoc.h>
 
 BSON_BEGIN_DECLS
+
+#define HANDSHAKE_BACKPRESSURE_FIELD "backpressure"
 
 #define HANDSHAKE_FIELD "client"
 #define HANDSHAKE_PLATFORM_FIELD "platform"
@@ -61,8 +67,8 @@ typedef enum {
    MONGOC_MD_FLAG_EXPERIMENTAL_FEATURES = 10,
    MONGOC_MD_FLAG_HAVE_SASL_CLIENT_DONE = 11,
    MONGOC_MD_FLAG_HAVE_WEAK_SYMBOLS = 12,
-   MONGOC_MD_FLAG_NO_AUTOMATIC_GLOBALS = 13,
-   MONGOC_MD_FLAG_ENABLE_SSL_LIBRESSL = 14,
+   MONGOC_MD_FLAG_NO_AUTOMATIC_GLOBALS_UNUSED = 13, // Removed in CDRIVER-1330.
+   MONGOC_MD_FLAG_ENABLE_SSL_LIBRESSL_UNUSED = 14,  // Removed in CDRIVER-5693.
    MONGOC_MD_FLAG_ENABLE_SASL_CYRUS = 15,
    MONGOC_MD_FLAG_ENABLE_SASL_SSPI = 16,
    MONGOC_MD_FLAG_HAVE_SOCKLEN = 17,
@@ -113,31 +119,40 @@ typedef struct _mongoc_handshake_t {
    char *compiler_info;
    char *flags;
 
+   bool docker;
+   bool kubernetes;
+
    mongoc_handshake_env_t env;
    optional_int32 env_timeout_sec;
    optional_int32 env_memory_mb;
    char *env_region;
 
-   bool frozen;
+   int8_t frozen; // Atomic bool (for compatibility with MSVC, which has no atomic boolean API).
 } mongoc_handshake_t;
 
 void
-_mongoc_handshake_init (void);
+_mongoc_handshake_init(void);
 
 void
-_mongoc_handshake_cleanup (void);
+_mongoc_handshake_cleanup(void);
 
 bson_t *
-_mongoc_handshake_build_doc_with_application (const char *application);
+_mongoc_handshake_build_doc_with_application(const mongoc_handshake_t *md, const char *appname);
 
 void
-_mongoc_handshake_freeze (void);
+_mongoc_handshake_freeze(void);
+
+const mongoc_handshake_t *
+_mongoc_handshake_get(void);
 
 mongoc_handshake_t *
-_mongoc_handshake_get (void);
+_mongoc_handshake_get_unfrozen(void);
 
 bool
-_mongoc_handshake_appname_is_valid (const char *appname);
+_mongoc_handshake_is_frozen(void);
+
+bool
+_mongoc_handshake_appname_is_valid(const char *appname);
 
 typedef struct {
    bool scram_sha_256;
@@ -145,11 +160,11 @@ typedef struct {
 } mongoc_handshake_sasl_supported_mechs_t;
 
 void
-_mongoc_handshake_append_sasl_supported_mechs (const mongoc_uri_t *uri, bson_t *hello);
+_mongoc_handshake_append_sasl_supported_mechs(const mongoc_uri_t *uri, bson_t *hello);
 
 void
-_mongoc_handshake_parse_sasl_supported_mechs (const bson_t *hello,
-                                              mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs);
+_mongoc_handshake_parse_sasl_supported_mechs(const bson_t *hello,
+                                             mongoc_handshake_sasl_supported_mechs_t *sasl_supported_mechs);
 
 BSON_END_DECLS
 

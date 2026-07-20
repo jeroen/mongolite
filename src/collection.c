@@ -221,12 +221,30 @@ SEXP R_mongo_collection_aggregate(SEXP ptr_col, SEXP ptr_pipeline, SEXP ptr_opti
 SEXP R_mongo_collection_command(SEXP ptr_col, SEXP ptr_cmd, SEXP no_timeout){
   mongoc_collection_t *col = r2col(ptr_col);
   bson_t *cmd = r2bson(ptr_cmd);
+  mongoc_client_t *client = r2client(R_ExternalPtrProtected(ptr_col));
+  bson_t reply;
+  bson_error_t err;
 
-  mongoc_query_flags_t flags = MONGOC_QUERY_NONE;
-  if(Rf_asLogical(no_timeout))
-    flags += MONGOC_QUERY_NO_CURSOR_TIMEOUT;
+  if(!mongoc_collection_command_simple(col, cmd, NULL, &reply, &err)){
+    bson_destroy(&reply);
+    stop(err.message);
+  }
 
-  mongoc_cursor_t *c = mongoc_collection_command(col, flags, 0, 0, 0, cmd, NULL, NULL);
+  /* mongoc_collection_command() was removed in mongo-c-driver 2.0. Emulate the
+   * old behavior: a cursor that yields the raw command reply as a single doc. */
+  bson_t batch = BSON_INITIALIZER;
+  bson_t cursor_doc;
+  bson_array_builder_t *first_batch;
+  BSON_APPEND_DOCUMENT_BEGIN(&batch, "cursor", &cursor_doc);
+  BSON_APPEND_INT64(&cursor_doc, "id", 0);
+  BSON_APPEND_UTF8(&cursor_doc, "ns", "");
+  BSON_APPEND_ARRAY_BUILDER_BEGIN(&cursor_doc, "firstBatch", &first_batch);
+  bson_array_builder_append_document(first_batch, &reply);
+  bson_append_array_builder_end(&cursor_doc, first_batch);
+  bson_append_document_end(&batch, &cursor_doc);
+  bson_destroy(&reply);
+
+  mongoc_cursor_t *c = mongoc_cursor_new_from_command_reply_with_opts(client, &batch, NULL);
   if(!c)
     stop("Error executing command.");
   return cursor2r(c, ptr_col);
